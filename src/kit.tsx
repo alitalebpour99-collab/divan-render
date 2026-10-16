@@ -58,7 +58,13 @@ export const C = {
  * brings a goal nearer (C.good), red is a strike or a loss (C.strike), yellow
  * a claim or a mixed effect (C.claim).
  */
-export const HUES: Record<string, number> = { seat: 250, dilemma: 90, region: 195, precedent: 295, talks: 340, war: 45, borders: 135 };
+export const HUES: Record<string, number> = { seat: 250, dilemma: 90, region: 195, precedent: 295, talks: 340, war: 45, borders: 135, arsenal: 235, dollar: 162, nuclear: 115, figure: 70 };
+/**
+ * How strong a series' colour is. Most series share one strength; two are
+ * quiet on purpose, so that eleven series stay apart on the grid: the weapons
+ * in steel, the figure of the day in sand.
+ */
+export const CHROMA: Record<string, number> = { arsenal: 0.05, figure: 0.06 };
 
 /**
  * Sets the accent to a series' colour. Every composition calls it first
@@ -67,12 +73,16 @@ export const HUES: Record<string, number> = { seat: 250, dilemma: 90, region: 19
  */
 export function paint(format: string): void {
   const h = HUES[format] ?? HUES.seat;
-  C.acc = `oklch(0.80 0.125 ${h})`;
-  C.accSoft = `oklch(0.80 0.125 ${h} / 0.14)`;
-  C.accLine = `oklch(0.80 0.125 ${h} / 0.45)`;
-  C.glow = `oklch(0.80 0.125 ${h} / 0.11)`;
-  C.deep = `oklch(0.33 0.10 ${h})`;
-  C.dusk = `oklch(0.22 0.055 ${h})`;
+  const c = CHROMA[format] ?? 0.125;
+  // the tinted grounds keep the same share of the accent's strength on every series
+  const deep = +(0.1 * (c / 0.125)).toFixed(3);
+  const dusk = +(0.055 * (c / 0.125)).toFixed(3);
+  C.acc = `oklch(0.80 ${c} ${h})`;
+  C.accSoft = `oklch(0.80 ${c} ${h} / 0.14)`;
+  C.accLine = `oklch(0.80 ${c} ${h} / 0.45)`;
+  C.glow = `oklch(0.80 ${c} ${h} / 0.11)`;
+  C.deep = `oklch(0.33 ${deep} ${h})`;
+  C.dusk = `oklch(0.22 ${dusk} ${h})`;
 }
 
 export const clamped = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;

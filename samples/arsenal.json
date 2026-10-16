@@ -1,0 +1,136 @@
+{
+ "format": "arsenal",
+ "series": "دوراهی‌های ایران",
+ "force": "هوایی",
+ "arm": "هواپیمای رزمی",
+ "what": "جنگنده، رهگیر، بمب‌افکن و هواپیمای تهاجمی نیروی هوایی",
+ "icon": "jet",
+ "sum": 2211,
+ "sumText": "حدود ۲٬۲۱۱",
+ "sumLabel": "فروند در ۹ کشور",
+ "rows": [
+  {
+   "name": "پاکستان",
+   "total": 409,
+   "totalText": "۴۰۹",
+   "approx": false,
+   "stored": null,
+   "share": 1,
+   "home": false
+  },
+  {
+   "name": "عربستان",
+   "total": 364,
+   "totalText": "۳۶۴",
+   "approx": false,
+   "stored": null,
+   "share": 0.89,
+   "home": false
+  },
+  {
+   "name": "مصر",
+   "total": 311,
+   "totalText": "۳۱۱",
+   "approx": false,
+   "stored": null,
+   "share": 0.7604,
+   "home": false
+  },
+  {
+   "name": "اسرائیل",
+   "total": 287,
+   "totalText": "۲۸۷",
+   "approx": false,
+   "stored": null,
+   "share": 0.7017,
+   "home": false
+  },
+  {
+   "name": "ترکیه",
+   "total": 265,
+   "totalText": "۲۶۵",
+   "approx": false,
+   "stored": "و ۱۸ در انبار",
+   "share": 0.6479,
+   "home": false
+  },
+  {
+   "name": "ایران",
+   "total": 239,
+   "totalText": "حدود ۲۳۹",
+   "approx": true,
+   "stored": null,
+   "share": 0.5844,
+   "home": true
+  },
+  {
+   "name": "امارات",
+   "total": 135,
+   "totalText": "۱۳۵",
+   "approx": false,
+   "stored": null,
+   "share": 0.3301,
+   "home": false
+  },
+  {
+   "name": "قطر",
+   "total": 108,
+   "totalText": "۱۰۸",
+   "approx": false,
+   "stored": null,
+   "share": 0.2641,
+   "home": false
+  },
+  {
+   "name": "عراق",
+   "total": 93,
+   "totalText": "۹۳",
+   "approx": false,
+   "stored": null,
+   "share": 0.2274,
+   "home": false
+  }
+ ],
+ "home": {
+  "line": "ایران: حدود ۲۳۹ فروند",
+  "rank": "رتبهٔ ۶ از ۹",
+  "share": 11,
+  "shareText": "۱۱٪ از جمع این ۹ کشور"
+ },
+ "models": [
+  {
+   "name": "F-4 Phantom II",
+   "countText": "۶۳",
+   "origin": "آمریکا",
+   "share": 1
+  },
+  {
+   "name": "F-5 Tiger II",
+   "countText": "۳۵",
+   "origin": "آمریکا",
+   "share": 0.5556
+  },
+  {
+   "name": "Sukhoi Su-22",
+   "countText": "۳۰",
+   "origin": "روسیه",
+   "share": 0.4762
+  },
+  {
+   "name": "F-14 Tomcat",
+   "countText": "حدود ۲۵",
+   "origin": "آمریکا",
+   "share": 0.3968
+  },
+  {
+   "name": "Mikoyan MiG-29",
+   "countText": "۲۴",
+   "origin": "شوروی",
+   "share": 0.381
+  }
+ ],
+ "absent": null,
+ "held": null,
+ "source": "جدول‌های ویکی‌پدیای انگلیسی دربارهٔ ارتش هر کشور (پروانهٔ CC BY-SA 4.0)، خوانده‌شده در ۱۹ مهر ۱۴۰۵. این عددها برآورد ناظران بیرونی است، نه آمار رسمی ارتش‌ها. برای ایران: جدول هواپیماها فقط نیروی هوایی ارتش است و هواپیماهای سپاه در آن نیست؛ جدول تانک‌ها ارتش و سپاه را با هم آورده و جدا نکرده است.",
+ "foot": "هر جدول با تاریخ ویرایشش، در «جنگ‌افزار» دیوان:"
+}

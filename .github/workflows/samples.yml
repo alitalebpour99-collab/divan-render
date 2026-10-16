@@ -1,0 +1,59 @@
+name: Samples
+
+# Renders Reels from the files in samples/ (content the site's own builders
+# wrote, scripts/social-samples.mjs in Divan's repository) and keeps the videos
+# and their tiles as the run's artifact: for looking at a new format, or a
+# changed one, before it goes onto the page. Nothing is sent to the site.
+#
+# `list` is pairs of «composition:sample file without .json», separated by
+# spaces, for example «arsenal:arsenal-tank figure:figure-inflation».
+
+on:
+  workflow_dispatch:
+    inputs:
+      list:
+        description: "composition:sample pairs"
+        required: true
+        default: "arsenal:arsenal dollar:dollar nuclear:nuclear nuclear:nuclear-stock figure:figure-inflation"
+
+permissions:
+  contents: read
+
+jobs:
+  samples:
+    if: github.repository == 'alitalebpour99-collab/divan-render'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: The libraries Chrome Headless Shell needs
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libnss3 libdbus-1-3 libatk1.0-0 libgbm-dev libxrandr2 libxkbcommon-dev libxfixes3 libxcomposite1 libxdamage1 libatk-bridge2.0-0 libpango-1.0-0 libcairo2 libcups2
+          sudo apt-get install -y -qq --no-install-recommends libasound2t64 || sudo apt-get install -y -qq --no-install-recommends libasound2
+      - run: npm ci --no-audit --no-fund
+      - name: The browser and the bundle
+        run: |
+          node -e "import('@remotion/renderer').then((m) => m.ensureBrowser())"
+          node build.mjs
+      - name: Render every pair, and its tile
+        env:
+          RENDER_GL: swangle
+          LIST: ${{ inputs.list }}
+        run: |
+          for pair in $LIST; do
+            comp="${pair%%:*}"; name="${pair#*:}"
+            echo "== $comp from samples/$name.json"
+            node render.mjs "$comp" --props "samples/$name.json" --bundle bundle --out "$name"
+            if [ -f "samples/$name.cover.json" ]; then node render.mjs cover --props "samples/$name.cover.json" --bundle bundle --still 0 --out "$name-tile"; fi
+          done
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: samples
+          path: out/
+          retention-days: 7

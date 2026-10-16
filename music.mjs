@@ -18,6 +18,10 @@ const MOODS = {
   talks: { root: 46, bpm: 60 },
   war: { root: 45, bpm: 63 },
   borders: { root: 43, bpm: 54 },
+  arsenal: { root: 40, bpm: 64 },
+  dollar: { root: 44, bpm: 62 },
+  nuclear: { root: 42, bpm: 56 },
+  figure: { root: 49, bpm: 64 },
 };
 // i  VI  III  VII, as open voicings above the key note: root, fifth, tenth
 const CHORDS = [

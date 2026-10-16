@@ -83,6 +83,32 @@ const SHAPES: Record<string, React.ReactNode> = {
       <path d="M12 3.8v1.4M12 18.8v1.4M3.8 12h1.4M18.8 12h1.4" />
     </>
   ),
+  // the weapons block: a shield with a chevron
+  arsenal: (
+    <>
+      <path d="M12 3.2l7.2 2.9v5.3c0 4.4-3 7.9-7.2 9.6-4.2-1.7-7.2-5.2-7.2-9.6V6.1z" />
+      <path d="M8.4 10.6l3.6 3.1 3.6-3.1" />
+    </>
+  ),
+  // the nuclear file: three orbits around a nucleus
+  atom: (
+    <>
+      <ellipse cx="12" cy="12" rx="9.2" ry="3.6" />
+      <ellipse cx="12" cy="12" rx="9.2" ry="3.6" transform="rotate(60 12 12)" />
+      <ellipse cx="12" cy="12" rx="9.2" ry="3.6" transform="rotate(-60 12 12)" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+    </>
+  ),
+  // the figure of the day: three bars on a line
+  figure: (
+    <>
+      <path d="M3.6 20.2h16.8" />
+      <path d="M6.6 20.2v-5.4" />
+      <path d="M12 20.2V8.6" />
+      <path d="M17.4 20.2v-8.2" />
+      <path d="M5 9.4l4.2-4.2 3 2.6 5.8-4.4" />
+    </>
+  ),
   brain: (
     <>
       <circle cx="12" cy="12" r="2.3" />

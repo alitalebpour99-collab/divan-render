@@ -157,7 +157,102 @@ export type StoryProps = Base & {
   handle: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | StoryProps;
+/** The line drawings of the weapons block, by the kind of piece. */
+export type ArmIcon = "jet" | "tank" | "heli" | "uav" | "plane" | "spg" | "gun" | "rocket" | "sub" | "ship" | "boat";
+
+/** «جنگ‌افزار»: one kind of weapon, how many each state has, and what Iran has of it. */
+export type ArsenalProps = Base & {
+  format: "arsenal";
+  /** «نیروی هوایی» */
+  force: string;
+  /** «جنگنده و هواپیمای تهاجمی» */
+  arm: string;
+  /** one line: what is counted */
+  what: string;
+  icon: ArmIcon;
+  /** all the states together: «۲٬۲۱۱» and «فروند در ۹ کشور» */
+  sum: number;
+  sumText: string;
+  sumLabel: string;
+  /** the states with a table, largest first */
+  rows: { name: string; total: number; totalText: string; approx: boolean; stored: string | null; share: number; home: boolean }[];
+  /** Iran in this kind: «ایران: …», «رتبهٔ ۳ از ۹», its share of the sum (0–100) */
+  home: { line: string; rank: string; share: number; shareText: string } | null;
+  /** Iran's largest models of this kind (at most five) */
+  models: { name: string; countText: string; origin: string; share: number }[];
+  /** the states that are not in the list, and why, in one line */
+  absent: string | null;
+  /** why Iran's table of this force is read but not shown, when it is held back */
+  held: string | null;
+  /** «جدول‌های ویکی‌پدیای انگلیسی (CC BY-SA 4.0)، خوانده‌شده در …» */
+  source: string;
+  foot: string;
+};
+
+/** «دلار در بازار آزاد»: the free-market dollar on the days the site read a source, as one line. */
+export type DollarProps = Base & {
+  format: "dollar";
+  question: string;
+  /** the last figure, in toman, and its date */
+  last: number;
+  lastText: string;
+  lastDate: string;
+  /** the first figure and its date */
+  firstText: string;
+  firstDate: string;
+  /** the plain change from the first figure to the last, for example «۲٫۸ برابر» */
+  times: string;
+  /** every point: x and y in percent of the plot (x from the first day, y from the top) */
+  points: { x: number; y: number; dateText: string; value: string; approx: boolean; event: string | null }[];
+  yTicks: { y: number; label: string }[];
+  xTicks: { x: number; label: string }[];
+  /** «تومان» */
+  unit: string;
+  /** the outlets the points come from */
+  sources: string;
+  foot: string;
+};
+
+/** «پروندهٔ هسته‌ای»: the declared facilities on the map, or the enriched uranium on the ladder. */
+export type NuclearProps = Base & {
+  format: "nuclear";
+  view: "sites" | "stock";
+  kicker: string;
+  question: string;
+  /** sites: one dot per place, with how many facilities stand there in each state */
+  places: { name: string; lon: number; lat: number; hit: number; whole: number; unknown: number }[];
+  /** sites: the counts and their names, in the site's words */
+  legend: { hit: string; whole: string; unknown: string; hitN: number; wholeN: number; unknownN: number };
+  /** sites: the facilities that were hit, by name */
+  hitNames: string[];
+  /** stock: the figures of the last estimate */
+  stock: { totalText: string; heuText: string; heu: number; level: number; asOf: string; explain: string } | null;
+  /** one line each: the last inspection, the Board's last resolution */
+  notes: string[];
+  source: string;
+  foot: string;
+};
+
+/** «عدد روز»: one figure of the site, with what it means, its date and its source. */
+export type FigureProps = Base & {
+  format: "figure";
+  /** the section the figure belongs to: «اقتصاد» */
+  section: string;
+  label: string;
+  /** the figure itself, for the count, and as the site writes it */
+  value: number;
+  decimals: number;
+  valueText: string;
+  unit: string;
+  /** percent figures get a ring: how many full turns and how far into the last */
+  percent: number | null;
+  explain: string;
+  when: string;
+  source: string;
+  foot: string;
+};
+
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | StoryProps;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

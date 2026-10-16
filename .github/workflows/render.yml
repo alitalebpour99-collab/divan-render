@@ -20,6 +20,10 @@ name: Render
 #   20:07  whatever is still waiting
 # GitHub may start a scheduled run some minutes late; every Reel is drawn
 # hours before its hour, and a Story may go up to six hours after its Reel.
+#
+# GitHub switches off the schedule of a public repository in which nothing
+# happened for sixty days. On the first of each month the job «alive» makes an
+# empty commit, so the schedule never lapses while the copy of video/ rests.
 
 on:
   workflow_dispatch:
@@ -29,6 +33,7 @@ on:
     - cron: "53 11 * * *"
     - cron: "23 16 * * *"
     - cron: "7 20 * * *"
+    - cron: "41 3 1 * *"
 
 concurrency:
   group: render
@@ -38,9 +43,23 @@ permissions:
   contents: read
 
 jobs:
+  alive:
+    if: github.repository == 'alitalebpour99-collab/divan-render' && github.event.schedule == '41 3 1 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "Keep the schedule alive"
+          git push
+
   render:
-    # a copy of this repository has no key and nothing to draw
-    if: github.repository == 'alitalebpour99-collab/divan-render'
+    # a copy of this repository has no key and nothing to draw; the monthly «alive» run draws nothing
+    if: github.repository == 'alitalebpour99-collab/divan-render' && github.event.schedule != '41 3 1 * *'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:

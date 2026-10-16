@@ -8,7 +8,7 @@ import React from "react";
 import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { EMBLEM } from "./Cover";
 import { Emblem } from "./emblems";
-import { AiChip, C, FPS, H, NASKH, Net, Seal, VAZIR, Words, clamped, ease, fade, grow, paint, pop, rise } from "./kit";
+import { AiChip, C, FPS, H, NASKH, Net, Seal, VAZIR, W, Words, clamped, ease, fade, grow, paint, pop, rise } from "./kit";
 import type { StoryProps } from "./props";
 
 const TOTAL = Math.round(9.5 * FPS);
@@ -18,12 +18,36 @@ export const storyDuration = () => TOTAL;
 const TOP_BAR = 250;
 const BOTTOM_BAR = 340;
 const SIDE = 84;
+// the tile's block starts under the emblem and must end above the call at the foot
+const TILE_TOP = TOP_BAR + 610;
+const CALL_TOP = H - BOTTOM_BAR - 20 - 180;
+
+/** How many lines a title takes in Naskh at a size: words laid one after another, a letter counted half the size wide. */
+function linesOf(text: string, size: number): number {
+  const room = (W - 2 * SIDE) / (0.5 * size);
+  let lines = 1;
+  let used = 0;
+  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
+    const n = word.replace(/\u200c/g, "").length;
+    if (used > 0 && used + 1 + n > room) {
+      lines += 1;
+      used = n;
+    } else used += (used > 0 ? 1 : 0) + n;
+  }
+  return lines;
+}
 
 export const Story: React.FC<StoryProps> = (p) => {
   paint(p.of);
   const frame = useCurrentFrame();
   const emblem = EMBLEM[p.of] ?? "seat";
-  const size = p.title.length > 46 ? 76 : p.title.length > 32 ? 88 : p.title.length > 20 ? 104 : 124;
+  // a figure the title already says is not said twice (the war's tile: «۲۳۱ روز جنگ روی نقشه» and «۲۳۱»)
+  const mark = p.mark && !p.title.includes(p.mark) ? p.mark : null;
+  const markSize = mark && mark.length > 5 ? 96 : 124;
+  // the largest title that leaves the kicker, the figure and the chip room above the call
+  const room = CALL_TOP - TILE_TOP - 24;
+  const fixed = 70 + 22 + (mark ? 22 + markSize * 1.1 : 0) + (p.ai ? 22 + 52 : 0);
+  const size = [124, 112, 100, 90, 80, 72, 64].find((s) => fixed + linesOf(p.title, s) * s * 1.42 <= room) ?? 58;
   // the ring around the emblem turns slowly for the whole Story
   const turn = (frame / TOTAL) * 140;
   const ring = pop(frame, 14, 26);
@@ -73,7 +97,7 @@ export const Story: React.FC<StoryProps> = (p) => {
       </div>
 
       {/* the Reel's own tile, in motion: its series, its title, its figure */}
-      <div style={{ position: "absolute", top: TOP_BAR + 610, right: SIDE, left: SIDE, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 22 }}>
+      <div style={{ position: "absolute", top: TILE_TOP, right: SIDE, left: SIDE, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 22 }}>
         <span
           style={{
             padding: "8px 30px 12px",
@@ -92,7 +116,7 @@ export const Story: React.FC<StoryProps> = (p) => {
           {p.kicker}
         </span>
         <Words text={p.title} from={60} step={4} lift={34} style={{ fontFamily: NASKH, fontWeight: 700, fontSize: size, lineHeight: 1.42, color: C.ink }} />
-        {p.mark ? <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: p.mark.length > 5 ? 96 : 124, lineHeight: 1.1, color: C.acc, opacity: fade(frame, 112, 10), transform: `scale(${pop(frame, 112, 20)})`, transformOrigin: "right center" }}>{p.mark}</div> : null}
+        {mark ? <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: markSize, lineHeight: 1.1, color: C.acc, opacity: fade(frame, 112, 10), transform: `scale(${pop(frame, 112, 20)})`, transformOrigin: "right center" }}>{mark}</div> : null}
         {p.ai ? <AiChip opacity={fade(frame, 124, 12)} /> : null}
       </div>
 

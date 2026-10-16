@@ -17,8 +17,10 @@ export const EMBLEM: Record<string, string> = { dilemma: "council", seat: "seat"
 // the middle square of the frame: what every surface of Instagram shows
 const TOP = (H - W) / 2;
 
-export const Cover: React.FC<CoverProps> = ({ format, kicker, title, mark }) => {
+export const Cover: React.FC<CoverProps> = ({ format, kicker, title, mark: given }) => {
   paint(format);
+  // a figure the title already says is not said twice
+  const mark = given && !title.includes(given) ? given : undefined;
   const size = title.length > 46 ? 80 : title.length > 32 ? 94 : title.length > 20 ? 112 : 132;
   const emblem = EMBLEM[format] ?? "seat";
   return (

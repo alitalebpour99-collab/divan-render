@@ -1,6 +1,7 @@
 // The renderer of Divan's Reels. It asks the site for work, renders what it is
 // given, and hands the files back; the site then shows each Reel to the owner
-// and posts it at its hour.
+// and posts it at its hour. A carousel (format «cards») is drawn as stills,
+// one picture per card, and handed back as slide1.jpg, slide2.jpg, …
 //
 // It runs on Ahura's own server as the small app «divan-video» (Dockerfile
 // beside this file), by the owner's decision of 10 October 2026, and it can be
@@ -136,9 +137,21 @@ async function site() {
   return serveUrl;
 }
 
+/** A carousel: every card a JPEG of 1080 by 1350, in order. Returns the files. */
+async function renderCards(job, serve, chromiumOptions, timeoutInMilliseconds, out) {
+  const composition = await selectComposition({ serveUrl: serve, id: "cards", inputProps: job.props, chromiumOptions, timeoutInMilliseconds });
+  for (let frame = 0; frame < composition.durationInFrames; frame += 1) {
+    const output = path.resolve("out", `${job.name}-${frame + 1}.jpg`);
+    out.push(output);
+    await renderStill({ composition, serveUrl: serve, output, frame, inputProps: job.props, imageFormat: "jpeg", jpegQuality: 92, chromiumOptions, timeoutInMilliseconds });
+  }
+  return out;
+}
+
 async function render(job) {
   const t0 = Date.now();
   const serve = await site();
+  if (job.format === "cards") return renderPictures(job, serve, t0);
   const video = path.resolve("out", `${job.name}.mp4`);
   const cover = path.resolve("out", `${job.name}.jpg`);
   const music = `music-${job.name}.wav`;
@@ -191,18 +204,41 @@ async function render(job) {
   }
 }
 
+/** A carousel from claim to hand-back: the pictures, the first one again as the cover, then done. */
+async function renderPictures(job, serve, t0) {
+  const chromiumOptions = { gl: GL };
+  const timeoutInMilliseconds = 120_000;
+  const files = [];
+  try {
+    await renderCards(job, serve, chromiumOptions, timeoutInMilliseconds, files);
+    for (const [i, file] of files.entries()) await call(`?id=${job.id}&file=slide${i + 1}`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: fs.readFileSync(file) });
+    await call(`?id=${job.id}&file=cover`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: fs.readFileSync(files[0]) });
+    await call(`?id=${job.id}&done=1`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pictures: files.length }) });
+    state.rendered += 1;
+    console.log(`post ${job.id} (cards): ${files.length} pictures, rendered and handed back in ${Math.round((Date.now() - t0) / 1000)} s`);
+  } catch (e) {
+    state.failed += 1;
+    const reason = String(e instanceof Error ? e.message : e).split("\n")[0].slice(0, 240);
+    console.log(`post ${job.id} (cards): failed after ${Math.round((Date.now() - t0) / 1000)} s`);
+    await call(`?id=${job.id}&failed=1`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ error: reason }) }).catch(() => undefined);
+  } finally {
+    for (const file of files) fs.rmSync(file, { force: true });
+    state.lastReel = new Date().toISOString();
+  }
+}
+
 /** One pass: the waiting Reels, one after another. Returns how many it took. */
 async function pass() {
   let taken = 0;
   if (Date.now() < HOLD_UNTIL) return taken;
   for (;;) {
     // a look first: it costs the site nothing and claims nothing
-    const { waiting } = await call("?peek=1&can=story");
+    const { waiting } = await call("?peek=1&can=story,cards");
     state.lastLook = new Date().toISOString();
     if (!waiting) return taken;
     if (!(await waitForQuiet())) return taken;
-    // this bundle holds the Story's composition, and says so: the site hands a Story only to a renderer that can draw it
-    const { jobs } = await call("?max=1&can=story");
+    // this bundle holds the Story's composition and the carousel's, and says so: the site hands them only to a renderer that can draw them
+    const { jobs } = await call("?max=1&can=story,cards");
     if (!jobs?.length) return taken;
     state.busy = true;
     try {

@@ -1,6 +1,7 @@
 import React from "react";
 import { Composition } from "remotion";
 import arsenalSample from "../samples/arsenal.json";
+import cardsSample from "../samples/cards.json";
 import bordersSample from "../samples/borders.json";
 import dollarSample from "../samples/dollar.json";
 import figureSample from "../samples/figure.json";
@@ -15,6 +16,7 @@ import talksSample from "../samples/talks.json";
 import warSample from "../samples/war.json";
 import { Arsenal, arsenalDuration } from "./Arsenal";
 import { Borders, bordersLength } from "./Borders";
+import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
 import { Cover } from "./Cover";
 import { Dilemma, dilemmaDuration } from "./Dilemma";
 import { Dollar, dollarDuration } from "./Dollar";
@@ -31,7 +33,7 @@ import { Story, storyDuration } from "./Story";
 import { Talks, talksDuration } from "./Talks";
 import { WarReplay, warDuration } from "./WarReplay";
 import type { QuizProps } from "./props";
-import type { ArsenalProps, BordersProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
+import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
 
 // One composition per format of the page (the id is the format's id in
 // lib/social/formats.ts of the site), all in the Reel frame, plus the still
@@ -76,6 +78,8 @@ export const Root: React.FC = () => (
     <Composition id="figure" component={H.figure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={({ props }) => ({ durationInFrames: figureDuration(props) + hookExtra(props) })} />
     <Composition id="quiz" component={H.quiz} {...frame} durationInFrames={480} defaultProps={plain<QuizProps>(quizSample)} calculateMetadata={({ props }) => ({ durationInFrames: quizDuration(props) + hookExtra(props) })} />
     <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} />
+    {/* a post of several pictures: one card per frame, each saved as a still (1080 by 1350, Instagram's 4:5) */}
+    <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />
     {/* the Story that follows a Reel onto the page */}
     <Composition id="story" component={Story} {...frame} durationInFrames={storyDuration()} defaultProps={as<StoryProps>(storySample)} />
   </>

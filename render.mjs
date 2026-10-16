@@ -4,6 +4,7 @@
 //   node render.mjs seat --still 40,300                   single frames → out/seat-0040.png … (to look at a layout)
 //   node render.mjs seat --bundle bundle-seat             from the bundle of one composition (node build.mjs seat)
 //   node render.mjs cover --props samples/seat.cover.json --still 0     the grid tile
+//   node render.mjs cards --props samples/cards.json --still all        every card of a carousel → out/cards-0000.png …
 import fs from "node:fs";
 import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
@@ -17,7 +18,8 @@ if (!id || id.startsWith("--")) {
   process.exit(2);
 }
 const propsFile = flag("--props") ?? `samples/${id}.json`;
-const stills = flag("--still")?.split(",").map(Number) ?? null;
+const stillArg = flag("--still");
+const stills = stillArg === "all" ? "all" : (stillArg?.split(",").map(Number) ?? null);
 const serveUrl = path.resolve(flag("--bundle") ?? "bundle");
 const name = flag("--out") ?? path.basename(propsFile).replace(/(\.cover)?\.json$/, "");
 const props = JSON.parse(fs.readFileSync(propsFile, "utf8"));
@@ -26,7 +28,7 @@ fs.mkdirSync("out", { recursive: true });
 const t0 = Date.now();
 if (stills) {
   const composition = await selectComposition({ serveUrl, id, inputProps: props });
-  for (const frame of stills) {
+  for (const frame of stills === "all" ? Array.from({ length: composition.durationInFrames }, (_, i) => i) : stills) {
     const output = `out/${name}-${String(frame).padStart(4, "0")}.png`;
     await renderStill({ composition, serveUrl, output, frame: Math.min(frame, composition.durationInFrames - 1), inputProps: props });
     console.log("wrote", output, `(of ${composition.durationInFrames} frames)`);

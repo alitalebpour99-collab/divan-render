@@ -6,7 +6,8 @@ name: Samples
 # changed one, before it goes onto the page. Nothing is sent to the site.
 #
 # `list` is pairs of «composition:sample file without .json», separated by
-# spaces, for example «arsenal:arsenal-tank figure:figure-inflation».
+# spaces, for example «arsenal:arsenal-tank figure:figure-inflation». A
+# carousel («cards:cards-dollar») comes out as one picture per card.
 
 on:
   workflow_dispatch:
@@ -48,6 +49,7 @@ jobs:
           for pair in $LIST; do
             comp="${pair%%:*}"; name="${pair#*:}"
             echo "== $comp from samples/$name.json"
+            if [ "$comp" = "cards" ]; then node render.mjs cards --props "samples/$name.json" --bundle bundle --still all --out "$name"; continue; fi
             node render.mjs "$comp" --props "samples/$name.json" --bundle bundle --out "$name"
             if [ -f "samples/$name.cover.json" ]; then node render.mjs cover --props "samples/$name.cover.json" --bundle bundle --still 0 --out "$name-tile"; fi
           done

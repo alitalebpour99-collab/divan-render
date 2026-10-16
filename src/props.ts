@@ -274,7 +274,23 @@ export type QuizProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | StoryProps;
+/** One card of a post of several pictures (a carousel), 1080 by 1350. */
+export type CardView =
+  | { kind: "hook"; kicker: string; figure: string | null; title: string; sub: string | null }
+  | { kind: "bars"; title: string; rows: { name: string; text: string; share: number; home: boolean }[]; note: string | null }
+  | { kind: "list"; title: string; items: { k: string; v: string; s: string | null }[]; note: string | null }
+  | { kind: "figure"; label: string; value: string; unit: string; explain: string; when: string; source: string }
+  | { kind: "end"; title: string; lines: string[]; cta: string };
+
+/** A post of several pictures: cards drawn one per frame, in the colour of the series they come from. */
+export type CardsProps = Base & {
+  format: "cards";
+  /** the series whose colour and emblem the cards wear */
+  of: string;
+  cards: CardView[];
+};
+
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | CardsProps | StoryProps;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

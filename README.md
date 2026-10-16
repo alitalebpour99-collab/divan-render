@@ -53,6 +53,8 @@ node render.mjs seat --props samples/seat.json --bundle bundle-seat   # the whol
 node frames.mjs seat samples/seat.json                # how long it runs
 ```
 
+A carousel is drawn as stills, one card a frame: `node render.mjs cards --props samples/cards-tank.json --bundle bundle-cards --still all`.
+
 Two rules for every layout: nothing to read in the bottom 330 px (Instagram
 draws the caption there), and nothing in the lower right 150 px (its buttons).
 Look at the longest episode before any other.

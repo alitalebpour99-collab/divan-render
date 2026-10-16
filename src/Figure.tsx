@@ -69,7 +69,7 @@ export const Figure: React.FC<FigureProps> = (p) => {
         </svg>
         <div style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: size, lineHeight: 1, color: C.ink, transform: `scale(${pop(frame, 26, 26)})`, direction: "rtl", whiteSpace: "nowrap" }}>
-            {done > 0.5 ? p.valueText : faNum(p.value * count, p.decimals)}
+            {done > 0.5 ? p.valueText : `${p.value < 0 ? "منفی " : ""}${faNum(Math.abs(p.value) * count, p.decimals)}`}
           </div>
           <div style={{ marginTop: 24, fontFamily: VAZIR, fontWeight: 700, fontSize: 48, color: C.acc, opacity: fade(frame, 60, 12) }}>{p.unit}</div>
         </div>

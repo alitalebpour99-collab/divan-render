@@ -22,7 +22,7 @@ function plan(p: DollarProps) {
 export const dollarDuration = (p: DollarProps) => plan(p).total;
 
 // the plot: above Instagram's buttons, which sit low on the right
-const PLOT = { x0: 76, x1: 900, y0: 640, y1: 1070 };
+const PLOT = { x0: 76, x1: 900, y0: 610, y1: 1110 };
 const PW = PLOT.x1 - PLOT.x0;
 const PH = PLOT.y1 - PLOT.y0;
 // time runs from right to left, as in the site's Persian chart
@@ -52,7 +52,7 @@ export const Dollar: React.FC<DollarProps> = (p) => {
   const reachedAt = (q: DollarProps["points"][number]) => aDraw + 16 + ((DRAW - 46) * (q.x - first.x)) / Math.max(1e-6, last.x - first.x);
 
   const chartIn = fade(frame, aDraw, 14);
-  const chartOut = leave(frame, aSource + 10, 14);
+  const chartOut = leave(frame, aSource + 6, 10);
 
   return (
     <AbsoluteFill style={{ direction: "rtl" }}>
@@ -116,7 +116,7 @@ export const Dollar: React.FC<DollarProps> = (p) => {
               key={current.i}
               style={{
                 position: "absolute",
-                top: 1150,
+                top: 1200,
                 right: SIDE_RAIL + 20,
                 left: SIDE,
                 padding: "26px 34px",
@@ -144,7 +144,7 @@ export const Dollar: React.FC<DollarProps> = (p) => {
 
       {/* ---- 3 · how many times dearer ---- */}
       {frame >= aResult - 2 && frame < aSource + 20 ? (
-        <div style={{ position: "absolute", top: 1150, right: SIDE_RAIL + 20, left: SIDE, textAlign: "center", opacity: Math.min(fade(frame, aResult + 6, 12), leave(frame, aSource + 12, 12)) }}>
+        <div style={{ position: "absolute", top: 1200, right: SIDE_RAIL + 20, left: SIDE, textAlign: "center", opacity: Math.min(fade(frame, aResult + 6, 12), leave(frame, aSource + 12, 12)) }}>
           <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 120, lineHeight: 1.1, color: C.acc, transform: `scale(${pop(frame, aResult + 6, 26)})` }}>{p.times}</div>
           <div style={{ marginTop: 14, fontFamily: VAZIR, fontSize: 32, lineHeight: 1.6, color: C.ink2 }}>{`از ${p.firstText} تا ${p.lastText}`}</div>
         </div>
@@ -152,7 +152,7 @@ export const Dollar: React.FC<DollarProps> = (p) => {
 
       {/* ---- 4 · the sources ---- */}
       {frame >= aSource - 2 ? (
-        <div style={{ position: "absolute", top: 640, right: SIDE_RAIL, left: SIDE, opacity: fade(frame, aSource + 14, 14) }}>
+        <div style={{ position: "absolute", top: 640, right: SIDE_RAIL, left: SIDE, opacity: fade(frame, aSource + 8, 12) }}>
           <Kicker size={34} color={C.ink3}>این عددها از کجاست؟</Kicker>
           <div style={{ marginTop: 22, fontFamily: VAZIR, fontSize: 34, lineHeight: 1.75, color: C.ink2 }}>{p.sources}</div>
           <div style={{ marginTop: 22, fontFamily: VAZIR, fontSize: 28, lineHeight: 1.7, color: C.ink3 }}>نقطه‌های خط‌چین را خود منبع «حدودی» گفته است. نرخ بازار آزاد رسمی نیست؛ هر نقطه همان است که آن روز گزارش شد.</div>

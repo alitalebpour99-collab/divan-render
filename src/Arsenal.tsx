@@ -194,7 +194,7 @@ function plan(p: ArsenalProps) {
 export const arsenalDuration = (p: ArsenalProps) => plan(p).total;
 
 // the list of states: under the head, clear of Instagram's buttons on the right
-const LIST_TOP = 400;
+const LIST_TOP = 470;
 const LIST_BOTTOM = H - SAFE_BOTTOM - 40;
 const LIST_RIGHT = SIDE_RAIL;
 const LIST_LEFT = SIDE;
@@ -259,7 +259,6 @@ export const Arsenal: React.FC<ArsenalProps> = (p) => {
       {/* ---- 2 · the nine states: largest first, each bar grows to its own figure ---- */}
       {frame >= aRows - 4 && frame < aIran + 30 ? (
         <div style={{ position: "absolute", inset: 0, opacity: Math.min(fade(frame, aRows, 12), rowsOut) }}>
-          <div style={{ position: "absolute", top: LIST_TOP - 62, right: LIST_RIGHT, left: LIST_LEFT, fontFamily: VAZIR, fontSize: 30, color: C.ink3, opacity: fade(frame, aRows + 6, 12) }}>هر کشور چند تا دارد؟</div>
           {p.rows.map((r, i) => {
             const start = aRows + 14 + i * 9;
             const g = grow(frame, start, 46);
@@ -278,7 +277,10 @@ export const Arsenal: React.FC<ArsenalProps> = (p) => {
                   <span style={{ flex: 1, fontWeight: home ? 800 : 600, fontSize: home ? 42 : 36, color: home ? C.ink : C.ink2, whiteSpace: "nowrap" }}>{r.name}</span>
                   <span style={{ flex: "none", fontWeight: 800, fontSize: home ? 44 : 38, color: home ? C.acc : C.ink }}>{settled > 0.5 ? r.totalText : faNum(Math.round(figure))}</span>
                 </div>
-                <div style={{ position: "absolute", bottom: pitch * 0.16, right: 62, height: home ? 20 : 14, width: barW, borderRadius: 10, background: home ? C.acc : C.ink3, opacity: home ? 1 : 0.55 }} />
+                <div style={{ position: "absolute", bottom: pitch * 0.14, right: 62, height: home ? 26 : 18, width: barW, borderRadius: 13, background: home ? C.acc : C.ink2, opacity: home ? 1 : 0.42, overflow: "hidden" }}>
+                  {/* a light runs once along Iran's bar when it has landed */}
+                  {home ? <div style={{ position: "absolute", top: 0, bottom: 0, width: 140, right: interpolate(frame, [start + 50, start + 80], [-160, barW + 20], clamped), background: "linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)" }} /> : null}
+                </div>
                 {r.stored ? <div style={{ position: "absolute", bottom: pitch * 0.12, left: 0, fontFamily: VAZIR, fontSize: 22, color: C.ink3, opacity: settled }}>{r.stored}</div> : null}
               </div>
             );
@@ -288,42 +290,42 @@ export const Arsenal: React.FC<ArsenalProps> = (p) => {
 
       {/* ---- 3 · Iran ---- */}
       {frame >= aIran - 4 && frame < aSource + 24 ? (
-        <div style={{ position: "absolute", top: 420, right: SIDE_RAIL, left: SIDE, opacity: Math.min(fade(frame, aIran + 4, 12), leave(frame, aSource + 14, 14)) }}>
+        <div style={{ position: "absolute", top: 470, right: SIDE_RAIL, left: SIDE, opacity: Math.min(fade(frame, aIran + 4, 12), leave(frame, aSource + 14, 14)) }}>
           {p.home ? (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
                 {/* Iran's share of all the pieces of the nine, as a ring */}
-                <svg width="250" height="250" viewBox="0 0 250 250" style={{ flex: "none", transform: `scale(${pop(frame, aIran + 8, 26)})` }}>
-                  <circle cx="125" cy="125" r="104" fill="none" stroke={C.line2} strokeWidth="22" />
-                  <circle cx="125" cy="125" r="104" fill="none" stroke={C.acc} strokeWidth="22" strokeLinecap="round" pathLength={100} strokeDasharray={`${p.home.share * shareRing} 100`} transform="rotate(-90 125 125)" />
-                  <text x="125" y="138" textAnchor="middle" fill={C.ink} style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 52 }}>
-                    {p.home.shareText}
-                  </text>
-                  <text x="125" y="176" textAnchor="middle" fill={C.ink3} style={{ fontFamily: VAZIR, fontSize: 22 }}>
-                    از همه
-                  </text>
-                </svg>
+                <div style={{ flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                  <svg width="290" height="290" viewBox="0 0 290 290" style={{ transform: `scale(${pop(frame, aIran + 8, 26)})` }}>
+                    <circle cx="145" cy="145" r="120" fill="none" stroke={C.line2} strokeWidth="26" />
+                    <circle cx="145" cy="145" r="120" fill="none" stroke={C.acc} strokeWidth="26" strokeLinecap="round" pathLength={100} strokeDasharray={`${p.home.share * shareRing} 100`} transform="rotate(-90 145 145)" />
+                    <text x="145" y="168" textAnchor="middle" fill={C.ink} style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 70 }}>
+                      {`${faNum(Math.round(p.home.share * shareRing))}٪`}
+                    </text>
+                  </svg>
+                  <div style={{ fontFamily: VAZIR, fontSize: 26, color: C.ink3, whiteSpace: "nowrap", opacity: fade(frame, aIran + 30, 12) }}>{p.home.shareText.replace(/^\S+\s*/, "")}</div>
+                </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: NASKH, fontWeight: 700, fontSize: 72, color: C.ink, lineHeight: 1.2, opacity: fade(frame, aIran + 10, 12) }}>ایران</div>
-                  <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 40, color: C.acc, marginTop: 8, opacity: fade(frame, aIran + 18, 12) }}>{p.home.rank}</div>
-                  <div style={{ fontFamily: VAZIR, fontSize: 31, lineHeight: 1.55, color: C.ink2, marginTop: 10, opacity: fade(frame, aIran + 26, 12) }}>{p.home.line}</div>
+                  <div style={{ fontFamily: NASKH, fontWeight: 700, fontSize: 100, color: C.ink, lineHeight: 1.15, opacity: fade(frame, aIran + 10, 12) }}>ایران</div>
+                  <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 50, color: C.acc, marginTop: 8, opacity: fade(frame, aIran + 18, 12) }}>{p.home.rank}</div>
+                  <div style={{ fontFamily: VAZIR, fontSize: 34, lineHeight: 1.55, color: C.ink2, marginTop: 10, opacity: fade(frame, aIran + 26, 12) }}>{p.home.line}</div>
                 </div>
               </div>
               {p.models.length ? (
-                <div style={{ marginTop: 56 }}>
-                  <div style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 32, color: C.ink3, marginBottom: 18, opacity: fade(frame, aIran + 40, 12) }}>بیشترینِ ایران، به مدل</div>
+                <div style={{ marginTop: 64 }}>
+                  <div style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 36, color: C.ink3, marginBottom: 20, opacity: fade(frame, aIran + 40, 12) }}>بیشترینِ ایران، به مدل</div>
                   {p.models.map((m, i) => {
                     const from = aIran + 48 + i * 12;
                     const g = grow(frame, from, 28);
                     return (
-                      <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 22, height: 96, borderTop: `1.5px solid ${C.line}`, opacity: fade(frame, from, 10), transform: `translateY(${rise(frame, from, 24, 14)}px)` }}>
-                        <div style={{ flex: "none", width: 170, fontFamily: VAZIR, fontWeight: 800, fontSize: 40, color: C.ink }}>{m.countText}</div>
+                      <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 24, height: 118, borderTop: `1.5px solid ${C.line}`, opacity: fade(frame, from, 10), transform: `translateY(${rise(frame, from, 24, 14)}px)` }}>
+                        <div style={{ flex: "none", width: 190, fontFamily: VAZIR, fontWeight: 800, fontSize: 50, color: C.ink }}>{m.countText}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 14 }}>
-                            <span style={{ ...LATIN, fontFamily: VAZIR, fontWeight: 700, fontSize: 32, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
-                            <span style={{ fontFamily: VAZIR, fontSize: 24, color: C.ink3, whiteSpace: "nowrap" }}>{m.origin}</span>
+                            <span style={{ ...LATIN, fontFamily: VAZIR, fontWeight: 700, fontSize: 38, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
+                            <span style={{ fontFamily: VAZIR, fontSize: 28, color: C.ink3, whiteSpace: "nowrap" }}>{m.origin}</span>
                           </div>
-                          <div style={{ marginTop: 10, height: 10, width: `${Math.max(3, m.share * 100) * g}%`, borderRadius: 5, background: C.acc, opacity: 0.85 }} />
+                          <div style={{ marginTop: 12, height: 14, width: `${Math.max(3, m.share * 100) * g}%`, borderRadius: 7, background: C.acc, opacity: 0.85 }} />
                         </div>
                       </div>
                     );

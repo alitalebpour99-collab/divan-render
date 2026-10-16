@@ -18,6 +18,7 @@ import { Cover } from "./Cover";
 import { Dilemma, dilemmaDuration } from "./Dilemma";
 import { Dollar, dollarDuration } from "./Dollar";
 import { Figure, figureDuration } from "./Figure";
+import { hookExtra, withHook } from "./Hook";
 import { Nuclear, nuclearDuration } from "./Nuclear";
 import { Precedent, precedentDuration } from "./Precedent";
 import { Region, regionDuration } from "./Region";
@@ -34,21 +35,41 @@ import type { ArsenalProps, BordersProps, CoverProps, DilemmaProps, DollarProps,
 // tile for the profile grid. The samples are only what the studio shows when
 // no content is passed; a render always gets its content from the site.
 const frame = { width: 1080, height: 1920, fps: 30 };
+// every Reel opens on its hook (Hook.tsx); the Story and the tile do not
+const H = {
+  dilemma: withHook(Dilemma),
+  seat: withHook(Seat),
+  region: withHook(Region),
+  precedent: withHook(Precedent),
+  talks: withHook(Talks),
+  war: withHook(WarReplay),
+  borders: withHook(Borders),
+  arsenal: withHook(Arsenal),
+  dollar: withHook(Dollar),
+  nuclear: withHook(Nuclear),
+  figure: withHook(Figure),
+};
 const as = <T,>(sample: unknown) => sample as T;
+/**
+ * A Reel's default content without a hook. Remotion fills a prop that is left
+ * out from these defaults, so a sample's hook would otherwise open a real Reel
+ * whose props carry none.
+ */
+const plain = <T,>(sample: unknown) => ({ ...(sample as object), hook: null }) as T;
 
 export const Root: React.FC = () => (
   <>
-    <Composition id="dilemma" component={Dilemma} {...frame} durationInFrames={900} defaultProps={as<DilemmaProps>(dilemmaSample)} calculateMetadata={({ props }) => ({ durationInFrames: dilemmaDuration(props) })} />
-    <Composition id="seat" component={Seat} {...frame} durationInFrames={900} defaultProps={as<SeatProps>(seatSample)} calculateMetadata={({ props }) => ({ durationInFrames: seatDuration(props) })} />
-    <Composition id="region" component={Region} {...frame} durationInFrames={600} defaultProps={as<RegionProps>(regionSample)} calculateMetadata={({ props }) => ({ durationInFrames: regionDuration(props) })} />
-    <Composition id="precedent" component={Precedent} {...frame} durationInFrames={900} defaultProps={as<PrecedentProps>(precedentSample)} calculateMetadata={({ props }) => ({ durationInFrames: precedentDuration(props) })} />
-    <Composition id="talks" component={Talks} {...frame} durationInFrames={900} defaultProps={as<TalksProps>(talksSample)} calculateMetadata={({ props }) => ({ durationInFrames: talksDuration(props) })} />
-    <Composition id="war" component={WarReplay} {...frame} durationInFrames={warDuration()} defaultProps={as<WarProps>(warSample)} />
-    <Composition id="borders" component={Borders} {...frame} durationInFrames={bordersLength()} defaultProps={as<BordersProps>(bordersSample)} />
-    <Composition id="arsenal" component={Arsenal} {...frame} durationInFrames={750} defaultProps={as<ArsenalProps>(arsenalSample)} calculateMetadata={({ props }) => ({ durationInFrames: arsenalDuration(props) })} />
-    <Composition id="dollar" component={Dollar} {...frame} durationInFrames={650} defaultProps={as<DollarProps>(dollarSample)} calculateMetadata={({ props }) => ({ durationInFrames: dollarDuration(props) })} />
-    <Composition id="nuclear" component={Nuclear} {...frame} durationInFrames={650} defaultProps={as<NuclearProps>(nuclearSample)} calculateMetadata={({ props }) => ({ durationInFrames: nuclearDuration(props) })} />
-    <Composition id="figure" component={Figure} {...frame} durationInFrames={450} defaultProps={as<FigureProps>(figureSample)} calculateMetadata={({ props }) => ({ durationInFrames: figureDuration(props) })} />
+    <Composition id="dilemma" component={H.dilemma} {...frame} durationInFrames={900} defaultProps={plain<DilemmaProps>(dilemmaSample)} calculateMetadata={({ props }) => ({ durationInFrames: dilemmaDuration(props) + hookExtra(props) })} />
+    <Composition id="seat" component={H.seat} {...frame} durationInFrames={900} defaultProps={plain<SeatProps>(seatSample)} calculateMetadata={({ props }) => ({ durationInFrames: seatDuration(props) + hookExtra(props) })} />
+    <Composition id="region" component={H.region} {...frame} durationInFrames={600} defaultProps={plain<RegionProps>(regionSample)} calculateMetadata={({ props }) => ({ durationInFrames: regionDuration(props) + hookExtra(props) })} />
+    <Composition id="precedent" component={H.precedent} {...frame} durationInFrames={900} defaultProps={plain<PrecedentProps>(precedentSample)} calculateMetadata={({ props }) => ({ durationInFrames: precedentDuration(props) + hookExtra(props) })} />
+    <Composition id="talks" component={H.talks} {...frame} durationInFrames={900} defaultProps={plain<TalksProps>(talksSample)} calculateMetadata={({ props }) => ({ durationInFrames: talksDuration(props) + hookExtra(props) })} />
+    <Composition id="war" component={H.war} {...frame} durationInFrames={warDuration()} defaultProps={plain<WarProps>(warSample)} calculateMetadata={({ props }) => ({ durationInFrames: warDuration() + hookExtra(props) })} />
+    <Composition id="borders" component={H.borders} {...frame} durationInFrames={bordersLength()} defaultProps={plain<BordersProps>(bordersSample)} calculateMetadata={({ props }) => ({ durationInFrames: bordersLength() + hookExtra(props) })} />
+    <Composition id="arsenal" component={H.arsenal} {...frame} durationInFrames={750} defaultProps={plain<ArsenalProps>(arsenalSample)} calculateMetadata={({ props }) => ({ durationInFrames: arsenalDuration(props) + hookExtra(props) })} />
+    <Composition id="dollar" component={H.dollar} {...frame} durationInFrames={650} defaultProps={plain<DollarProps>(dollarSample)} calculateMetadata={({ props }) => ({ durationInFrames: dollarDuration(props) + hookExtra(props) })} />
+    <Composition id="nuclear" component={H.nuclear} {...frame} durationInFrames={650} defaultProps={plain<NuclearProps>(nuclearSample)} calculateMetadata={({ props }) => ({ durationInFrames: nuclearDuration(props) + hookExtra(props) })} />
+    <Composition id="figure" component={H.figure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={({ props }) => ({ durationInFrames: figureDuration(props) + hookExtra(props) })} />
     <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} />
     {/* the Story that follows a Reel onto the page */}
     <Composition id="story" component={Story} {...frame} durationInFrames={storyDuration()} defaultProps={as<StoryProps>(storySample)} />

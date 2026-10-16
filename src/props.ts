@@ -7,6 +7,9 @@ export type Tone = "good" | "bad" | "both" | "none";
 /** One of Divan's three goals for one decision: the band around today, in the site's own words. */
 export type GoalView = { id: string; name: string; band: [number, number]; verdict: string; tone: Tone };
 
+/** The opening of a Reel: its strongest figure (optional) and a question, readable from the first frame. */
+export type HookView = { text: string; figure: string | null };
+
 export type Base = {
   /** the composition that draws it */
   format: string;
@@ -14,6 +17,8 @@ export type Base = {
   series: string;
   /** file name of the score inside the bundle's public folder; set by the renderer */
   music?: string;
+  /** the first seconds (Hook.tsx); always sent, null for none, so a sample's hook never takes its place */
+  hook: HookView | null;
 };
 
 export type DilemmaProps = Base & {

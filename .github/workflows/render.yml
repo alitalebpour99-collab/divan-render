@@ -9,17 +9,14 @@ name: Render
 #
 # The job is worker.mjs in one pass: it asks the site what waits
 # (`/api/social/work`), draws it, hands the MP4 and the tile back, and ends.
-# A look that finds nothing ends after a few seconds, before anything is
-# installed. The hours follow the lane's plan (Tehran 12:30 and 19:30, that is
-# 09:00 and 16:00 UTC; the evening Reel is planned from 11:15 UTC; a Story is
-# planned when its Reel is posted):
-#   05:07  the day's noon Reel, if it was not made the evening before
-#   09:23  the noon Reel's Story
-#   11:53  the evening Reel
-#   16:23  the evening Story, and tomorrow's noon Reel
-#   20:07  whatever is still waiting
-# GitHub may start a scheduled run some minutes late; every Reel is drawn
-# hours before its hour, and a Story may go up to six hours after its Reel.
+# It looks every quarter of an hour. A look that finds nothing ends after a few
+# seconds, before anything is installed, and a public repository's runs cost
+# nothing, so the many looks are free. They are many on purpose: GitHub starts
+# a scheduled run late, or now and then not at all (on 16 October the first
+# run of the day's five fixed hours had not come forty minutes after its
+# time). With a look every fifteen minutes a missed one costs a quarter of an
+# hour, and a Reel is still drawn hours before its hour (Tehran 12:30 and
+# 19:30, that is 09:00 and 16:00 UTC), a Story soon after its Reel is posted.
 #
 # GitHub switches off the schedule of a public repository in which nothing
 # happened for sixty days. On the first of each month the job «alive» makes an
@@ -28,11 +25,7 @@ name: Render
 on:
   workflow_dispatch:
   schedule:
-    - cron: "7 5 * * *"
-    - cron: "23 9 * * *"
-    - cron: "53 11 * * *"
-    - cron: "23 16 * * *"
-    - cron: "7 20 * * *"
+    - cron: "4,19,34,49 * * * *"
     - cron: "41 3 1 * *"
 
 concurrency:

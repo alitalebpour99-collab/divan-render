@@ -22,8 +22,8 @@ plan, the content, the owner's review and the posting live in the site.
 
 **On GitHub, in the public copy of this folder**
 ([alitalebpour99-collab/divan-render](https://github.com/alitalebpour99-collab/divan-render)),
-five times a day (`.github/workflows/render.yml`): `node worker.mjs` in one
-pass. Public repositories' jobs cost nothing. The site's key is the
+every quarter of an hour (`.github/workflows/render.yml`): `node worker.mjs` in
+one pass; a look that finds nothing ends in seconds. Public repositories' jobs cost nothing. The site's key is the
 repository's Actions secret `DIVAN_RENDER_SECRET`; nothing secret is in the
 files.
 

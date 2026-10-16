@@ -10,7 +10,7 @@
    "lon": 51.39,
    "lat": 35.69,
    "hit": 0,
-   "whole": 5,
+   "whole": 4,
    "unknown": 0
   },
   {
@@ -75,7 +75,7 @@
   "whole": "آسیب‌ندیده",
   "unknown": "نامعلوم",
   "hitN": 8,
-  "wholeN": 14,
+  "wholeN": 13,
   "unknownN": 1
  },
  "hitNames": [

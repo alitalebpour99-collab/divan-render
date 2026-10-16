@@ -21,6 +21,7 @@ import { Figure, figureDuration } from "./Figure";
 import { Nuclear, nuclearDuration } from "./Nuclear";
 import { Precedent, precedentDuration } from "./Precedent";
 import { Region, regionDuration } from "./Region";
+// the default content must hold no optional key: a Reel's props that leave one out would take the sample's value
 import storySample from "../samples/story.json";
 import { Seat, seatDuration } from "./Seat";
 import { Story, storyDuration } from "./Story";

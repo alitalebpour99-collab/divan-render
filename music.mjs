@@ -22,6 +22,7 @@ const MOODS = {
   dollar: { root: 44, bpm: 62 },
   nuclear: { root: 42, bpm: 56 },
   figure: { root: 49, bpm: 64 },
+  quiz: { root: 50, bpm: 72 },
 };
 // i  VI  III  VII, as open voicings above the key note: root, fifth, tenth
 const CHORDS = [

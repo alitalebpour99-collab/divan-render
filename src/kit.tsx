@@ -58,7 +58,7 @@ export const C = {
  * brings a goal nearer (C.good), red is a strike or a loss (C.strike), yellow
  * a claim or a mixed effect (C.claim).
  */
-export const HUES: Record<string, number> = { seat: 250, dilemma: 90, region: 195, precedent: 295, talks: 340, war: 45, borders: 135, arsenal: 235, dollar: 162, nuclear: 115, figure: 70 };
+export const HUES: Record<string, number> = { seat: 250, dilemma: 90, region: 195, precedent: 295, talks: 340, war: 45, borders: 135, arsenal: 235, dollar: 162, nuclear: 115, figure: 70, quiz: 12 };
 /**
  * How strong a series' colour is. Most series share one strength; two are
  * quiet on purpose, so that eleven series stay apart on the grid: the weapons

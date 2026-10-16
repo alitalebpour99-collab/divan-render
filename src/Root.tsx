@@ -5,6 +5,7 @@ import bordersSample from "../samples/borders.json";
 import dollarSample from "../samples/dollar.json";
 import figureSample from "../samples/figure.json";
 import nuclearSample from "../samples/nuclear.json";
+import quizSample from "../samples/quiz.json";
 import dilemmaSample from "../samples/dilemma.json";
 import precedentSample from "../samples/precedent.json";
 import regionSample from "../samples/region.json";
@@ -20,6 +21,7 @@ import { Dollar, dollarDuration } from "./Dollar";
 import { Figure, figureDuration } from "./Figure";
 import { hookExtra, withHook } from "./Hook";
 import { Nuclear, nuclearDuration } from "./Nuclear";
+import { Quiz, quizDuration } from "./Quiz";
 import { Precedent, precedentDuration } from "./Precedent";
 import { Region, regionDuration } from "./Region";
 // the default content must hold no optional key: a Reel's props that leave one out would take the sample's value
@@ -28,6 +30,7 @@ import { Seat, seatDuration } from "./Seat";
 import { Story, storyDuration } from "./Story";
 import { Talks, talksDuration } from "./Talks";
 import { WarReplay, warDuration } from "./WarReplay";
+import type { QuizProps } from "./props";
 import type { ArsenalProps, BordersProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
 
 // One composition per format of the page (the id is the format's id in
@@ -48,6 +51,7 @@ const H = {
   dollar: withHook(Dollar),
   nuclear: withHook(Nuclear),
   figure: withHook(Figure),
+  quiz: withHook(Quiz),
 };
 const as = <T,>(sample: unknown) => sample as T;
 /**
@@ -70,6 +74,7 @@ export const Root: React.FC = () => (
     <Composition id="dollar" component={H.dollar} {...frame} durationInFrames={650} defaultProps={plain<DollarProps>(dollarSample)} calculateMetadata={({ props }) => ({ durationInFrames: dollarDuration(props) + hookExtra(props) })} />
     <Composition id="nuclear" component={H.nuclear} {...frame} durationInFrames={650} defaultProps={plain<NuclearProps>(nuclearSample)} calculateMetadata={({ props }) => ({ durationInFrames: nuclearDuration(props) + hookExtra(props) })} />
     <Composition id="figure" component={H.figure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={({ props }) => ({ durationInFrames: figureDuration(props) + hookExtra(props) })} />
+    <Composition id="quiz" component={H.quiz} {...frame} durationInFrames={480} defaultProps={plain<QuizProps>(quizSample)} calculateMetadata={({ props }) => ({ durationInFrames: quizDuration(props) + hookExtra(props) })} />
     <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} />
     {/* the Story that follows a Reel onto the page */}
     <Composition id="story" component={Story} {...frame} durationInFrames={storyDuration()} defaultProps={as<StoryProps>(storySample)} />

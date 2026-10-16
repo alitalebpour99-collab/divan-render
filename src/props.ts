@@ -257,7 +257,24 @@ export type FigureProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | StoryProps;
+/** «حدس بزن»: a question on a ranking of the site, four answers, a count of three, the answer, and the whole ranking. */
+export type QuizProps = Base & {
+  format: "quiz";
+  /** «حدس بزن · جنگ‌افزار» */
+  kicker: string;
+  question: string;
+  /** four answers; \`answer\` is the right one's place among them */
+  options: string[];
+  answer: number;
+  /** the answer in a sentence, for example «ایران: حدود ۱٬۵۱۳ دستگاه، رتبهٔ ۴ از ۹» */
+  reveal: string;
+  /** the whole ranking, largest first */
+  rows: { name: string; text: string; share: number; home: boolean }[];
+  source: string;
+  foot: string;
+};
+
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | StoryProps;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

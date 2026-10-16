@@ -1,0 +1,86 @@
+name: Render
+
+# Divan's Reels and Stories, drawn on GitHub's machines.
+#
+# This repository is a copy of the folder video/ of Divan's own (private)
+# repository, made public so that the drawing costs nothing: GitHub runs public
+# repositories' jobs for free. Nothing secret is in it; the one secret, the
+# key the site asks for, lives in this repository's Actions secrets.
+#
+# The job is worker.mjs in one pass: it asks the site what waits
+# (`/api/social/work`), draws it, hands the MP4 and the tile back, and ends.
+# A look that finds nothing ends after a few seconds, before anything is
+# installed. The hours follow the lane's plan (Tehran 12:30 and 19:30, that is
+# 09:00 and 16:00 UTC; the evening Reel is planned from 11:15 UTC; a Story is
+# planned when its Reel is posted):
+#   05:07  the day's noon Reel, if it was not made the evening before
+#   09:23  the noon Reel's Story
+#   11:53  the evening Reel
+#   16:23  the evening Story, and tomorrow's noon Reel
+#   20:07  whatever is still waiting
+# GitHub may start a scheduled run some minutes late; every Reel is drawn
+# hours before its hour, and a Story may go up to six hours after its Reel.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7 5 * * *"
+    - cron: "23 9 * * *"
+    - cron: "53 11 * * *"
+    - cron: "23 16 * * *"
+    - cron: "7 20 * * *"
+
+concurrency:
+  group: render
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    # a copy of this repository has no key and nothing to draw
+    if: github.repository == 'alitalebpour99-collab/divan-render'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DIVAN_URL: https://divan.ahura.cloud
+      DIVAN_RENDER_SECRET: ${{ secrets.DIVAN_RENDER_SECRET }}
+    steps:
+      - name: Anything to draw?
+        id: look
+        run: |
+          n=$(curl -fsS --retry 3 --retry-delay 5 -H "authorization: Bearer $DIVAN_RENDER_SECRET" "$DIVAN_URL/api/social/work?peek=1&can=story" | jq -r '.waiting // 0')
+          echo "waiting: $n"
+          echo "waiting=$n" >> "$GITHUB_OUTPUT"
+
+      - if: steps.look.outputs.waiting != '0'
+        uses: actions/checkout@v4
+
+      - if: steps.look.outputs.waiting != '0'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - if: steps.look.outputs.waiting != '0'
+        name: The libraries Chrome Headless Shell needs
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libnss3 libdbus-1-3 libatk1.0-0 libgbm-dev libxrandr2 libxkbcommon-dev libxfixes3 libxcomposite1 libxdamage1 libatk-bridge2.0-0 libpango-1.0-0 libcairo2 libcups2
+          sudo apt-get install -y -qq --no-install-recommends libasound2t64 || sudo apt-get install -y -qq --no-install-recommends libasound2
+
+      - if: steps.look.outputs.waiting != '0'
+        run: npm ci --no-audit --no-fund
+
+      - if: steps.look.outputs.waiting != '0'
+        name: The browser and the bundle
+        run: |
+          node -e "import('@remotion/renderer').then((m) => m.ensureBrowser())"
+          node build.mjs
+
+      - if: steps.look.outputs.waiting != '0'
+        name: Draw what waits, hand it back
+        env:
+          RENDER_GL: swangle
+        run: node worker.mjs

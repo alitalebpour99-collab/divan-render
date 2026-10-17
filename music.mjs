@@ -23,6 +23,8 @@ const MOODS = {
   nuclear: { root: 42, bpm: 56 },
   figure: { root: 49, bpm: 64 },
   quiz: { root: 50, bpm: 72 },
+  // a steady low beat under the chords: the one Reel that is meant to stir
+  power: { root: 38, bpm: 84, pulse: true },
 };
 // i  VI  III  VII, as open voicings above the key note: root, fifth, tenth
 const CHORDS = [
@@ -88,7 +90,7 @@ function room(channel, spread) {
 }
 
 export function score({ id, seconds }) {
-  const { root, bpm } = MOODS[id] ?? MOODS.dilemma;
+  const { root, bpm, pulse } = MOODS[id] ?? MOODS.dilemma;
   const total = Math.ceil(seconds * RATE);
   const L = new Float32Array(total);
   const R = new Float32Array(total);
@@ -133,6 +135,28 @@ export function score({ id, seconds }) {
       if (b === bars - 1 && q > 0) break;
       const step = order[q];
       key(L, R, b * bar + q * beat, root + 24 + chord[step] - (step === 2 ? 12 : 0), q === 0 ? 0.1 : 0.075, q % 2 ? 0.28 : -0.28);
+    }
+  }
+
+  // a deep, soft drum on every beat, louder on the first of the bar, rising through the Reel; none in the last bar
+  if (pulse) {
+    for (let b = 0; b < bars - 1; b += 1) {
+      for (let q = 0; q < 4; q += 1) {
+        const at = b * bar + q * beat;
+        const start = Math.round(at * RATE);
+        const length = Math.min(total - start, Math.round(0.6 * RATE));
+        const gain = (q === 0 ? 0.32 : 0.18) * (0.55 + 0.45 * (b / Math.max(1, bars - 2)));
+        let phase = 0;
+        for (let n = 0; n < length; n += 1) {
+          const t = n / RATE;
+          // the pitch falls from 70 to 42 Hz: a boom, not a click
+          const f = 42 + 28 * Math.exp(-t / 0.05);
+          phase += (TAU * f) / RATE;
+          const sample = gain * Math.exp(-t / 0.22) * Math.sin(phase) * (t < 0.004 ? t / 0.004 : 1);
+          L[start + n] += sample;
+          R[start + n] += sample;
+        }
+      }
     }
   }
 

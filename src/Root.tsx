@@ -6,6 +6,7 @@ import bordersSample from "../samples/borders.json";
 import dollarSample from "../samples/dollar.json";
 import figureSample from "../samples/figure.json";
 import nuclearSample from "../samples/nuclear.json";
+import powerSample from "../samples/power.json";
 import quizSample from "../samples/quiz.json";
 import dilemmaSample from "../samples/dilemma.json";
 import precedentSample from "../samples/precedent.json";
@@ -23,6 +24,7 @@ import { Dollar, dollarDuration } from "./Dollar";
 import { Figure, figureDuration } from "./Figure";
 import { hookExtra, withHook } from "./Hook";
 import { Nuclear, nuclearDuration } from "./Nuclear";
+import { Power, powerDuration } from "./Power";
 import { Quiz, quizDuration } from "./Quiz";
 import { Precedent, precedentDuration } from "./Precedent";
 import { Region, regionDuration } from "./Region";
@@ -32,7 +34,7 @@ import { Seat, seatDuration } from "./Seat";
 import { Story, storyDuration } from "./Story";
 import { Talks, talksDuration } from "./Talks";
 import { WarReplay, warDuration } from "./WarReplay";
-import type { QuizProps } from "./props";
+import type { PowerProps, QuizProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
 
 // One composition per format of the page (the id is the format's id in
@@ -54,6 +56,7 @@ const H = {
   nuclear: withHook(Nuclear),
   figure: withHook(Figure),
   quiz: withHook(Quiz),
+  power: withHook(Power),
 };
 const as = <T,>(sample: unknown) => sample as T;
 /**
@@ -77,6 +80,7 @@ export const Root: React.FC = () => (
     <Composition id="nuclear" component={H.nuclear} {...frame} durationInFrames={650} defaultProps={plain<NuclearProps>(nuclearSample)} calculateMetadata={({ props }) => ({ durationInFrames: nuclearDuration(props) + hookExtra(props) })} />
     <Composition id="figure" component={H.figure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={({ props }) => ({ durationInFrames: figureDuration(props) + hookExtra(props) })} />
     <Composition id="quiz" component={H.quiz} {...frame} durationInFrames={480} defaultProps={plain<QuizProps>(quizSample)} calculateMetadata={({ props }) => ({ durationInFrames: quizDuration(props) + hookExtra(props) })} />
+    <Composition id="power" component={H.power} {...frame} durationInFrames={1420} defaultProps={plain<PowerProps>(powerSample)} calculateMetadata={({ props }) => ({ durationInFrames: powerDuration(props) + hookExtra(props) })} />
     <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} />
     {/* a post of several pictures: one card per frame, each saved as a still (1080 by 1350, Instagram's 4:5) */}
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />

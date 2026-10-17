@@ -12,7 +12,7 @@ import { C, H, NASKH, Seal, VAZIR, W, paint } from "./kit";
 import type { CoverProps } from "./props";
 
 /** One emblem per series. */
-export const EMBLEM: Record<string, string> = { dilemma: "council", seat: "seat", region: "home", precedent: "archive", talks: "chancery", war: "war", borders: "today", arsenal: "arsenal", dollar: "treasury", nuclear: "atom", figure: "figure", quiz: "ideas" };
+export const EMBLEM: Record<string, string> = { dilemma: "council", seat: "seat", region: "home", precedent: "archive", talks: "chancery", war: "war", borders: "today", arsenal: "arsenal", dollar: "treasury", nuclear: "atom", figure: "figure", quiz: "ideas", power: "arsenal" };
 
 // the middle square of the frame: what every surface of Instagram shows
 const TOP = (H - W) / 2;

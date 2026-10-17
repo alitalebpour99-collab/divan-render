@@ -274,6 +274,24 @@ export type QuizProps = Base & {
   foot: string;
 };
 
+/** A place of Iran among the states of the region: «راکت‌انداز», «حدود ۱٬۴۷۶ دستگاه», 1 of 9. */
+export type PowerRow = { label: string; value: string; rank: number; of: number; note: string | null };
+
+/** «قدرت ایران»: Iran's missiles, drones and air defence by name, and its first places in the region. */
+export type PowerProps = Base & {
+  format: "power";
+  /** the ballistic missiles whose range two sources give, longest first; `claim` is Iran's own word about one of them */
+  missiles: { kicker: string; title: string; sub: string | null; items: { name: string; km: number; claim: string | null }[]; unranged: string | null; max: number; ticks: { km: number; label: string }[] };
+  /** how many models the list names, and the known ones with what they do */
+  drones: { kicker: string; title: string; sub: string | null; models: number; items: { name: string; role: string }[] };
+  /** the systems by layer, the longest range first */
+  air: { kicker: string; title: string; sub: string | null; layers: { name: string; items: string[] }[] };
+  land: { kicker: string; title: string; sub: string | null; rows: PowerRow[] };
+  beyond: { kicker: string; title: string; sub: string | null; rows: PowerRow[] };
+  outro: { name: string; words: string[]; call: string; handle: string };
+  source: string;
+};
+
 /** One card of a post of several pictures (a carousel), 1080 by 1350. */
 export type CardView =
   | { kind: "hook"; kicker: string; figure: string | null; title: string; sub: string | null }
@@ -290,7 +308,7 @@ export type CardsProps = Base & {
   cards: CardView[];
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | CardsProps | StoryProps;
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | CardsProps | StoryProps;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

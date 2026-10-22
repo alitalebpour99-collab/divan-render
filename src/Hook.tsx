@@ -10,7 +10,7 @@ import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { EMBLEM } from "./Cover";
 import { Emblem } from "./emblems";
-import { C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, VAZIR, clamped, ease, paint } from "./kit";
+import { Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, VAZIR, clamped, ease, paint } from "./kit";
 import type { Base, HookView } from "./props";
 
 /** How long the hook stands alone; the Reel starts under it a little before it leaves. */
@@ -30,9 +30,12 @@ const HookCard: React.FC<{ format: string; hook: HookView }> = ({ format, hook }
   const figureSize = !hook.figure ? 0 : hook.figure.length > 10 ? 130 : hook.figure.length > 6 ? 168 : 210;
   return (
     <AbsoluteFill style={{ direction: "rtl", opacity: 1 - out, transform: `translateY(${-out * 160}px)` }}>
-      <AbsoluteFill style={{ background: C.bg }} />
-      <AbsoluteFill style={{ background: `linear-gradient(165deg, ${C.deep} 0%, ${C.dusk} 52%, ${C.bg} 100%)` }} />
-      <AbsoluteFill style={{ background: `radial-gradient(1000px 1000px at 50% 40%, ${C.glow}, transparent 70%)` }} />
+      {/* opaque: it hides the Reel that starts under it; on the safe stage it reaches out to the screen's edges */}
+      <Bleed>
+        <AbsoluteFill style={{ background: C.bg }} />
+        <AbsoluteFill style={{ background: `linear-gradient(165deg, ${C.deep} 0%, ${C.dusk} 52%, ${C.bg} 100%)` }} />
+        <AbsoluteFill style={{ background: `radial-gradient(1000px 1000px at 50% 40%, ${C.glow}, transparent 70%)` }} />
+      </Bleed>
       {/* the series' emblem, large and faint, turning slowly behind the words */}
       <div style={{ position: "absolute", left: 0, right: 0, top: 360, display: "flex", justifyContent: "center", opacity: 0.12, transform: `rotate(${turn}deg)` }}>
         <Emblem id={EMBLEM[format] ?? "seat"} size={720} color={C.acc} stroke={0.6} />

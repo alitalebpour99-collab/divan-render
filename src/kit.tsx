@@ -4,6 +4,7 @@ import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { loadFont as loadVazir } from "@remotion/google-fonts/Vazirmatn";
 import { loadFont as loadNaskh } from "@remotion/google-fonts/NotoNaskhArabic";
+import { CHROMA, HUES } from "./hues";
 
 export const { fontFamily: VAZIR } = loadVazir("normal", { weights: ["400", "500", "700", "800"], subsets: ["arabic", "latin"] });
 export const { fontFamily: NASKH } = loadNaskh("normal", { weights: ["500", "700"], subsets: ["arabic"] });
@@ -14,6 +15,35 @@ export const FPS = 30;
 // Instagram draws the caption over the bottom of a Reel and its buttons down the
 // lower right edge; nothing that must be read sits there.
 export const SAFE_BOTTOM = 330;
+
+// ---------- the safe stage (Safe.tsx) ----------
+// Every Reel is drawn a little smaller, so that its highest line (the name, at
+// DESIGN_TOP) lands at y 290 and its lowest (the closing line, on SAFE_BOTTOM) at
+// y 1590: inside the 4:5 crop of Instagram's feed (285–1635) and clear of the
+// caption and buttons of the full-screen viewers.
+const DESIGN_TOP = 60;
+const SCREEN_TOP = 290;
+const SCREEN_BOTTOM = 1590;
+export const STAGE_K = (SCREEN_BOTTOM - SCREEN_TOP) / (H - SAFE_BOTTOM - DESIGN_TOP);
+export const STAGE_X = (W - W * STAGE_K) / 2;
+export const STAGE_Y = SCREEN_TOP - DESIGN_TOP * STAGE_K;
+/**
+ * True while a Reel is drawn on the safe stage. The stage paints the night
+ * ground itself, full-bleed, so Backdrop steps aside there and no edge of the
+ * smaller stage can show.
+ */
+export const OnStage = React.createContext(false);
+/**
+ * A ground that covers the whole screen even on the stage: there it reaches out
+ * past the stage's edges to the screen's, so its colours land on the same
+ * pixels as the stage's own ground and the two cannot be told apart.
+ */
+export const Bleed: React.FC<{ children?: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) =>
+  React.useContext(OnStage) ? (
+    <div style={{ position: "absolute", left: -STAGE_X / STAGE_K, top: -STAGE_Y / STAGE_K, width: W / STAGE_K, height: H / STAGE_K, ...style }}>{children}</div>
+  ) : (
+    <AbsoluteFill style={style}>{children}</AbsoluteFill>
+  );
 export const SIDE_RAIL = 150;
 export const SIDE = 70;
 
@@ -58,13 +88,8 @@ export const C = {
  * brings a goal nearer (C.good), red is a strike or a loss (C.strike), yellow
  * a claim or a mixed effect (C.claim).
  */
-export const HUES: Record<string, number> = { seat: 250, dilemma: 90, region: 195, precedent: 295, talks: 340, war: 45, borders: 135, arsenal: 235, dollar: 162, nuclear: 115, figure: 70, quiz: 12, power: 32 };
-/**
- * How strong a series' colour is. Most series share one strength; two are
- * quiet on purpose, so that eleven series stay apart on the grid: the weapons
- * in steel, the figure of the day in sand.
- */
-export const CHROMA: Record<string, number> = { arsenal: 0.05, figure: 0.06, power: 0.15 };
+// the table itself is in hues.ts, which the site's desk reads too
+export { CHROMA, HUES };
 
 /**
  * Sets the accent to a series' colour. Every composition calls it first
@@ -131,6 +156,7 @@ export const readFrames = (text: string, floor = 60) =>
 /** The dark ground of the site, with its faint grid drifting slowly: nothing else moves behind the content. */
 export const Backdrop: React.FC<{ total: number; glowY?: number }> = ({ total, glowY = 40 }) => {
   const frame = useCurrentFrame();
+  if (React.useContext(OnStage)) return null;
   const drift = frame / total;
   return (
     <AbsoluteFill style={{ background: C.bg }}>

@@ -23,6 +23,7 @@ import { Dilemma, dilemmaDuration } from "./Dilemma";
 import { Dollar, dollarDuration } from "./Dollar";
 import { Figure, figureDuration } from "./Figure";
 import { hookExtra, withHook } from "./Hook";
+import { onStage } from "./Safe";
 import { Nuclear, nuclearDuration } from "./Nuclear";
 import { Power, powerDuration } from "./Power";
 import { Quiz, quizDuration } from "./Quiz";
@@ -42,21 +43,21 @@ import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, 
 // tile for the profile grid. The samples are only what the studio shows when
 // no content is passed; a render always gets its content from the site.
 const frame = { width: 1080, height: 1920, fps: 30 };
-// every Reel opens on its hook (Hook.tsx); the Story and the tile do not
+// every Reel opens on its hook (Hook.tsx) and is drawn on the safe stage (Safe.tsx); the Story and the tile do neither
 const H = {
-  dilemma: withHook(Dilemma),
-  seat: withHook(Seat),
-  region: withHook(Region),
-  precedent: withHook(Precedent),
-  talks: withHook(Talks),
-  war: withHook(WarReplay),
-  borders: withHook(Borders),
-  arsenal: withHook(Arsenal),
-  dollar: withHook(Dollar),
-  nuclear: withHook(Nuclear),
-  figure: withHook(Figure),
-  quiz: withHook(Quiz),
-  power: withHook(Power),
+  dilemma: onStage(withHook(Dilemma)),
+  seat: onStage(withHook(Seat)),
+  region: onStage(withHook(Region)),
+  precedent: onStage(withHook(Precedent)),
+  talks: onStage(withHook(Talks)),
+  war: onStage(withHook(WarReplay)),
+  borders: onStage(withHook(Borders)),
+  arsenal: onStage(withHook(Arsenal)),
+  dollar: onStage(withHook(Dollar)),
+  nuclear: onStage(withHook(Nuclear)),
+  figure: onStage(withHook(Figure)),
+  quiz: onStage(withHook(Quiz)),
+  power: onStage(withHook(Power)),
 };
 const as = <T,>(sample: unknown) => sample as T;
 /**

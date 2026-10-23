@@ -13,21 +13,14 @@
 // y 1590, both inside the feed's crop and clear of the caption (the geometry is
 // in kit.tsx). The ground is painted full-bleed under the stage (Backdrop steps
 // aside on it), the hook's opaque ground reaches out to the screen's edges
-// (Bleed), and the stage's edges fade, so no frame line shows. The Story and the
-// grid tile keep their own layouts: the Story is never cropped, and the tile is
-// drawn inside the square.
+// (Bleed), and four thin strips fade the stage's edges into the ground (Edges),
+// so no frame line shows. The Story and the grid tile keep their own layouts:
+// the Story is never cropped, and the tile is drawn inside the square.
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { HOOK_FRAMES } from "./Hook";
 import { C, H, OnStage, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
 import type { Base } from "./props";
-
-/** How far the stage's edges fade, in the layout's own pixels: only what a layout draws near its edge. */
-const FEATHER = 70;
-const MASK = [
-  `linear-gradient(to right, transparent 0, #000 ${FEATHER}px, #000 calc(100% - ${FEATHER}px), transparent 100%)`,
-  `linear-gradient(to bottom, transparent 0, #000 ${FEATHER * 0.6}px, #000 calc(100% - ${FEATHER}px), transparent 100%)`,
-].join(", ");
 
 /** The whole ground, full-bleed: the night ground of the scenes (Backdrop's), with the hook's tinted ground over it at first. */
 const Ground: React.FC<{ hooked: boolean }> = ({ hooked }) => {
@@ -58,6 +51,41 @@ const Ground: React.FC<{ hooked: boolean }> = ({ hooked }) => {
   );
 };
 
+/** The stage on the screen, and how far its edges fade into the ground (screen pixels). */
+const X0 = STAGE_X;
+const X1 = STAGE_X + W * STAGE_K;
+const Y0 = STAGE_Y;
+const Y1 = STAGE_Y + H * STAGE_K;
+const FADE = 60;
+const EDGES: { box: React.CSSProperties; to: string }[] = [
+  { box: { left: X0, top: Y0, width: FADE, height: Y1 - Y0 }, to: "right" },
+  { box: { left: X1 - FADE, top: Y0, width: FADE, height: Y1 - Y0 }, to: "left" },
+  { box: { left: X0, top: Y0, width: X1 - X0, height: FADE * 0.6 }, to: "bottom" },
+  { box: { left: X0, top: Y1 - FADE, width: X1 - X0, height: FADE }, to: "top" },
+];
+
+/**
+ * The stage's edges fade into the ground: four thin strips over them, each
+ * painted with the same ground at the same place on the screen and fading
+ * inwards. Only these strips are masked, so a frame costs little more than
+ * without them (a mask over the whole stage made Chrome draw it all again
+ * off-screen on every frame, and a Reel took three times as long).
+ */
+const Edges: React.FC<{ hooked: boolean }> = ({ hooked }) => (
+  <>
+    {EDGES.map(({ box, to }) => {
+      const mask = `linear-gradient(to ${to}, #000, transparent)`;
+      return (
+        <div key={to} style={{ position: "absolute", overflow: "hidden", ...box, WebkitMaskImage: mask, maskImage: mask }}>
+          <div style={{ position: "absolute", left: -Number(box.left), top: -Number(box.top), width: W, height: H }}>
+            <Ground hooked={hooked} />
+          </div>
+        </div>
+      );
+    })}
+  </>
+);
+
 /** A Reel (with its hook) drawn on the safe stage. */
 export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
   const Staged: React.FC<P> = (p) => {
@@ -75,16 +103,15 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
             height: H,
             transform: `scale(${STAGE_K})`,
             transformOrigin: "0 0",
-            WebkitMaskImage: MASK,
-            WebkitMaskComposite: "source-in",
-            maskImage: MASK,
-            maskComposite: "intersect",
+            // a plain clip; the soft edges are the strips of Edges
+            overflow: "hidden",
           }}
         >
           <OnStage.Provider value={true}>
             <Inner {...p} />
           </OnStage.Provider>
         </div>
+        <Edges hooked={Boolean(p.hook?.text)} />
       </AbsoluteFill>
     );
   };

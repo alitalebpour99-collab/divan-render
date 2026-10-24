@@ -25,6 +25,9 @@ const MOODS = {
   quiz: { root: 50, bpm: 72 },
   // a steady low beat under the chords: the one Reel that is meant to stir
   power: { root: 38, bpm: 84, pulse: true },
+  // the two short formats of 23 October 2026 move faster, with the beat under them
+  thennow: { root: 43, bpm: 92, pulse: true },
+  race: { root: 41, bpm: 100, pulse: true },
 };
 // i  VI  III  VII, as open voicings above the key note: root, fifth, tenth
 const CHORDS = [

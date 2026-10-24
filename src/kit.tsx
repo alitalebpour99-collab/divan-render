@@ -1,7 +1,7 @@
 // What every Divan Reel shares: the site's night palette and type, Instagram's
 // safe zones, the seal, the brand line, the closing line and the motion pieces.
 import React from "react";
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { loadFont as loadVazir } from "@remotion/google-fonts/Vazirmatn";
 import { loadFont as loadNaskh } from "@remotion/google-fonts/NotoNaskhArabic";
 import { CHROMA, HUES } from "./hues";
@@ -265,12 +265,31 @@ export const Count: React.FC<{ to: number; from: number; length?: number; decima
   return <>{faNum(to * grow(frame, from, length), decimals)}</>;
 };
 
-/** A thin line under the name that fills as the Reel goes, with a notch at every scene: the viewer sees how much is left. */
+// ---------- sound ----------
+/** The sound effects in public/sfx/ (made by sfx.mjs), each with the loudness it plays at under the score. */
+export const SFX = { whoosh: 0.32, hit: 0.55, tick: 0.22, pop: 0.3, rise: 0.4, swish: 0.28 } as const;
+export type SfxName = keyof typeof SFX;
+
+/** One sound effect at a frame of the scene it sits in. */
+export const Sfx: React.FC<{ at: number; name: SfxName; volume?: number }> = ({ at, name, volume }) => (
+  <Sequence from={Math.max(0, Math.round(at))} durationInFrames={Math.round(2 * FPS)} layout="none">
+    <Audio src={staticFile(`sfx/${name}.wav`)} volume={volume ?? SFX[name]} />
+  </Sequence>
+);
+
+/**
+ * A thin line under the name that fills as the Reel goes, with a notch at every scene: the viewer sees how much is left.
+ * Every scene also arrives with a whoosh (owner 2026-10-23: more life in the videos), so every Reel has its sound of
+ * change without each layout placing one.
+ */
 export const Progress: React.FC<{ total: number; marks?: number[] }> = ({ total, marks = [] }) => {
   const frame = useCurrentFrame();
   const width = W - 2 * SIDE;
   return (
     <div style={{ position: "absolute", top: 176, left: SIDE, width, height: 6, borderRadius: 3, background: C.line, overflow: "hidden", direction: "ltr" }}>
+      {marks.map((m) => (
+        <Sfx key={`s${m}`} at={m - 6} name="whoosh" />
+      ))}
       <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: (width * Math.min(frame, total)) / total, background: C.acc, borderRadius: 3 }} />
       {marks.map((m) => (
         <span key={m} style={{ position: "absolute", top: 0, bottom: 0, right: (width * m) / total - 2, width: 4, background: C.bg }} />

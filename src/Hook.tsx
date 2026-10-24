@@ -10,7 +10,7 @@ import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { EMBLEM } from "./Cover";
 import { Emblem } from "./emblems";
-import { Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, VAZIR, clamped, ease, paint } from "./kit";
+import { Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, Sfx, VAZIR, clamped, ease, paint } from "./kit";
 import type { Base, HookView } from "./props";
 
 /** How long the hook stands alone; the Reel starts under it a little before it leaves. */
@@ -82,6 +82,9 @@ export function withHook<P extends Base>(Inner: React.FC<P>): React.FC<P> {
         <Sequence from={HOOK_FRAMES - OVERLAP}>
           <Inner {...inner} />
         </Sequence>
+        {/* the question lands with a hit, and leaves with a whoosh as the Reel comes in */}
+        <Sfx at={0} name="hit" />
+        <Sfx at={HOOK_FRAMES - OVERLAP - 4} name="whoosh" />
         <Sequence durationInFrames={HOOK_FRAMES + 8}>
           <HookCard format={p.format} hook={p.hook} />
         </Sequence>

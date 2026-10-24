@@ -21,10 +21,13 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import { HOOK_FRAMES } from "./Hook";
 import { C, H, OnStage, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
 import type { Base } from "./props";
+import { PaperGround } from "./ThenNow";
 
 /** The whole ground, full-bleed: the night ground of the scenes (Backdrop's), with the hook's tinted ground over it at first. */
-const Ground: React.FC<{ hooked: boolean }> = ({ hooked }) => {
+const Ground: React.FC<{ hooked: boolean; format?: string }> = ({ hooked, format }) => {
   const frame = useCurrentFrame();
+  // the one series on paper (ThenNow.tsx) has the paper as its ground
+  if (format === "thennow") return <PaperGround />;
   const { durationInFrames } = useVideoConfig();
   const drift = frame / durationInFrames;
   // the same moment the hook card leaves (Hook.tsx)
@@ -71,14 +74,14 @@ const EDGES: { box: React.CSSProperties; to: string }[] = [
  * without them (a mask over the whole stage made Chrome draw it all again
  * off-screen on every frame, and a Reel took three times as long).
  */
-const Edges: React.FC<{ hooked: boolean }> = ({ hooked }) => (
+const Edges: React.FC<{ hooked: boolean; format: string }> = ({ hooked, format }) => (
   <>
     {EDGES.map(({ box, to }) => {
       const mask = `linear-gradient(to ${to}, #000, transparent)`;
       return (
         <div key={to} style={{ position: "absolute", overflow: "hidden", ...box, WebkitMaskImage: mask, maskImage: mask }}>
           <div style={{ position: "absolute", left: -Number(box.left), top: -Number(box.top), width: W, height: H }}>
-            <Ground hooked={hooked} />
+            <Ground hooked={hooked} format={format} />
           </div>
         </div>
       );
@@ -93,7 +96,7 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
     paint(p.format);
     return (
       <AbsoluteFill>
-        <Ground hooked={Boolean(p.hook?.text)} />
+        <Ground hooked={Boolean(p.hook?.text)} format={p.format} />
         <div
           style={{
             position: "absolute",
@@ -111,7 +114,7 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
             <Inner {...p} />
           </OnStage.Provider>
         </div>
-        <Edges hooked={Boolean(p.hook?.text)} />
+        <Edges hooked={Boolean(p.hook?.text)} format={p.format} />
       </AbsoluteFill>
     );
   };

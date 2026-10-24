@@ -308,7 +308,51 @@ export type CardsProps = Base & {
   cards: CardView[];
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | CardsProps | StoryProps;
+/** How a value of the two new formats is written: the units of the site's series (lib/people.ts, data/region-series.json). */
+export type SeriesUnit = "people" | "births" | "years" | "percent" | "index" | "usd" | "usdbn" | "count" | "m3" | "tonnes" | "kg" | "kwh" | "tco2" | "per100" | "per100k" | "per1k_births" | "per100k_births" | "ugm3";
+
+/** «اون موقع، الان»: one of Iran's series from the World Bank, its first year against its latest, on paper. */
+export type ThenNowProps = Base & {
+  format: "thennow";
+  /** «اون موقع، الان · مردم» */
+  kicker: string;
+  /** «جمعیت ایران» */
+  label: string;
+  /** the opening question, «سال ۱۹۶۰ ایران چند نفر جمعیت داشت؟» */
+  question: string;
+  unit: SeriesUnit;
+  /** the two ends: the year in Persian digits, the value as the World Bank gives it, and as the site writes it */
+  from: { year: string; value: number; text: string };
+  to: { year: string; value: number; text: string };
+  /** every year's value between, oldest first, for the line */
+  line: number[];
+  /** what changed, in a few words: «۴٫۲ برابر», «۳۴ سال بیشتر» */
+  change: string;
+  /** what the series measures, the site's own sentence */
+  explain: string;
+  source: string;
+  foot: string;
+};
+
+/** «مسابقهٔ کشورها»: the nine states of the region year by year, as a race of bars. */
+export type RaceProps = Base & {
+  format: "race";
+  kicker: string;
+  /** «جمعیت» */
+  title: string;
+  question: string;
+  unit: SeriesUnit;
+  /** the years of the race, oldest first */
+  years: number[];
+  /** each state, its value in each of those years (null before the World Bank has one) */
+  rows: { name: string; home: boolean; values: (number | null)[] }[];
+  /** the end in one line: «ایران: ۱۹۶۰ سوم، امروز دوم» */
+  end: string;
+  source: string;
+  foot: string;
+};
+
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | CardsProps | StoryProps;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

@@ -138,7 +138,11 @@ export const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T0
 /** Where each scene of a Reel begins, from the lengths of the scenes (frames). */
 export const starts = (lengths: number[]) => lengths.map((_, i) => lengths.slice(0, i).reduce((a, b) => a + b, 0));
 
-/** How long a text must stay to be read once, calmly (frames): about three words a second, plus a breath. */
+/**
+ * How long a text must stay to be read once (frames): about three and a half words a second, plus a short breath.
+ * It was three words a second and almost a second of breath until 24 October 2026: viewers watched about ten
+ * seconds of Reels of thirty to fifty, so every text scene is now about a fifth shorter.
+ */
 export const readFrames = (text: string, floor = 60) =>
   Math.max(
     floor,
@@ -147,8 +151,8 @@ export const readFrames = (text: string, floor = 60) =>
         .trim()
         .split(/\s+/)
         .filter(Boolean).length *
-        0.34 +
-        0.9) *
+        0.28 +
+        0.7) *
         FPS,
     ),
   );

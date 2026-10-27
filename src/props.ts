@@ -19,6 +19,8 @@ export type Base = {
   music?: string;
   /** the first seconds (Hook.tsx); always sent, null for none, so a sample's hook never takes its place */
   hook: HookView | null;
+  /** the narrator's lines, set by the renderer (worker.mjs): a file in the public folder and the frame it starts on */
+  voice?: { file: string; from: number }[];
 };
 
 export type DilemmaProps = Base & {

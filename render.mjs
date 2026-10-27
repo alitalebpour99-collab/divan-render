@@ -5,11 +5,13 @@
 //   node render.mjs seat --bundle bundle-seat             from the bundle of one composition (node build.mjs seat)
 //   node render.mjs cover --props samples/seat.cover.json --still 0     the grid tile
 //   node render.mjs cards --props samples/cards.json --still all        every card of a carousel → out/cards-0000.png …
+//   node render.mjs thennow --voice lines.json            with a narrator: the lines as the site makes them (lib/social/voice.ts)
 import fs from "node:fs";
 import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
 import { score } from "./music.mjs";
+import { dropVoice, duckOf, placeVoice } from "./voice.mjs";
 
 const args = process.argv.slice(2);
 const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
@@ -39,11 +41,14 @@ if (stills) {
   const seconds = first.durationInFrames / first.fps;
   const music = `music-${name}.wav`;
   fs.mkdirSync(path.join(serveUrl, "public"), { recursive: true });
-  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds }));
-  const inputProps = { ...props, music };
+  const lines = flag("--voice") ? JSON.parse(fs.readFileSync(flag("--voice"), "utf8")) : [];
+  const voice = placeVoice(lines, path.join(serveUrl, "public"), name, first.durationInFrames, first.fps);
+  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(voice, first.fps) }));
+  const inputProps = { ...props, music, voice: voice.map(({ file, from }) => ({ file, from })) };
   const composition = await selectComposition({ serveUrl, id, inputProps });
   const outputLocation = `out/${name}.mp4`;
   await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3) });
+  dropVoice(path.join(serveUrl, "public"), name);
   console.log(finish(outputLocation, seconds));
   console.log("wrote", outputLocation, composition.durationInFrames, "frames,", seconds.toFixed(1), "s, in", Math.round((Date.now() - t0) / 1000), "s");
 }

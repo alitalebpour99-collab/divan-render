@@ -17,7 +17,7 @@
 // so no frame line shows. The Story and the grid tile keep their own layouts:
 // the Story is never cropped, and the tile is drawn inside the square.
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { HOOK_FRAMES } from "./Hook";
 import { C, H, OnStage, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
 import type { Base } from "./props";
@@ -115,6 +115,12 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
           </OnStage.Provider>
         </div>
         <Edges hooked={Boolean(p.hook?.text)} format={p.format} />
+        {/* the narrator, when the renderer placed one */}
+        {(p.voice ?? []).map((v) => (
+          <Sequence key={v.file} from={v.from} layout="none">
+            <Audio src={staticFile(v.file)} />
+          </Sequence>
+        ))}
       </AbsoluteFill>
     );
   };

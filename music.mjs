@@ -92,7 +92,7 @@ function room(channel, spread) {
   return allpass(allpass(wet, 556 + spread), 441 + spread);
 }
 
-export function score({ id, seconds }) {
+export function score({ id, seconds, duck = [] }) {
   const { root, bpm, pulse } = MOODS[id] ?? MOODS.dilemma;
   const total = Math.ceil(seconds * RATE);
   const L = new Float32Array(total);
@@ -168,7 +168,9 @@ export function score({ id, seconds }) {
   let peak = 0;
   for (let n = 0; n < total; n += 1) {
     const t = n / RATE;
-    const level = smooth(t / 0.7) * smooth((seconds - t) / 2.6);
+    // under a narrator's line the score goes down to a third, with a fifth of a second either side
+    const under = duck.reduce((m, [a, b]) => Math.max(m, Math.min(smooth((t - a + 0.2) / 0.2), smooth((b + 0.25 - t) / 0.25))), 0);
+    const level = smooth(t / 0.7) * smooth((seconds - t) / 2.6) * (1 - 0.68 * under);
     L[n] = (L[n] + 0.26 * wetL[n]) * level;
     R[n] = (R[n] + 0.26 * wetR[n]) * level;
     peak = Math.max(peak, Math.abs(L[n]), Math.abs(R[n]));

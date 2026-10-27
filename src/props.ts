@@ -221,7 +221,7 @@ export type DollarProps = Base & {
 /** «پروندهٔ هسته‌ای»: the declared facilities on the map, or the enriched uranium on the ladder. */
 export type NuclearProps = Base & {
   format: "nuclear";
-  view: "sites" | "stock";
+  view: "sites" | "stock" | "place";
   kicker: string;
   question: string;
   /** sites: one dot per place, with how many facilities stand there in each state */
@@ -232,6 +232,8 @@ export type NuclearProps = Base & {
   hitNames: string[];
   /** stock: the figures of the last estimate */
   stock: { totalText: string; heuText: string; heu: number; level: number; asOf: string; explain: string } | null;
+  /** place: one city and its facilities, each with what the agency reports of it (null for the other views; always sent) */
+  focus: { name: string; lon: number; lat: number; items: { name: string; status: "hit" | "whole" | "unknown"; label: string; note: string }[] } | null;
   /** one line each: the last inspection, the Board's last resolution */
   notes: string[];
   source: string;

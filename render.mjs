@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
+import { finish } from "./finish.mjs";
 import { score } from "./music.mjs";
 
 const args = process.argv.slice(2);
@@ -43,5 +44,6 @@ if (stills) {
   const composition = await selectComposition({ serveUrl, id, inputProps });
   const outputLocation = `out/${name}.mp4`;
   await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3) });
+  console.log(finish(outputLocation, seconds));
   console.log("wrote", outputLocation, composition.durationInFrames, "frames,", seconds.toFixed(1), "s, in", Math.round((Date.now() - t0) / 1000), "s");
 }

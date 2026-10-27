@@ -4,6 +4,9 @@
 //   ring split by what the agency reports of its facilities (damaged in June
 //   2025, not damaged, unknown); then the damaged ones by name.
 // - stock: the enriched uranium of the last estimate, and the levels it stands on.
+// - place: one city of the file (Natanz, Fordow …; owner 2026-10-27, after the
+//   nuclear Reels travelled furthest of all): the map with that city lit, then
+//   each of its facilities with what the agency reports of it.
 // Places are cities, as on the site, never the facilities' own coordinates.
 import React, { useMemo } from "react";
 import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
@@ -14,7 +17,12 @@ import type { NuclearProps } from "./props";
 function plan(p: NuclearProps) {
   const notes = Math.min(240, Math.max(150, Math.round(readFrames(p.notes.join(" ")) * 0.75)));
   const source = Math.min(180, Math.max(120, Math.round(readFrames(p.source) * 0.8)));
-  const lengths = p.view === "sites" ? [105, 60 + p.places.length * 18 + 60, Math.max(150, 60 + p.hitNames.length * 14), notes, source] : [110, 240, notes, source];
+  const lengths =
+    p.view === "sites"
+      ? [105, 60 + p.places.length * 18 + 60, Math.max(150, 60 + p.hitNames.length * 14), notes, source]
+      : p.view === "place"
+        ? [60, 120, Math.max(150, 70 + (p.focus?.items.length ?? 0) * ((p.focus?.items.length ?? 0) > 4 ? 36 : 70)), notes, source]
+        : [110, 240, notes, source];
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
 export const nuclearDuration = (p: NuclearProps) => plan(p).total;
@@ -199,6 +207,75 @@ const Sites: React.FC<NuclearProps & { at: number[] }> = (p) => {
   );
 };
 
+/** One city of the file: the map with every place faint and this one lit, then its facilities, each with the agency's word. */
+const PlaceView: React.FC<NuclearProps & { at: number[] }> = (p) => {
+  const frame = useCurrentFrame();
+  const [, aMap, aList, aNotes] = p.at;
+  const map = useMemo(() => makeMap(EXTENTS.iran, MAP_BOX), []);
+  const f = p.focus;
+  if (!f) return null;
+  const [x, y] = map.at(f.lon, f.lat);
+  const draw = interpolate(frame, [aMap, aMap + 36], [0, 1], { ...clamped, easing: ease });
+  const hit = f.items.some((i) => i.status === "hit");
+  const colour = hit ? C.strike : f.items.some((i) => i.status === "unknown") ? C.claim : C.ink2;
+  const pulse = frame > aMap + 30 ? ((frame - aMap - 30) % 40) / 40 : 0;
+  const tone = { hit: C.strike, whole: C.ink2, unknown: C.claim } as const;
+  return (
+    <>
+      {frame >= aMap - 2 && frame < aList + 24 ? (
+        <div style={{ position: "absolute", inset: 0, opacity: Math.min(fade(frame, aMap, 12), leave(frame, aList + 12, 12)) }}>
+          <svg width={W} height={1920} style={{ position: "absolute", inset: 0 }}>
+            <defs>
+              <clipPath id="nuclear-place-box">
+                <rect x={MAP_BOX.x0} y={MAP_BOX.y0} width={MAP_BOX.x1 - MAP_BOX.x0} height={MAP_BOX.y1 - MAP_BOX.y0} rx={36} />
+              </clipPath>
+            </defs>
+            <g clipPath="url(#nuclear-place-box)">
+              <path d={map.land} fill={C.land} opacity={0.75} />
+              <path d={map.borders} fill="none" stroke={C.mapLine} strokeWidth={1.2} />
+            </g>
+            <path d={map.iran} fill={C.iran} fillOpacity={draw} stroke={C.acc} strokeWidth={3} pathLength={1} strokeDasharray={1} strokeDashoffset={1 - draw} />
+            {/* every other place of the file, faint */}
+            {p.places.map((q) => {
+              const [qx, qy] = map.at(q.lon, q.lat);
+              return q.name === f.name ? null : <circle key={q.name} cx={qx} cy={qy} r={10} fill={C.ink3} opacity={0.45 * draw} />;
+            })}
+            {/* this one, lit */}
+            <g transform={`translate(${x} ${y}) scale(${pop(frame, aMap + 24, 20)})`}>
+              <circle r={34 + 46 * pulse} fill="none" stroke={colour} strokeWidth={4} opacity={0.7 * (1 - pulse)} />
+              <circle r={30} fill={C.bg} fillOpacity={0.8} stroke={colour} strokeWidth={8} />
+              <text y={10} textAnchor="middle" fill={C.ink} style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 28 }}>
+                {faNum(f.items.length)}
+              </text>
+            </g>
+          </svg>
+          <div style={{ position: "absolute", top: Math.max(MAP_BOX.y0 + 20, y - 110), left: 0, right: 0, textAlign: "center", fontFamily: VAZIR, fontWeight: 800, fontSize: 52, color: C.ink, opacity: fade(frame, aMap + 34, 12), textShadow: "0 3px 14px rgba(0,0,0,.85)" }}>
+            {f.name}
+          </div>
+        </div>
+      ) : null}
+
+      {/* its facilities, one by one */}
+      {frame >= aList - 2 && frame < aNotes + 20 ? (
+        <div style={{ position: "absolute", top: 520, right: SIDE_RAIL, left: SIDE, opacity: Math.min(fade(frame, aList + 6, 12), leave(frame, aNotes + 12, 12)) }}>
+          <Kicker size={40}>{`تأسیسات ${f.name}`}</Kicker>
+          <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: f.items.length > 6 ? 10 : 18 }}>
+            {f.items.map((it, i) => (
+              <Panel key={i} style={{ ...(f.items.length > 6 ? { padding: "12px 24px", borderRadius: 20 } : {}), opacity: fade(frame, aList + 18 + i * 22, 10), transform: `translateY(${rise(frame, aList + 18 + i * 22, 24, 12)}px)` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18 }}>
+                  <span style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: f.items.length > 5 ? 32 : 38, color: C.ink, lineHeight: 1.4 }}>{it.name}</span>
+                  <span style={{ flex: "none", padding: "6px 18px", borderRadius: 22, border: `2px solid ${tone[it.status]}`, color: tone[it.status], fontFamily: VAZIR, fontWeight: 800, fontSize: 26, whiteSpace: "nowrap" }}>{it.label}</span>
+                </div>
+                {it.note && f.items.length <= 4 ? <div style={{ marginTop: 10, fontFamily: VAZIR, fontSize: 27, lineHeight: 1.6, color: C.ink3 }}>{it.note}</div> : null}
+              </Panel>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+};
+
 const Stock: React.FC<NuclearProps & { at: number[] }> = (p) => {
   const frame = useCurrentFrame();
   const [, aLadder, aNotes] = p.at;
@@ -270,7 +347,7 @@ export const Nuclear: React.FC<NuclearProps> = (p) => {
         <Kicker size={36}>{p.kicker}</Kicker>
         <Words text={p.question} from={6} step={3} style={{ marginTop: 10, fontFamily: NASKH, fontWeight: 700, fontSize: interpolate(grow(frame, at[1], 20), [0, 1], [72, 50]), lineHeight: 1.4, color: C.ink }} />
       </div>
-      {p.view === "sites" ? <Sites {...p} at={at} /> : <Stock {...p} at={at} />}
+      {p.view === "sites" ? <Sites {...p} at={at} /> : p.view === "place" ? <PlaceView {...p} at={at} /> : <Stock {...p} at={at} />}
 
       {/* what the agency says now */}
       {frame >= aNotes - 2 && frame < aSource + 20 ? (
@@ -287,7 +364,7 @@ export const Nuclear: React.FC<NuclearProps> = (p) => {
         <div style={{ position: "absolute", top: 640, right: SIDE_RAIL, left: SIDE, opacity: fade(frame, aSource + 14, 14) }}>
           <Kicker size={34} color={C.ink3}>این‌ها از کجاست؟</Kicker>
           <div style={{ marginTop: 22, fontFamily: VAZIR, fontSize: 32, lineHeight: 1.75, color: C.ink2 }}>{p.source}</div>
-          {p.view === "sites" ? <div style={{ marginTop: 18, fontFamily: VAZIR, fontSize: 27, lineHeight: 1.7, color: C.ink3 }}>جای هر تأسیسات در حد شهر است، نه محل خود آن.</div> : null}
+          {p.view !== "stock" ? <div style={{ marginTop: 18, fontFamily: VAZIR, fontSize: 27, lineHeight: 1.7, color: C.ink3 }}>جای هر تأسیسات در حد شهر است، نه محل خود آن.</div> : null}
         </div>
       ) : null}
       <Foot opacity={fade(frame, aSource + 24, 14)}>{p.foot}</Foot>

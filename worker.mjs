@@ -27,6 +27,7 @@ import os from "node:os";
 import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { makeCancelSignal, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
+import { finish } from "./finish.mjs";
 import { score } from "./music.mjs";
 
 const SITE = (process.env.DIVAN_URL ?? "https://divan.ahura.cloud").replace(/\/+$/, "");
@@ -182,6 +183,7 @@ async function render(job) {
     const inputProps = { ...job.props, music };
     const composition = await selectComposition({ serveUrl: serve, id: job.format, inputProps, chromiumOptions, timeoutInMilliseconds });
     await renderMedia({ composition, serveUrl: serve, codec: "h264", crf: 20, pixelFormat: "yuv420p", audioCodec: "aac", audioBitrate: "160k", inputProps, outputLocation: video, concurrency: CONCURRENCY, chromiumOptions, cancelSignal, timeoutInMilliseconds });
+    console.log(`Reel ${job.id}: ${finish(video, seconds)}`);
     for (const [kind, file, type] of [
       ["video", video, "video/mp4"],
       ["cover", cover, "image/jpeg"],

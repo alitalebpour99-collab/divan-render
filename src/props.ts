@@ -20,8 +20,6 @@ export type Base = {
   music?: string;
   /** the first seconds (Hook.tsx); always sent, null for none, so a sample's hook never takes its place */
   hook: HookView | null;
-  /** where this Reel stands in its series, and the next one's name (formats.ts, numbered) */
-  part?: { n: number; of: number; next: string | null };
   /** the narrator's lines as the renderer hands them in (worker.mjs): a file in the public folder, its moment, its length in frames */
   voiceIn?: VoiceIn[];
   /** set by the composition's metadata (voice.ts), not by the site: each line placed, the holds, how long the hook stays */
@@ -363,7 +361,47 @@ export type RaceProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | CardsProps | StoryProps;
+/** One row of «دههٔ تو»: an indicator in the year a generation was born, and its latest value. */
+export type DecadeRow = {
+  /** the World Bank's code, «SP.POP.TOTL» (the narrator says each row in its own words) */
+  code: string;
+  /** the site's name of the series, «جمعیت» */
+  label: string;
+  unit: SeriesUnit;
+  /** the value in the year of birth, as the World Bank gives it and as the site writes it */
+  then: { value: number; text: string };
+  /** the latest value, and its year in the solar calendar in Persian digits («۱۴۰۴») */
+  now: { value: number; text: string; year: string };
+  /** what changed, in a few words: «۱٫۸ برابر», «۱۵٫۷ سال بیشتر» */
+  change: string;
+};
+
+/** «دههٔ تو»: the Iran a generation was born into, against today; the old half sepia, the new half the night. */
+export type DecadeProps = Base & {
+  format: "decade";
+  /** «دههٔ تو» */
+  kicker: string;
+  /** the generation as Iranians name it, «دهه‌شصتی‌ها» */
+  name: string;
+  /** «وقتی به دنیا آمدید، ایران چه شکلی بود؟» */
+  question: string;
+  /** the year read, in the solar calendar and the Gregorian one, Persian digits: «۱۳۶۵», «۱۹۸۶» */
+  year: string;
+  gregorian: string;
+  /** «میانهٔ دههٔ شصت» */
+  note: string;
+  /** the other column: «امروز», and a line on what it is */
+  today: string;
+  todayNote: string;
+  /** three or four rows: only indicators with a value in that very year */
+  rows: DecadeRow[];
+  /** «برای یک دهه‌شصتی بفرست» */
+  send: string;
+  source: string;
+  foot: string;
+};
+
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

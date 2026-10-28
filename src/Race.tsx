@@ -7,7 +7,7 @@
 // formats look too much alike).
 import React from "react";
 import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
-import { Backdrop, C, NASKH, SIDE, Sfx, VAZIR, W, Words, clamped, fade, faNum, leave, paint, pop, rise, useCurrentFrame, PartLine } from "./kit";
+import { Backdrop, C, NASKH, SIDE, Sfx, VAZIR, W, Words, clamped, fade, faNum, leave, paint, pop, rise, useCurrentFrame } from "./kit";
 import type { RaceProps } from "./props";
 import { scenes, type Cues } from "./voice";
 import { shortText } from "./values";
@@ -88,10 +88,7 @@ export const Race: React.FC<RaceProps> = (p) => {
       {/* the name and the kind of Reel */}
       <div style={{ position: "absolute", top: 60, right: SIDE, left: SIDE, display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
         <span style={{ fontFamily: NASKH, fontWeight: 700, fontSize: 52, color: C.ink }}>دیوان</span>
-        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-          <span style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 30, color: C.acc }}>{p.kicker}</span>
-          <PartLine />
-        </span>
+        <span style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 30, color: C.acc }}>{p.kicker}</span>
       </div>
       <div style={{ position: "absolute", top: 140, right: SIDE, left: SIDE, fontFamily: NASKH, fontWeight: 700, fontSize: 64, color: C.ink, opacity: fade(frame, RACE - 6, 10) }}>{p.title}</div>
 

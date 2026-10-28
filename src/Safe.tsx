@@ -19,15 +19,19 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { HOOK_FRAMES } from "./Hook";
-import { C, H, OnStage, PartCtx, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
+import { C, H, OnStage, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
 import type { Base } from "./props";
 import { PaperGround } from "./ThenNow";
+import { DecadeGround } from "./Decade";
+import type { DecadeProps } from "./props";
 
 /** The whole ground, full-bleed: the night ground of the scenes (Backdrop's), with the hook's tinted ground over it at first. */
-const Ground: React.FC<{ hooked: boolean; format?: string; hookLen: number }> = ({ hooked, format, hookLen }) => {
+const Ground: React.FC<{ hooked: boolean; format?: string; hookLen: number; reel?: Base }> = ({ hooked, format, hookLen, reel }) => {
   const frame = useCurrentFrame();
   // the one series on paper (ThenNow.tsx) has the paper as its ground
   if (format === "thennow") return <PaperGround />;
+  // «دههٔ تو» is split: the old photo and the night, with the seam where the layout is (Decade.tsx)
+  if (format === "decade" && reel) return <DecadeGround reel={reel as DecadeProps} />;
   const { durationInFrames } = useVideoConfig();
   const drift = frame / durationInFrames;
   // the same moment the hook card leaves (Hook.tsx)
@@ -74,14 +78,14 @@ const EDGES: { box: React.CSSProperties; to: string }[] = [
  * without them (a mask over the whole stage made Chrome draw it all again
  * off-screen on every frame, and a Reel took three times as long).
  */
-const Edges: React.FC<{ hooked: boolean; format: string; hookLen: number }> = ({ hooked, format, hookLen }) => (
+const Edges: React.FC<{ hooked: boolean; format: string; hookLen: number; reel?: Base }> = ({ hooked, format, hookLen, reel }) => (
   <>
     {EDGES.map(({ box, to }) => {
       const mask = `linear-gradient(to ${to}, #000, transparent)`;
       return (
         <div key={to} style={{ position: "absolute", overflow: "hidden", ...box, WebkitMaskImage: mask, maskImage: mask }}>
           <div style={{ position: "absolute", left: -Number(box.left), top: -Number(box.top), width: W, height: H }}>
-            <Ground hooked={hooked} format={format} hookLen={hookLen} />
+            <Ground hooked={hooked} format={format} hookLen={hookLen} reel={reel} />
           </div>
         </div>
       );
@@ -94,13 +98,9 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
   const Staged: React.FC<P> = (p) => {
     // the ground is drawn before the Reel paints itself: it takes the series' colour here
     paint(p.format);
-    // the last two and a half seconds name the next episode
-    const frame = useCurrentFrame();
-    const { durationInFrames } = useVideoConfig();
-    const part = p.part ? { ...p.part, ending: frame >= durationInFrames - 75 } : null;
     return (
       <AbsoluteFill>
-        <Ground hooked={Boolean(p.hook?.text)} format={p.format} hookLen={p.hookLen ?? HOOK_FRAMES} />
+        <Ground hooked={Boolean(p.hook?.text)} format={p.format} hookLen={p.hookLen ?? HOOK_FRAMES} reel={p} />
         <div
           style={{
             position: "absolute",
@@ -115,12 +115,10 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
           }}
         >
           <OnStage.Provider value={true}>
-            <PartCtx.Provider value={part}>
-              <Inner {...p} />
-            </PartCtx.Provider>
+            <Inner {...p} />
           </OnStage.Provider>
         </div>
-        <Edges hooked={Boolean(p.hook?.text)} format={p.format} hookLen={p.hookLen ?? HOOK_FRAMES} />
+        <Edges hooked={Boolean(p.hook?.text)} format={p.format} hookLen={p.hookLen ?? HOOK_FRAMES} reel={p} />
         {/* the narrator, when the renderer placed one */}
         {(p.voice ?? []).map((v) => (
           <Sequence key={v.file} from={v.from} layout="none">

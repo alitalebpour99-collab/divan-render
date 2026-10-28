@@ -109,6 +109,15 @@ const SHAPES: Record<string, React.ReactNode> = {
       <path d="M5 9.4l4.2-4.2 3 2.6 5.8-4.4" />
     </>
   ),
+  // «دههٔ تو»: an old instant photo, a sun over a hill inside its wide white edge
+  photo: (
+    <>
+      <rect x="4.5" y="3" width="15" height="18" rx="1" />
+      <rect x="6.6" y="5.1" width="10.8" height="10.6" />
+      <circle cx="14.6" cy="8" r="1.3" />
+      <path d="M6.6 14.2l3.3-3.4 2.6 2.5 1.7-1.5 3.2 2.6" />
+    </>
+  ),
   brain: (
     <>
       <circle cx="12" cy="12" r="2.3" />

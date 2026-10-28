@@ -10,7 +10,7 @@ import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { EMBLEM } from "./Cover";
 import { Emblem } from "./emblems";
-import { Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, Sfx, VAZIR, Waits, clamped, ease, paint } from "./kit";
+import { Alive, Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, Sfx, VAZIR, Waits, clamped, ease, paint } from "./kit";
 import type { Base, HookView } from "./props";
 
 /** How long the hook stands alone; the Reel starts under it a little before it leaves. */
@@ -79,7 +79,9 @@ export function withHook<P extends Base>(Inner: React.FC<P>): React.FC<P> {
     if (!p.hook?.text)
       return (
         <Waits holds={p.holds}>
-          <Inner {...p} />
+          <Alive holds={p.holds}>
+            <Inner {...p} />
+          </Alive>
         </Waits>
       );
     const inner = { ...p, music: undefined } as P;
@@ -89,7 +91,9 @@ export function withHook<P extends Base>(Inner: React.FC<P>): React.FC<P> {
         {p.music ? <Audio src={staticFile(p.music)} /> : null}
         <Sequence from={len - OVERLAP}>
           <Waits holds={p.holds}>
-            <Inner {...inner} />
+            <Alive holds={p.holds}>
+              <Inner {...inner} />
+            </Alive>
           </Waits>
         </Sequence>
         {/* the question lands with a hit, and leaves with a whoosh as the Reel comes in */}

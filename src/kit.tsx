@@ -284,6 +284,25 @@ export const layoutFrame = (film: number, holds: Hold[]) => {
   }
   return t;
 };
+/**
+ * While the layout waits for the narrator the picture does not stand still: it
+ * moves slowly closer, about half a percent a second, and eases back as the
+ * layout goes on. A picture that stood still for seconds looked like a fault
+ * (owner 2026-10-28: «خیلی باگ داره»; 17 of 30 seconds stood still in Reel 77).
+ */
+export const Alive: React.FC<{ holds?: Hold[] | null; children: React.ReactNode }> = ({ holds, children }) => {
+  const film = useFilmFrame();
+  let push = 0;
+  let before = 0;
+  for (const h of holds ?? []) {
+    const start = h.at + before;
+    const most = Math.min(0.045, (h.len / FPS) * 0.0055);
+    if (film >= start && film < start + h.len) push = Math.max(push, most * interpolate(film, [start, start + h.len], [0, 1], { ...clamped, easing: ease }));
+    else if (film >= start + h.len) push = Math.max(push, most * interpolate(film, [start + h.len, start + h.len + 20], [1, 0], { ...clamped, easing: ease }));
+    before += h.len;
+  }
+  return <AbsoluteFill style={{ transform: `scale(${1 + push})`, transformOrigin: "50% 42%" }}>{children}</AbsoluteFill>;
+};
 /** A frame of the layout as a frame of the film. */
 export const filmFrame = (frame: number, holds: Hold[]) => frame + holds.filter((h) => h.at <= frame).reduce((s, h) => s + h.len, 0);
 /**

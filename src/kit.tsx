@@ -1,10 +1,11 @@
 // What every Divan Reel shares: the site's night palette and type, Instagram's
 // safe zones, the seal, the brand line, the closing line and the motion pieces.
 import React from "react";
-import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame as useFilmFrame } from "remotion";
 import { loadFont as loadVazir } from "@remotion/google-fonts/Vazirmatn";
 import { loadFont as loadNaskh } from "@remotion/google-fonts/NotoNaskhArabic";
 import { CHROMA, HUES } from "./hues";
+import type { Hold } from "./voice";
 
 export const { fontFamily: VAZIR } = loadVazir("normal", { weights: ["400", "500", "700", "800"], subsets: ["arabic", "latin"] });
 export const { fontFamily: NASKH } = loadNaskh("normal", { weights: ["500", "700"], subsets: ["arabic"] });
@@ -269,17 +270,47 @@ export const Count: React.FC<{ to: number; from: number; length?: number; decima
   return <>{faNum(to * grow(frame, from, length), decimals)}</>;
 };
 
+// ---------- the picture waits for the narrator ----------
+const Holds = React.createContext<Hold[]>([]);
+/** Gives a layout its holds; outside one (the hook, the stage, a Story) the clock runs as the film does. */
+export const Waits: React.FC<{ holds?: Hold[] | null; children: React.ReactNode }> = ({ holds, children }) => <Holds.Provider value={holds ?? []}>{children}</Holds.Provider>;
+/** A frame of the film as the layout's own frame: during a hold it stays on the frame before it. */
+export const layoutFrame = (film: number, holds: Hold[]) => {
+  let t = film;
+  for (const h of holds) {
+    if (t < h.at) return t;
+    if (t < h.at + h.len) return Math.max(0, h.at - 1);
+    t -= h.len;
+  }
+  return t;
+};
+/** A frame of the layout as a frame of the film. */
+export const filmFrame = (frame: number, holds: Hold[]) => frame + holds.filter((h) => h.at <= frame).reduce((s, h) => s + h.len, 0);
+/**
+ * The frame every layout draws from. It is Remotion's own frame, except that it
+ * stands still while the layout waits for the narrator; with no holds it is the same.
+ */
+export function useCurrentFrame() {
+  const film = useFilmFrame();
+  const holds = React.useContext(Holds);
+  return holds.length ? layoutFrame(film, holds) : film;
+}
+
 // ---------- sound ----------
 /** The sound effects in public/sfx/ (made by sfx.mjs), each with the loudness it plays at under the score. */
 export const SFX = { whoosh: 0.32, hit: 0.55, tick: 0.22, pop: 0.3, rise: 0.4, swish: 0.28 } as const;
 export type SfxName = keyof typeof SFX;
 
 /** One sound effect at a frame of the scene it sits in. */
-export const Sfx: React.FC<{ at: number; name: SfxName; volume?: number }> = ({ at, name, volume }) => (
-  <Sequence from={Math.max(0, Math.round(at))} durationInFrames={Math.round(2 * FPS)} layout="none">
-    <Audio src={staticFile(`sfx/${name}.wav`)} volume={volume ?? SFX[name]} />
-  </Sequence>
-);
+export const Sfx: React.FC<{ at: number; name: SfxName; volume?: number }> = ({ at, name, volume }) => {
+  // a frame of the layout: when the picture waits before it, the sound waits too
+  const holds = React.useContext(Holds);
+  return (
+    <Sequence from={Math.max(0, Math.round(filmFrame(at, holds)))} durationInFrames={Math.round(2 * FPS)} layout="none">
+      <Audio src={staticFile(`sfx/${name}.wav`)} volume={volume ?? SFX[name]} />
+    </Sequence>
+  );
+};
 
 /**
  * A thin line under the name that fills as the Reel goes, with a notch at every scene: the viewer sees how much is left.

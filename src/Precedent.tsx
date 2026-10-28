@@ -3,9 +3,10 @@
 // line leads down to what followed. Every word comes from the props the site
 // sends, and nothing is compared with today: that is the site's own rule for these cards.
 import React from "react";
-import { AbsoluteFill, Audio, Easing, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { Backdrop, Brand, C, Foot, Kicker, NASKH, Net, Panel, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, faDigits, fade, grow, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { AbsoluteFill, Audio, Easing, interpolate, staticFile } from "remotion";
+import { Backdrop, Brand, C, Foot, Kicker, NASKH, Net, Panel, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, faDigits, fade, grow, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { PrecedentProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 // where the roll starts: the Solar Hijri year for a year below 1500, the Gregorian one otherwise
 const NOW_SH = 1405;
@@ -92,6 +93,11 @@ function plan(p: PrecedentProps) {
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
 export const precedentDuration = (p: PrecedentProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const precedentCues = (p: PrecedentProps): Cues => {
+  const { at } = plan(p);
+  return { ...scenes(at), decision: at[1], aftermath: at[2] };
+};
 
 /** A line in Naskh with its digits in Vazirmatn: Naskh sets digits too far apart. */
 const Mixed: React.FC<{ text: string; weight?: number }> = ({ text, weight = 700 }) => (

@@ -2,11 +2,11 @@
 // and Qajar states, one after another, over today's border. The outlines and the
 // areas are that dataset's reading (data/map/eras.json); nothing here redraws them.
 import React, { useMemo } from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
 import erasJson from "./data/eras.json";
 import type { BordersProps } from "./props";
 import { EXTENTS, makeMap } from "./geo";
-import { Backdrop, Brand, C, FPS, Foot, NASKH, SIDE, SIDE_RAIL, VAZIR, W, clamped, during, ease, faDigits, faNum, fade, grow, leave, paint, rise } from "./kit";
+import { Backdrop, Brand, C, FPS, Foot, NASKH, SIDE, SIDE_RAIL, VAZIR, W, clamped, during, ease, faDigits, faNum, fade, grow, leave, paint, rise, useCurrentFrame } from "./kit";
 
 type EraKey = "1700" | "1813" | "1828";
 type Row = { Name: string; FromYear: number; ToYear: number; Area: number };

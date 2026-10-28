@@ -9,10 +9,11 @@
 //   each of its facilities with what the agency reports of it.
 // Places are cities, as on the site, never the facilities' own coordinates.
 import React, { useMemo } from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
 import { EXTENTS, makeMap } from "./geo";
-import { Backdrop, Brand, C, Foot, Kicker, NASKH, Panel, Progress, SIDE, SIDE_RAIL, VAZIR, W, Words, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { Backdrop, Brand, C, Foot, Kicker, NASKH, Panel, Progress, SIDE, SIDE_RAIL, VAZIR, W, Words, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { NuclearProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 function plan(p: NuclearProps) {
   const notes = Math.min(240, Math.max(150, Math.round(readFrames(p.notes.join(" ")) * 0.75)));
@@ -26,6 +27,12 @@ function plan(p: NuclearProps) {
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
 export const nuclearDuration = (p: NuclearProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const nuclearCues = (p: NuclearProps): Cues => {
+  const { at } = plan(p);
+  // the agency's notes have their own scene, the one before the sources
+  return { ...scenes(at), notes: at[at.length - 2], ...(p.view === "sites" ? { hits: at[2] } : p.view === "place" ? { list: at[2] } : { stock: at[1] }) };
+};
 
 const MAP_BOX = { x0: 40, y0: 470, x1: W - 40, y1: 1300 };
 

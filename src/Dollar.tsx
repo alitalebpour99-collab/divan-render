@@ -6,9 +6,10 @@
 // dollar became; then the sources. Every figure comes from the props the site
 // sends (lib/economy.ts, usdChart).
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { Backdrop, Brand, C, Foot, Kicker, NASKH, Progress, SIDE, SIDE_RAIL, VAZIR, W, Words, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
+import { Backdrop, Brand, C, Foot, Kicker, NASKH, Progress, SIDE, SIDE_RAIL, VAZIR, W, Words, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { DollarProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 const HOOK = 105;
 const DRAW = 300;
@@ -20,6 +21,8 @@ function plan(p: DollarProps) {
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
 export const dollarDuration = (p: DollarProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const dollarCues = (p: DollarProps): Cues => ({ ...scenes(plan(p).at), result: plan(p).at[2] });
 
 // the plot: above Instagram's buttons, which sit low on the right
 const PLOT = { x0: 76, x1: 900, y0: 610, y1: 1110 };

@@ -24,14 +24,14 @@ import type { Base } from "./props";
 import { PaperGround } from "./ThenNow";
 
 /** The whole ground, full-bleed: the night ground of the scenes (Backdrop's), with the hook's tinted ground over it at first. */
-const Ground: React.FC<{ hooked: boolean; format?: string }> = ({ hooked, format }) => {
+const Ground: React.FC<{ hooked: boolean; format?: string; hookLen: number }> = ({ hooked, format, hookLen }) => {
   const frame = useCurrentFrame();
   // the one series on paper (ThenNow.tsx) has the paper as its ground
   if (format === "thennow") return <PaperGround />;
   const { durationInFrames } = useVideoConfig();
   const drift = frame / durationInFrames;
   // the same moment the hook card leaves (Hook.tsx)
-  const out = hooked ? interpolate(frame, [HOOK_FRAMES - 10, HOOK_FRAMES + 6], [0, 1], { ...clamped, easing: ease }) : 1;
+  const out = hooked ? interpolate(frame, [hookLen - 10, hookLen + 6], [0, 1], { ...clamped, easing: ease }) : 1;
   return (
     <AbsoluteFill style={{ background: C.bg }}>
       <AbsoluteFill style={{ background: `radial-gradient(1100px 900px at 50% 40%, ${C.glow}, transparent 70%)` }} />
@@ -74,14 +74,14 @@ const EDGES: { box: React.CSSProperties; to: string }[] = [
  * without them (a mask over the whole stage made Chrome draw it all again
  * off-screen on every frame, and a Reel took three times as long).
  */
-const Edges: React.FC<{ hooked: boolean; format: string }> = ({ hooked, format }) => (
+const Edges: React.FC<{ hooked: boolean; format: string; hookLen: number }> = ({ hooked, format, hookLen }) => (
   <>
     {EDGES.map(({ box, to }) => {
       const mask = `linear-gradient(to ${to}, #000, transparent)`;
       return (
         <div key={to} style={{ position: "absolute", overflow: "hidden", ...box, WebkitMaskImage: mask, maskImage: mask }}>
           <div style={{ position: "absolute", left: -Number(box.left), top: -Number(box.top), width: W, height: H }}>
-            <Ground hooked={hooked} format={format} />
+            <Ground hooked={hooked} format={format} hookLen={hookLen} />
           </div>
         </div>
       );
@@ -96,7 +96,7 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
     paint(p.format);
     return (
       <AbsoluteFill>
-        <Ground hooked={Boolean(p.hook?.text)} format={p.format} />
+        <Ground hooked={Boolean(p.hook?.text)} format={p.format} hookLen={p.hookLen ?? HOOK_FRAMES} />
         <div
           style={{
             position: "absolute",
@@ -114,7 +114,7 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
             <Inner {...p} />
           </OnStage.Provider>
         </div>
-        <Edges hooked={Boolean(p.hook?.text)} format={p.format} />
+        <Edges hooked={Boolean(p.hook?.text)} format={p.format} hookLen={p.hookLen ?? HOOK_FRAMES} />
         {/* the narrator, when the renderer placed one */}
         {(p.voice ?? []).map((v) => (
           <Sequence key={v.file} from={v.from} layout="none">

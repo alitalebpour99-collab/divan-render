@@ -6,9 +6,10 @@
 // things Instagram weighs for a page that is new. Every word and figure comes
 // from the props the site sends.
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { Backdrop, Brand, C, FPS, Foot, Kicker, NASKH, Net, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
+import { Backdrop, Brand, C, FPS, Foot, Kicker, NASKH, Net, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { QuizProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 // the question stands alone, then three seconds of count, then the answer
 const ASK = 45;
@@ -22,6 +23,8 @@ function plan(p: QuizProps) {
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
 export const quizDuration = (p: QuizProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const quizCues = (p: QuizProps): Cues => ({ ...scenes(plan(p).at), reveal: plan(p).at[1], ranking: plan(p).at[2] });
 
 const OPTIONS_TOP = 780;
 const CHIP_H = 176;

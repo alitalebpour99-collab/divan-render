@@ -3,11 +3,12 @@
 // three goals and what would turn it around. All of it is the model's reading and
 // marked as such on every scene after the first; every word comes from the props.
 import React from "react";
-import { AbsoluteFill, Audio, Easing, continueRender, delayRender, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Easing, continueRender, delayRender, interpolate, staticFile } from "remotion";
 import { getInfo as vazirInfo } from "@remotion/google-fonts/Vazirmatn";
 import { DrawnEmblem } from "./emblems";
-import { AiChip, Backdrop, Brand, C, FPS, Foot, GoalCard, H, Kicker, NASKH, Net, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, VAZIR, W, Words, clamped, during, ease, faDigits, fade, grow, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { AiChip, Backdrop, Brand, C, FPS, Foot, GoalCard, H, Kicker, NASKH, Net, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, VAZIR, W, Words, clamped, during, ease, faDigits, fade, grow, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { SeatProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 // Every digit is set in Vazirmatn, also inside a Naskh sentence: a face of Vazirmatn that
 // holds nothing but the digits stands before Naskh in the font list of those sentences.
@@ -87,6 +88,8 @@ function plan(p: SeatProps) {
   return { lengths, at: starts(lengths), total: sum(lengths), pace, sealed, shown, stepAt, sweep, turn };
 }
 export const seatDuration = (p: SeatProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const seatCues = (p: SeatProps): Cues => ({ ...scenes(plan(p).at), decision: plan(p).at[2] });
 
 // a long text is set smaller, so the longest episode stays inside its box and clear of the block under it
 const officeSize = (t: string) => (t.length > 18 ? 100 : t.length > 11 ? 112 : t.length > 6 ? 150 : 190);

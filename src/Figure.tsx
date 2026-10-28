@@ -3,9 +3,10 @@
 // a hundred), and around any other figure a slow ring of light turns; then what
 // it means, in the site's own sentence; then its date and its source.
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { Backdrop, Brand, C, FPS, Foot, Kicker, NASKH, Net, Progress, SIDE, SIDE_RAIL, VAZIR, W, Words, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
+import { Backdrop, Brand, C, FPS, Foot, Kicker, NASKH, Net, Progress, SIDE, SIDE_RAIL, VAZIR, W, Words, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { FigureProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 const HOOK = 150;
 
@@ -16,6 +17,8 @@ function plan(p: FigureProps) {
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
 export const figureDuration = (p: FigureProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const figureCues = (p: FigureProps): Cues => ({ ...scenes(plan(p).at), explain: plan(p).at[1] });
 
 const CX = W / 2;
 const CY = 930;

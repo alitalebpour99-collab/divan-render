@@ -3,11 +3,12 @@
 // each drawn by what came of it, and the last bead is where it stands now.
 // Every word and every count comes from the props the site sends.
 import React from "react";
-import { AbsoluteFill, Audio, continueRender, delayRender, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, continueRender, delayRender, interpolate, staticFile } from "remotion";
 import { loadFont as loadVazir } from "@remotion/google-fonts/Vazirmatn";
 import { loadFont as loadNaskh } from "@remotion/google-fonts/NotoNaskhArabic";
-import { Backdrop, Brand, C, Count, Foot, H, Kicker, NASKH, Panel, Progress, SIDE, SIDE_RAIL, VAZIR, W, clamped, during, ease, faDigits, fade, grow, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { Backdrop, Brand, C, Count, Foot, H, Kicker, NASKH, Panel, Progress, SIDE, SIDE_RAIL, VAZIR, W, clamped, during, ease, faDigits, fade, grow, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { TalkResult, TalksProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 const KNOT_AT = 14; // frames into the periods before the first knot
 const BEAD_AT = 24; // frames into the last two years before the first bead
@@ -135,6 +136,11 @@ function plan(p: TalksProps) {
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0), knotStep, beadStep, knotsIn, beadsIn, kinds };
 }
 export const talksDuration = (p: TalksProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const talksCues = (p: TalksProps): Cues => {
+  const { at } = plan(p);
+  return { ...scenes(at), last: at[3] };
+};
 
 const body: React.CSSProperties = { position: "absolute", right: SIDE, left: SIDE, direction: "rtl" };
 const heading: React.CSSProperties = { ...body, top: 216, fontFamily: NASKH, fontWeight: 700, fontSize: 88, lineHeight: 1.3, color: C.ink };

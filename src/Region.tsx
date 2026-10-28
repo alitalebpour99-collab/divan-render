@@ -3,10 +3,11 @@
 // takes its place, so the viewer sees the order form. Every word and every figure
 // comes from the props the site sends.
 import React, { useMemo } from "react";
-import { AbsoluteFill, Audio, Easing, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Easing, interpolate, staticFile } from "remotion";
 import { makeMap, type Extent } from "./geo";
-import { Backdrop, Brand, C, Foot, H, Kicker, NASKH, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, faDigits, faNum, fade, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { Backdrop, Brand, C, Foot, H, Kicker, NASKH, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, faDigits, faNum, fade, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { RegionProps, RegionRowProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 const HOOK = 75;
 const RACE = 270;
@@ -56,6 +57,8 @@ function plan(p: RegionProps) {
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
 export const regionDuration = (p: RegionProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const regionCues = (p: RegionProps): Cues => ({ ...scenes(plan(p).at), rank: plan(p).at[2] });
 
 const unit = (v: number) => Math.max(0, Math.min(1, v));
 const glide = Easing.inOut(Easing.cubic);

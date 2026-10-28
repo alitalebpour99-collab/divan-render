@@ -10,21 +10,22 @@ import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { EMBLEM } from "./Cover";
 import { Emblem } from "./emblems";
-import { Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, Sfx, VAZIR, clamped, ease, paint } from "./kit";
+import { Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, Sfx, VAZIR, Waits, clamped, ease, paint } from "./kit";
 import type { Base, HookView } from "./props";
 
 /** How long the hook stands alone; the Reel starts under it a little before it leaves. */
 export const HOOK_FRAMES = Math.round(2.4 * FPS);
 const OVERLAP = 10;
-/** How much longer a Reel with a hook runs. */
-export const hookExtra = (p: { hook?: HookView | null }) => (p.hook?.text ? HOOK_FRAMES - OVERLAP : 0);
+export const HOOK_OVERLAP = OVERLAP;
+/** How long the hook stays: longer when the narrator takes longer to ask the question (voice.ts). */
+const hookLen = (p: { hookLen?: number }) => p.hookLen ?? HOOK_FRAMES;
 
-const HookCard: React.FC<{ format: string; hook: HookView }> = ({ format, hook }) => {
+const HookCard: React.FC<{ format: string; hook: HookView; len: number }> = ({ format, hook, len }) => {
   paint(format);
   const frame = useCurrentFrame();
   // readable on the very first frame: nothing fades in, the picture only settles
-  const push = interpolate(frame, [0, HOOK_FRAMES], [1.05, 1], { ...clamped, easing: ease });
-  const out = interpolate(frame, [HOOK_FRAMES - OVERLAP, HOOK_FRAMES + 6], [0, 1], { ...clamped, easing: ease });
+  const push = interpolate(frame, [0, len], [1.05, 1], { ...clamped, easing: ease });
+  const out = interpolate(frame, [len - OVERLAP, len + 6], [0, 1], { ...clamped, easing: ease });
   const turn = (frame / FPS) * 9;
   const size = hook.text.length > 70 ? 62 : hook.text.length > 48 ? 72 : hook.text.length > 30 ? 82 : 92;
   const figureSize = !hook.figure ? 0 : hook.figure.length > 10 ? 130 : hook.figure.length > 6 ? 168 : 210;
@@ -64,7 +65,7 @@ const HookCard: React.FC<{ format: string; hook: HookView }> = ({ format, hook }
         <div style={{ fontFamily: NASKH, fontWeight: 700, fontSize: size, lineHeight: 1.5, color: C.ink, textWrap: "balance" } as React.CSSProperties}>{hook.text}</div>
         {/* a bar that runs out with the hook: the viewer sees that the answer is coming */}
         <div style={{ width: 320, height: 8, borderRadius: 4, background: C.line, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${Math.min(100, (frame / (HOOK_FRAMES - OVERLAP)) * 100)}%`, background: C.acc }} />
+          <div style={{ height: "100%", width: `${Math.min(100, (frame / (len - OVERLAP)) * 100)}%`, background: C.acc }} />
         </div>
       </div>
     </AbsoluteFill>
@@ -74,19 +75,28 @@ const HookCard: React.FC<{ format: string; hook: HookView }> = ({ format, hook }
 /** A Reel with its hook in front: the hook alone first, then the Reel; the score runs from the first frame. */
 export function withHook<P extends Base>(Inner: React.FC<P>): React.FC<P> {
   const Hooked: React.FC<P> = (p) => {
-    if (!p.hook?.text) return <Inner {...p} />;
+    // the layout draws from its own clock, which waits for the narrator (kit.tsx, Waits)
+    if (!p.hook?.text)
+      return (
+        <Waits holds={p.holds}>
+          <Inner {...p} />
+        </Waits>
+      );
     const inner = { ...p, music: undefined } as P;
+    const len = hookLen(p);
     return (
       <AbsoluteFill>
         {p.music ? <Audio src={staticFile(p.music)} /> : null}
-        <Sequence from={HOOK_FRAMES - OVERLAP}>
-          <Inner {...inner} />
+        <Sequence from={len - OVERLAP}>
+          <Waits holds={p.holds}>
+            <Inner {...inner} />
+          </Waits>
         </Sequence>
         {/* the question lands with a hit, and leaves with a whoosh as the Reel comes in */}
         <Sfx at={0} name="hit" />
-        <Sfx at={HOOK_FRAMES - OVERLAP - 4} name="whoosh" />
-        <Sequence durationInFrames={HOOK_FRAMES + 8}>
-          <HookCard format={p.format} hook={p.hook} />
+        <Sfx at={len - OVERLAP - 4} name="whoosh" />
+        <Sequence durationInFrames={len + 8}>
+          <HookCard format={p.format} hook={p.hook} len={len} />
         </Sequence>
       </AbsoluteFill>
     );

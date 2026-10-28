@@ -5,9 +5,10 @@
 // figure comes from the props the site sends (lib/arsenal.ts, from Wikipedia's
 // tables).
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { Backdrop, Brand, C, Foot, H, Kicker, NASKH, Panel, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, Words, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts } from "./kit";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
+import { Backdrop, Brand, C, Foot, H, Kicker, NASKH, Panel, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, Words, clamped, ease, fade, faNum, grow, leave, paint, pop, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { ArmIcon, ArsenalProps } from "./props";
+import { scenes, type Cues } from "./voice";
 
 const ring = (cx: number, cy: number, r: number) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0z`;
 
@@ -192,6 +193,8 @@ function plan(p: ArsenalProps) {
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
 export const arsenalDuration = (p: ArsenalProps) => plan(p).total;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const arsenalCues = (p: ArsenalProps): Cues => ({ ...scenes(plan(p).at), total: 0, iran: plan(p).at[2] });
 
 // the list of states: under the head, clear of Instagram's buttons on the right
 const LIST_TOP = 470;

@@ -6,10 +6,11 @@
 // what the series measures, its source and a line to follow the page. Every
 // moment has its sound (public/sfx).
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
 import { HUES } from "./hues";
-import { NASKH, OnStage, SIDE, Sfx, VAZIR, W, Words, clamped, ease, fade, grow, leave, pop, rise } from "./kit";
+import { NASKH, OnStage, SIDE, Sfx, VAZIR, W, Words, clamped, ease, fade, grow, leave, pop, rise, useCurrentFrame } from "./kit";
 import type { ThenNowProps } from "./props";
+import { scenes, type Cues } from "./voice";
 import { seriesText } from "./values";
 
 /** The paper of this series: its own ground, ink and red, drawn full-bleed by the safe stage too (Safe.tsx). */
@@ -23,6 +24,9 @@ const NOW = 168;
 const LINE = 276;
 const END = 396;
 export const thenNowDuration = () => END + 135;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+// «۴٫۳ برابر» is said as its badge lands, once the line has drawn
+export const thenNowCues = (): Cues => ({ ...scenes([Q, THEN, NOW, LINE, END]), start: Q + 2, then: THEN, now: NOW, change: LINE + 76, explain: END });
 
 /** The paper itself: warm ground, a fine print of lines, a soft edge, full-bleed. */
 export const PaperGround: React.FC = () => (

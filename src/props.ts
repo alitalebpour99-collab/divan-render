@@ -1,3 +1,4 @@
+import type { Hold, VoiceIn, VoiceOut } from "./voice";
 // What the site hands the renderer for one Reel. Types only: the site builds
 // these objects from its own data (lib/social/formats.ts) and every composition
 // draws nothing that is not in them.
@@ -19,8 +20,12 @@ export type Base = {
   music?: string;
   /** the first seconds (Hook.tsx); always sent, null for none, so a sample's hook never takes its place */
   hook: HookView | null;
-  /** the narrator's lines, set by the renderer (worker.mjs): a file in the public folder and the frame it starts on */
-  voice?: { file: string; from: number }[];
+  /** the narrator's lines as the renderer hands them in (worker.mjs): a file in the public folder, its moment, its length in frames */
+  voiceIn?: VoiceIn[];
+  /** set by the composition's metadata (voice.ts), not by the site: each line placed, the holds, how long the hook stays */
+  voice?: VoiceOut[];
+  holds?: Hold[];
+  hookLen?: number;
 };
 
 export type DilemmaProps = Base & {

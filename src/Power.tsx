@@ -8,8 +8,8 @@
 // and nothing is counted that no open source counts. Every word and figure
 // comes from the props the site sends.
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { Backdrop, Brand, C, FPS, Foot, Kicker, NASKH, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, ease, fade, faNum, grow, leave, paint, pop, rise, starts } from "./kit";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
+import { Backdrop, Brand, C, FPS, Foot, Kicker, NASKH, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, ease, fade, faNum, grow, leave, paint, pop, rise, starts, useCurrentFrame } from "./kit";
 import type { PowerProps, PowerRow } from "./props";
 
 const LENGTHS = [330, 210, 240, 240, 210, 190];

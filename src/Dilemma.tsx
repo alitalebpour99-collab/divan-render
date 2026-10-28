@@ -2,8 +2,8 @@
 // roads, what each does to the three goals, and Divan's conclusion (AI analysis,
 // and marked as such on every card). Every word comes from the props the site sends.
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { AiChip, Backdrop, Brand, C, Foot, GoalCard, NASKH, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, VAZIR, clamped, during, faDigits, fade, grow, leave, paint, readFrames, rise, starts } from "./kit";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
+import { AiChip, Backdrop, Brand, C, Foot, GoalCard, NASKH, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, VAZIR, clamped, during, faDigits, fade, grow, leave, paint, readFrames, rise, starts, useCurrentFrame } from "./kit";
 import type { DilemmaProps } from "./props";
 
 const ORDINAL = ["یکم", "دوم", "سوم", "چهارم", "پنجم"];

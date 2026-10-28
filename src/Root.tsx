@@ -17,29 +17,30 @@ import talksSample from "../samples/talks.json";
 import warSample from "../samples/war.json";
 import thenNowSample from "../samples/thennow.json";
 import raceSample from "../samples/race.json";
-import { Arsenal, arsenalDuration } from "./Arsenal";
+import { Arsenal, arsenalDuration, arsenalCues } from "./Arsenal";
 import { Borders, bordersLength } from "./Borders";
 import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
 import { Cover } from "./Cover";
 import { Dilemma, dilemmaDuration } from "./Dilemma";
-import { Dollar, dollarDuration } from "./Dollar";
-import { Figure, figureDuration } from "./Figure";
-import { hookExtra, withHook } from "./Hook";
+import { Dollar, dollarDuration, dollarCues } from "./Dollar";
+import { Figure, figureDuration, figureCues } from "./Figure";
+import { HOOK_FRAMES, HOOK_OVERLAP, withHook } from "./Hook";
+import { layVoice, type Cues } from "./voice";
 import { onStage } from "./Safe";
-import { Nuclear, nuclearDuration } from "./Nuclear";
+import { Nuclear, nuclearDuration, nuclearCues } from "./Nuclear";
 import { Power, powerDuration } from "./Power";
-import { Quiz, quizDuration } from "./Quiz";
-import { Precedent, precedentDuration } from "./Precedent";
-import { Region, regionDuration } from "./Region";
+import { Quiz, quizDuration, quizCues } from "./Quiz";
+import { Precedent, precedentDuration, precedentCues } from "./Precedent";
+import { Region, regionDuration, regionCues } from "./Region";
 // the default content must hold no optional key: a Reel's props that leave one out would take the sample's value
 import storySample from "../samples/story.json";
-import { Seat, seatDuration } from "./Seat";
+import { Seat, seatDuration, seatCues } from "./Seat";
 import { Story, storyDuration } from "./Story";
-import { Talks, talksDuration } from "./Talks";
-import { WarReplay, warDuration } from "./WarReplay";
-import { ThenNow, thenNowDuration } from "./ThenNow";
-import { Race, raceDuration } from "./Race";
-import type { PowerProps, QuizProps, RaceProps, ThenNowProps } from "./props";
+import { Talks, talksCues, talksDuration } from "./Talks";
+import { WarReplay, warDuration, warCues } from "./WarReplay";
+import { ThenNow, thenNowDuration, thenNowCues } from "./ThenNow";
+import { Race, raceDuration, raceCues } from "./Race";
+import type { Base, PowerProps, QuizProps, RaceProps, ThenNowProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
 
 // One composition per format of the page (the id is the format's id in
@@ -67,6 +68,18 @@ const H = {
   race: onStage(withHook(Race)),
 };
 const as = <T,>(sample: unknown) => sample as T;
+const none = (): Cues => ({});
+/**
+ * A Reel's length and its narrator: the lines on their moments, the holds the
+ * layout waits on, how long the hook stays (voice.ts). Without a narrator the
+ * Reel runs as long as its layout and its hook, as before.
+ */
+const timed =
+  <P extends Base>(body: (p: P) => number, cues: (p: P) => Cues) =>
+  ({ props }: { props: P }) => {
+    const lay = layVoice(props.voiceIn, cues(props), body(props), Boolean(props.hook?.text), HOOK_FRAMES, HOOK_OVERLAP);
+    return { durationInFrames: lay.total, props: { ...props, voice: lay.voice, holds: lay.holds, hookLen: lay.hookLen } as P };
+  };
 /**
  * A Reel's default content without a hook. Remotion fills a prop that is left
  * out from these defaults, so a sample's hook would otherwise open a real Reel
@@ -76,21 +89,21 @@ const plain = <T,>(sample: unknown) => ({ ...(sample as object), hook: null }) a
 
 export const Root: React.FC = () => (
   <>
-    <Composition id="dilemma" component={H.dilemma} {...frame} durationInFrames={900} defaultProps={plain<DilemmaProps>(dilemmaSample)} calculateMetadata={({ props }) => ({ durationInFrames: dilemmaDuration(props) + hookExtra(props) })} />
-    <Composition id="seat" component={H.seat} {...frame} durationInFrames={900} defaultProps={plain<SeatProps>(seatSample)} calculateMetadata={({ props }) => ({ durationInFrames: seatDuration(props) + hookExtra(props) })} />
-    <Composition id="region" component={H.region} {...frame} durationInFrames={600} defaultProps={plain<RegionProps>(regionSample)} calculateMetadata={({ props }) => ({ durationInFrames: regionDuration(props) + hookExtra(props) })} />
-    <Composition id="precedent" component={H.precedent} {...frame} durationInFrames={900} defaultProps={plain<PrecedentProps>(precedentSample)} calculateMetadata={({ props }) => ({ durationInFrames: precedentDuration(props) + hookExtra(props) })} />
-    <Composition id="talks" component={H.talks} {...frame} durationInFrames={900} defaultProps={plain<TalksProps>(talksSample)} calculateMetadata={({ props }) => ({ durationInFrames: talksDuration(props) + hookExtra(props) })} />
-    <Composition id="war" component={H.war} {...frame} durationInFrames={warDuration()} defaultProps={plain<WarProps>(warSample)} calculateMetadata={({ props }) => ({ durationInFrames: warDuration() + hookExtra(props) })} />
-    <Composition id="borders" component={H.borders} {...frame} durationInFrames={bordersLength()} defaultProps={plain<BordersProps>(bordersSample)} calculateMetadata={({ props }) => ({ durationInFrames: bordersLength() + hookExtra(props) })} />
-    <Composition id="arsenal" component={H.arsenal} {...frame} durationInFrames={750} defaultProps={plain<ArsenalProps>(arsenalSample)} calculateMetadata={({ props }) => ({ durationInFrames: arsenalDuration(props) + hookExtra(props) })} />
-    <Composition id="dollar" component={H.dollar} {...frame} durationInFrames={650} defaultProps={plain<DollarProps>(dollarSample)} calculateMetadata={({ props }) => ({ durationInFrames: dollarDuration(props) + hookExtra(props) })} />
-    <Composition id="nuclear" component={H.nuclear} {...frame} durationInFrames={650} defaultProps={plain<NuclearProps>(nuclearSample)} calculateMetadata={({ props }) => ({ durationInFrames: nuclearDuration(props) + hookExtra(props) })} />
-    <Composition id="figure" component={H.figure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={({ props }) => ({ durationInFrames: figureDuration(props) + hookExtra(props) })} />
-    <Composition id="quiz" component={H.quiz} {...frame} durationInFrames={480} defaultProps={plain<QuizProps>(quizSample)} calculateMetadata={({ props }) => ({ durationInFrames: quizDuration(props) + hookExtra(props) })} />
-    <Composition id="power" component={H.power} {...frame} durationInFrames={1420} defaultProps={plain<PowerProps>(powerSample)} calculateMetadata={({ props }) => ({ durationInFrames: powerDuration(props) + hookExtra(props) })} />
-    <Composition id="thennow" component={H.thennow} {...frame} durationInFrames={thenNowDuration()} defaultProps={plain<ThenNowProps>(thenNowSample)} />
-    <Composition id="race" component={H.race} {...frame} durationInFrames={raceDuration()} defaultProps={plain<RaceProps>(raceSample)} />
+    <Composition id="dilemma" component={H.dilemma} {...frame} durationInFrames={900} defaultProps={plain<DilemmaProps>(dilemmaSample)} calculateMetadata={timed(dilemmaDuration, none)} />
+    <Composition id="seat" component={H.seat} {...frame} durationInFrames={900} defaultProps={plain<SeatProps>(seatSample)} calculateMetadata={timed(seatDuration, seatCues)} />
+    <Composition id="region" component={H.region} {...frame} durationInFrames={600} defaultProps={plain<RegionProps>(regionSample)} calculateMetadata={timed(regionDuration, regionCues)} />
+    <Composition id="precedent" component={H.precedent} {...frame} durationInFrames={900} defaultProps={plain<PrecedentProps>(precedentSample)} calculateMetadata={timed(precedentDuration, precedentCues)} />
+    <Composition id="talks" component={H.talks} {...frame} durationInFrames={900} defaultProps={plain<TalksProps>(talksSample)} calculateMetadata={timed(talksDuration, talksCues)} />
+    <Composition id="war" component={H.war} {...frame} durationInFrames={warDuration()} defaultProps={plain<WarProps>(warSample)} calculateMetadata={timed<WarProps>(warDuration, warCues)} />
+    <Composition id="borders" component={H.borders} {...frame} durationInFrames={bordersLength()} defaultProps={plain<BordersProps>(bordersSample)} calculateMetadata={timed<BordersProps>(bordersLength, none)} />
+    <Composition id="arsenal" component={H.arsenal} {...frame} durationInFrames={750} defaultProps={plain<ArsenalProps>(arsenalSample)} calculateMetadata={timed(arsenalDuration, arsenalCues)} />
+    <Composition id="dollar" component={H.dollar} {...frame} durationInFrames={650} defaultProps={plain<DollarProps>(dollarSample)} calculateMetadata={timed(dollarDuration, dollarCues)} />
+    <Composition id="nuclear" component={H.nuclear} {...frame} durationInFrames={650} defaultProps={plain<NuclearProps>(nuclearSample)} calculateMetadata={timed(nuclearDuration, nuclearCues)} />
+    <Composition id="figure" component={H.figure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={timed(figureDuration, figureCues)} />
+    <Composition id="quiz" component={H.quiz} {...frame} durationInFrames={480} defaultProps={plain<QuizProps>(quizSample)} calculateMetadata={timed(quizDuration, quizCues)} />
+    <Composition id="power" component={H.power} {...frame} durationInFrames={1420} defaultProps={plain<PowerProps>(powerSample)} calculateMetadata={timed(powerDuration, none)} />
+    <Composition id="thennow" component={H.thennow} {...frame} durationInFrames={thenNowDuration()} defaultProps={plain<ThenNowProps>(thenNowSample)} calculateMetadata={timed<ThenNowProps>(thenNowDuration, thenNowCues)} />
+    <Composition id="race" component={H.race} {...frame} durationInFrames={raceDuration()} defaultProps={plain<RaceProps>(raceSample)} calculateMetadata={timed<RaceProps>(raceDuration, raceCues)} />
     <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} />
     {/* a post of several pictures: one card per frame, each saved as a still (1080 by 1350, Instagram's 4:5) */}
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />

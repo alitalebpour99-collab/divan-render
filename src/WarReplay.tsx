@@ -1,11 +1,12 @@
 // «جنگ، روز به روز»: the recorded war events appear on the map in the order of
 // their days. Every dot is one event of data/war-events.json, at city level.
 import React, { useMemo } from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
 import { EXTENTS, makeMap } from "./geo";
-import { Backdrop, Brand, C, FPS, Foot, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, addDays, clamped, during, ease, faDate, faDigits, faNum, fade, grow, leave, paint, rise } from "./kit";
+import { Backdrop, Brand, C, FPS, Foot, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, addDays, clamped, during, ease, faDate, faDigits, faNum, fade, grow, leave, paint, rise, useCurrentFrame } from "./kit";
 
 import type { WarEventProps, WarProps } from "./props";
+import type { Cues } from "./voice";
 
 type Trust = "confirmed" | "claim" | "unverified";
 type Ev = WarEventProps;
@@ -16,6 +17,8 @@ const END = Math.round(6 * FPS);
 export const warReplayDuration = HOOK + PLAY + END;
 /** The replay always runs the same length: more days only mean faster days. */
 export const warDuration = (_p?: WarProps) => warReplayDuration;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const warCues = (): Cues => ({ play: HOOK });
 
 const BOX = { x0: 16, y0: 372, x1: W - 16, y1: 1404 };
 const EXT = EXTENTS.region;

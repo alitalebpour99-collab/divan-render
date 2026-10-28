@@ -28,7 +28,7 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { makeCancelSignal, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
-import { dropVoice, duckOf, placeVoice } from "./voice.mjs";
+import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 import { score } from "./music.mjs";
 
 const SITE = (process.env.DIVAN_URL ?? "https://divan.ahura.cloud").replace(/\/+$/, "");
@@ -178,12 +178,13 @@ async function render(job) {
     const tile = await selectComposition({ serveUrl: serve, id: "cover", inputProps: job.cover, chromiumOptions, timeoutInMilliseconds });
     await renderStill({ composition: tile, serveUrl: serve, output: cover, inputProps: job.cover, imageFormat: "jpeg", jpegQuality: 92, chromiumOptions, timeoutInMilliseconds });
     // the score is made for this Reel's own length
-    const first = await selectComposition({ serveUrl: serve, id: job.format, inputProps: job.props, chromiumOptions, timeoutInMilliseconds });
+    // the narrator's lines go in first: the composition places them, and waits for them, which sets the Reel's length
+    const voiceIn = voiceFiles(job.voice, path.join(serve, "public"), job.name);
+    const first = await selectComposition({ serveUrl: serve, id: job.format, inputProps: { ...job.props, voiceIn }, chromiumOptions, timeoutInMilliseconds });
     const seconds = first.durationInFrames / first.fps;
-    // the narrator (voice.mjs), and the score steps back under each line
-    const voice = placeVoice(job.voice, path.join(serve, "public"), job.name, first.durationInFrames, first.fps);
-    fs.writeFileSync(path.join(serve, "public", music), score({ id: job.format, seconds, duck: duckOf(voice, first.fps) }));
-    const inputProps = { ...job.props, music, voice: voice.map(({ file, from }) => ({ file, from })) };
+    // the score steps back under each line, where the composition placed it
+    fs.writeFileSync(path.join(serve, "public", music), score({ id: job.format, seconds, duck: duckOf(first) }));
+    const inputProps = { ...job.props, voiceIn, music };
     const composition = await selectComposition({ serveUrl: serve, id: job.format, inputProps, chromiumOptions, timeoutInMilliseconds });
     await renderMedia({ composition, serveUrl: serve, codec: "h264", crf: 20, pixelFormat: "yuv420p", audioCodec: "aac", audioBitrate: "160k", inputProps, outputLocation: video, concurrency: CONCURRENCY, chromiumOptions, cancelSignal, timeoutInMilliseconds });
     console.log(`Reel ${job.id}: ${finish(video, seconds)}`);

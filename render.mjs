@@ -11,7 +11,7 @@ import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
 import { score } from "./music.mjs";
-import { dropVoice, duckOf, placeVoice } from "./voice.mjs";
+import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 
 const args = process.argv.slice(2);
 const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
@@ -28,26 +28,30 @@ const name = flag("--out") ?? path.basename(propsFile).replace(/(\.cover)?\.json
 const props = JSON.parse(fs.readFileSync(propsFile, "utf8"));
 fs.mkdirSync("out", { recursive: true });
 
+// a busy machine may take longer than Remotion's half minute to open its browser (the worker allows two minutes too)
+const timeoutInMilliseconds = 120_000;
 const t0 = Date.now();
 if (stills) {
-  const composition = await selectComposition({ serveUrl, id, inputProps: props });
+  const composition = await selectComposition({ serveUrl, id, inputProps: props, timeoutInMilliseconds });
   for (const frame of stills === "all" ? Array.from({ length: composition.durationInFrames }, (_, i) => i) : stills) {
     const output = `out/${name}-${String(frame).padStart(4, "0")}.png`;
-    await renderStill({ composition, serveUrl, output, frame: Math.min(frame, composition.durationInFrames - 1), inputProps: props });
+    await renderStill({ composition, serveUrl, output, frame: Math.min(frame, composition.durationInFrames - 1), inputProps: props, timeoutInMilliseconds });
     console.log("wrote", output, `(of ${composition.durationInFrames} frames)`);
   }
 } else {
-  const first = await selectComposition({ serveUrl, id, inputProps: props });
-  const seconds = first.durationInFrames / first.fps;
-  const music = `music-${name}.wav`;
   fs.mkdirSync(path.join(serveUrl, "public"), { recursive: true });
   const lines = flag("--voice") ? JSON.parse(fs.readFileSync(flag("--voice"), "utf8")) : [];
-  const voice = placeVoice(lines, path.join(serveUrl, "public"), name, first.durationInFrames, first.fps);
-  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(voice, first.fps) }));
-  const inputProps = { ...props, music, voice: voice.map(({ file, from }) => ({ file, from })) };
-  const composition = await selectComposition({ serveUrl, id, inputProps });
+  const voiceIn = voiceFiles(lines, path.join(serveUrl, "public"), name);
+  const first = await selectComposition({ serveUrl, id, inputProps: { ...props, voiceIn }, timeoutInMilliseconds });
+  const seconds = first.durationInFrames / first.fps;
+  const music = `music-${name}.wav`;
+  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first) }));
+  for (const v of first.props.voice ?? []) console.log("voice", v.file, "at", (v.from / first.fps).toFixed(2), "s for", (v.frames / first.fps).toFixed(2), "s");
+  if (first.props.holds?.length) console.log("holds", JSON.stringify(first.props.holds));
+  const inputProps = { ...props, voiceIn, music };
+  const composition = await selectComposition({ serveUrl, id, inputProps, timeoutInMilliseconds });
   const outputLocation = `out/${name}.mp4`;
-  await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3) });
+  await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3), timeoutInMilliseconds });
   dropVoice(path.join(serveUrl, "public"), name);
   console.log(finish(outputLocation, seconds));
   console.log("wrote", outputLocation, composition.durationInFrames, "frames,", seconds.toFixed(1), "s, in", Math.round((Date.now() - t0) / 1000), "s");

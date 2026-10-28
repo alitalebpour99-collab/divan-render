@@ -6,9 +6,10 @@
 // each state a quiet colour, Iran in the series' colour (owner 2026-10-23: the
 // formats look too much alike).
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { Backdrop, C, NASKH, SIDE, Sfx, VAZIR, W, Words, clamped, fade, faNum, leave, paint, pop, rise } from "./kit";
+import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
+import { Backdrop, C, NASKH, SIDE, Sfx, VAZIR, W, Words, clamped, fade, faNum, leave, paint, pop, rise, useCurrentFrame } from "./kit";
 import type { RaceProps } from "./props";
+import { scenes, type Cues } from "./voice";
 import { shortText } from "./values";
 
 const Q = 0;
@@ -16,6 +17,8 @@ const RACE = 70;
 const RACE_LEN = 400;
 const END = RACE + RACE_LEN + 20;
 export const raceDuration = () => END + 110;
+/** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
+export const raceCues = (): Cues => ({ ...scenes([Q, RACE, END]), start: Q + 2, first: RACE, last: END });
 
 const TOP = 300;
 const ROW = 112;

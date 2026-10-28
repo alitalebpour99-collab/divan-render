@@ -28,6 +28,8 @@ const MOODS = {
   // the two short formats of 23 October 2026 move faster, with the beat under them
   thennow: { root: 43, bpm: 92, pulse: true },
   race: { root: 41, bpm: 100, pulse: true },
+  // the countdown of five figures: a quick pulse under the flipping board
+  five: { root: 46, bpm: 96, pulse: true },
 };
 // i  VI  III  VII, as open voicings above the key note: root, fifth, tenth
 const CHORDS = [

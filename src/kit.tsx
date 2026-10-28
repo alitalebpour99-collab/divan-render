@@ -197,29 +197,6 @@ export const Seal: React.FC<{ size: number; color?: string; filled?: boolean; wo
   </svg>
 );
 
-// ---------- where the Reel stands in its series ----------
-/** The Reel's place in its series, and whether its last seconds have come (Safe.tsx gives it). */
-export type Part = { n: number; of: number; next: string | null; ending: boolean };
-export const PartCtx = React.createContext<Part | null>(null);
-/** «قسمت ۳ از ۱۵», and in the last seconds «قسمت بعد: …»: a series gives a reason to follow. */
-export const partText = (p: Part) => (p.ending && p.next ? `قسمت بعد: ${p.next}` : `قسمت ${faDigits(p.n)} از ${faDigits(p.of)}`);
-/** The part as a small pill at the far end of the name line. */
-export const PartPill: React.FC<{ color?: string }> = ({ color }) => {
-  const p = React.useContext(PartCtx);
-  if (!p) return null;
-  return (
-    <span style={{ marginInlineStart: "auto", maxWidth: 520, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: VAZIR, fontSize: 26, fontWeight: 700, color: color ?? C.acc, border: `2px solid ${color ?? C.acc}`, borderRadius: 30, padding: "4px 18px", direction: "rtl" }}>
-      {partText(p)}
-    </span>
-  );
-};
-/** The part as a small line under a kicker, for the layouts with a name line of their own. */
-export const PartLine: React.FC<{ color?: string }> = ({ color }) => {
-  const p = React.useContext(PartCtx);
-  if (!p) return null;
-  return <span style={{ fontFamily: VAZIR, fontSize: 22, fontWeight: 500, color: color ?? C.ink3, maxWidth: 480, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{partText(p)}</span>;
-};
-
 /** The name on every frame: a Reel reposted elsewhere still says whose it is. */
 export const Brand: React.FC<{ tag: string }> = ({ tag }) => (
   <div style={{ position: "absolute", top: 60, right: SIDE, left: SIDE, display: "flex", alignItems: "center", gap: 22, direction: "rtl" }}>
@@ -228,13 +205,8 @@ export const Brand: React.FC<{ tag: string }> = ({ tag }) => (
       <span style={{ fontFamily: NASKH, fontSize: 58, fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>دیوان</span>
       <span style={{ fontFamily: VAZIR, fontSize: 24, color: C.ink3, marginTop: 2 }}>{tag}</span>
     </div>
-    <PartPill />
   </div>
 );
-
-/** A layer that makes no sound: the hook's blurred look ahead at the Reel (Hook.tsx) must not play its effects. */
-const Quiet = React.createContext(false);
-export const Silent: React.FC<{ children: React.ReactNode }> = ({ children }) => <Quiet.Provider value={true}>{children}</Quiet.Provider>;
 
 /** Model-written text is always marked, as on the site. */
 export const AiChip: React.FC<{ opacity?: number }> = ({ opacity = 1 }) => (
@@ -352,7 +324,6 @@ export type SfxName = keyof typeof SFX;
 export const Sfx: React.FC<{ at: number; name: SfxName; volume?: number }> = ({ at, name, volume }) => {
   // a frame of the layout: when the picture waits before it, the sound waits too
   const holds = React.useContext(Holds);
-  if (React.useContext(Quiet)) return null;
   return (
     <Sequence from={Math.max(0, Math.round(filmFrame(at, holds)))} durationInFrames={Math.round(2 * FPS)} layout="none">
       <Audio src={staticFile(`sfx/${name}.wav`)} volume={volume ?? SFX[name]} />

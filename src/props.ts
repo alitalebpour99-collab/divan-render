@@ -20,8 +20,6 @@ export type Base = {
   music?: string;
   /** the first seconds (Hook.tsx); always sent, null for none, so a sample's hook never takes its place */
   hook: HookView | null;
-  /** where this Reel stands in its series, and the next one's name (formats.ts, numbered) */
-  part?: { n: number; of: number; next: string | null };
   /** the narrator's lines as the renderer hands them in (worker.mjs): a file in the public folder, its moment, its length in frames */
   voiceIn?: VoiceIn[];
   /** set by the composition's metadata (voice.ts), not by the site: each line placed, the holds, how long the hook stays */
@@ -363,7 +361,42 @@ export type RaceProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | CardsProps | StoryProps;
+/** One figure of «پنج عدد». */
+export type FiveCard = {
+  /** its place in the countdown: 5 … 1 */
+  n: number;
+  /** the series' own name: «تنش آبی» */
+  label: string;
+  /** the figure as the site writes it («۱٬۴۳۵ مترمکعب»), and its two parts: the number the board flips to («۱٬۴۳۵», «۸۱٫۳٪») and the unit under it */
+  text: string;
+  num: string;
+  unit: string;
+  /** the year of the figure, in Persian digits */
+  year: string;
+  /** what the series measures, in the site's own sentence */
+  means: string;
+  /** the first year beside the latest, where it says as much: its year, its figure as the site writes it, and both values for two bars */
+  then: { year: string; text: string; value: number; now: number } | null;
+  /** the narrator's sentence on this figure, with digits (lib/social/voice.ts writes them out) */
+  say: string;
+};
+
+/** «پنج عدد»: five of Iran's World Bank series on one theme, counted down from five to one (a countdown, not a ranking). */
+export type FiveProps = Base & {
+  format: "five";
+  /** «پنج عدد · آب و کشاورزی» */
+  kicker: string;
+  /** «آب و کشاورزی ایران» */
+  theme: string;
+  /** the five in the order they are counted, «۵» first */
+  cards: FiveCard[];
+  /** the closing question: «کدامش غافلگیرت کرد؟ شماره‌اش را بنویس» */
+  ask: string;
+  source: string;
+  foot: string;
+};
+
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | FiveProps | CardsProps | StoryProps;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

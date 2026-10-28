@@ -17,6 +17,7 @@ import talksSample from "../samples/talks.json";
 import warSample from "../samples/war.json";
 import thenNowSample from "../samples/thennow.json";
 import raceSample from "../samples/race.json";
+import fiveSample from "../samples/five.json";
 import { Arsenal, arsenalDuration, arsenalCues } from "./Arsenal";
 import { Borders, bordersLength } from "./Borders";
 import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
@@ -40,7 +41,8 @@ import { Talks, talksCues, talksDuration } from "./Talks";
 import { WarReplay, warDuration, warCues } from "./WarReplay";
 import { ThenNow, thenNowDuration, thenNowCues } from "./ThenNow";
 import { Race, raceDuration, raceCues } from "./Race";
-import type { Base, PowerProps, QuizProps, RaceProps, ThenNowProps } from "./props";
+import { Five, fiveDuration, fiveCues } from "./Five";
+import type { Base, FiveProps, PowerProps, QuizProps, RaceProps, ThenNowProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
 
 // One composition per format of the page (the id is the format's id in
@@ -66,6 +68,8 @@ const H = {
   // the two short formats of 23 October 2026 open on their own question (hook null)
   thennow: onStage(withHook(ThenNow)),
   race: onStage(withHook(Race)),
+  // the countdown of five figures opens on its theme, with the figure it ends on
+  five: onStage(withHook(Five)),
 };
 const as = <T,>(sample: unknown) => sample as T;
 const none = (): Cues => ({});
@@ -104,6 +108,7 @@ export const Root: React.FC = () => (
     <Composition id="power" component={H.power} {...frame} durationInFrames={1420} defaultProps={plain<PowerProps>(powerSample)} calculateMetadata={timed(powerDuration, none)} />
     <Composition id="thennow" component={H.thennow} {...frame} durationInFrames={thenNowDuration()} defaultProps={plain<ThenNowProps>(thenNowSample)} calculateMetadata={timed<ThenNowProps>(thenNowDuration, thenNowCues)} />
     <Composition id="race" component={H.race} {...frame} durationInFrames={raceDuration()} defaultProps={plain<RaceProps>(raceSample)} calculateMetadata={timed<RaceProps>(raceDuration, raceCues)} />
+    <Composition id="five" component={H.five} {...frame} durationInFrames={fiveDuration(as<FiveProps>(fiveSample))} defaultProps={plain<FiveProps>(fiveSample)} calculateMetadata={timed<FiveProps>(fiveDuration, fiveCues)} />
     <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} />
     {/* a post of several pictures: one card per frame, each saved as a still (1080 by 1350, Instagram's 4:5) */}
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />

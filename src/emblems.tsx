@@ -109,6 +109,15 @@ const SHAPES: Record<string, React.ReactNode> = {
       <path d="M5 9.4l4.2-4.2 3 2.6 5.8-4.4" />
     </>
   ),
+  // «پنج عدد»: a tile of a split-flap board, cut along its hinge, with one behind it
+  five: (
+    <>
+      <rect x="7" y="3.6" width="13" height="16.8" rx="1.8" />
+      <path d="M7 12h13" />
+      <path d="M4.4 6.2v12.4c0 1 .8 1.8 1.8 1.8" />
+      <circle cx="13.5" cy="12" r="3.1" />
+    </>
+  ),
   brain: (
     <>
       <circle cx="12" cy="12" r="2.3" />

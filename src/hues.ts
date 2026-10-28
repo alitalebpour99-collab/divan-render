@@ -3,7 +3,7 @@
 // both sides can read it.
 
 /** The hue of each series on the colour wheel (oklch), one per format. */
-export const HUES: Record<string, number> = { seat: 250, dilemma: 90, region: 195, precedent: 295, talks: 340, war: 45, borders: 135, arsenal: 235, dollar: 162, nuclear: 115, figure: 70, quiz: 12, power: 32, thennow: 22, race: 275 };
+export const HUES: Record<string, number> = { seat: 250, dilemma: 90, region: 195, precedent: 295, talks: 340, war: 45, borders: 135, arsenal: 235, dollar: 162, nuclear: 115, figure: 70, quiz: 12, power: 32, thennow: 22, race: 275, five: 213 };
 /**
  * How strong a series' colour is. Most series share one strength; two are
  * quiet on purpose, so that eleven series stay apart on the grid: the weapons

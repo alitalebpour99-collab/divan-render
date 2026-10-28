@@ -7,10 +7,10 @@
 // Reel itself follows. The hook's words come from the site like every other
 // word (lib/social/formats.ts); nothing is written here.
 import React from "react";
-import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Freeze, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { EMBLEM } from "./Cover";
 import { Emblem } from "./emblems";
-import { Alive, Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, Sfx, VAZIR, Waits, clamped, ease, paint } from "./kit";
+import { Alive, Bleed, C, FPS, NASKH, SAFE_BOTTOM, SIDE, SIDE_RAIL, Seal, Sfx, Silent, VAZIR, Waits, clamped, ease, faDigits, paint } from "./kit";
 import type { Base, HookView } from "./props";
 
 /** How long the hook stands alone; the Reel starts under it a little before it leaves. */
@@ -20,7 +20,7 @@ export const HOOK_OVERLAP = OVERLAP;
 /** How long the hook stays: longer when the narrator takes longer to ask the question (voice.ts). */
 const hookLen = (p: { hookLen?: number }) => p.hookLen ?? HOOK_FRAMES;
 
-const HookCard: React.FC<{ format: string; hook: HookView; len: number }> = ({ format, hook, len }) => {
+const HookCard: React.FC<{ format: string; hook: HookView; len: number; behind?: React.ReactNode; part?: { n: number; of: number } | null }> = ({ format, hook, len, behind, part }) => {
   paint(format);
   const frame = useCurrentFrame();
   // readable on the very first frame: nothing fades in, the picture only settles
@@ -37,6 +37,9 @@ const HookCard: React.FC<{ format: string; hook: HookView; len: number }> = ({ f
         <AbsoluteFill style={{ background: `linear-gradient(165deg, ${C.deep} 0%, ${C.dusk} 52%, ${C.bg} 100%)` }} />
         <AbsoluteFill style={{ background: `radial-gradient(1000px 1000px at 50% 40%, ${C.glow}, transparent 70%)` }} />
       </Bleed>
+      {/* the Reel's own answer, moving and out of focus, behind the question: something happens from the first frame */}
+      {behind ? <AbsoluteFill style={{ opacity: 0.42, filter: "blur(14px) saturate(1.15)", transform: `scale(${interpolate(frame, [0, len], [1.14, 1.04], clamped)})` }}>{behind}</AbsoluteFill> : null}
+      <AbsoluteFill style={{ background: `linear-gradient(180deg, ${C.bg}00 0%, ${C.bg}88 55%, ${C.bg}cc 100%)` }} />
       {/* the series' emblem, large and faint, turning slowly behind the words */}
       <div style={{ position: "absolute", left: 0, right: 0, top: 360, display: "flex", justifyContent: "center", opacity: 0.12, transform: `rotate(${turn}deg)` }}>
         <Emblem id={EMBLEM[format] ?? "seat"} size={720} color={C.acc} stroke={0.6} />
@@ -45,6 +48,11 @@ const HookCard: React.FC<{ format: string; hook: HookView; len: number }> = ({ f
         <Seal size={72} word={false} />
         <span style={{ fontFamily: NASKH, fontWeight: 700, fontSize: 48, color: C.ink }}>دیوان</span>
       </div>
+      {part ? (
+        <div style={{ position: "absolute", top: 78, left: SIDE, fontFamily: VAZIR, fontSize: 26, fontWeight: 700, color: C.acc, border: `2px solid ${C.acc}`, borderRadius: 30, padding: "4px 18px", direction: "rtl" }}>
+          قسمت {faDigits(part.n)} از {faDigits(part.of)}
+        </div>
+      ) : null}
       <div
         style={{
           position: "absolute",
@@ -75,6 +83,7 @@ const HookCard: React.FC<{ format: string; hook: HookView; len: number }> = ({ f
 /** A Reel with its hook in front: the hook alone first, then the Reel; the score runs from the first frame. */
 export function withHook<P extends Base>(Inner: React.FC<P>): React.FC<P> {
   const Hooked: React.FC<P> = (p) => {
+    const { durationInFrames } = useVideoConfig();
     // the layout draws from its own clock, which waits for the narrator (kit.tsx, Waits)
     if (!p.hook?.text)
       return (
@@ -86,6 +95,8 @@ export function withHook<P extends Base>(Inner: React.FC<P>): React.FC<P> {
       );
     const inner = { ...p, music: undefined } as P;
     const len = hookLen(p);
+    // the frame of the Reel the hook looks ahead to: about where its answer stands
+    const ahead = Math.max(0, Math.round((durationInFrames - len) * 0.6));
     return (
       <AbsoluteFill>
         {p.music ? <Audio src={staticFile(p.music)} /> : null}
@@ -100,7 +111,21 @@ export function withHook<P extends Base>(Inner: React.FC<P>): React.FC<P> {
         <Sfx at={0} name="hit" />
         <Sfx at={len - OVERLAP - 4} name="whoosh" />
         <Sequence durationInFrames={len + 8}>
-          <HookCard format={p.format} hook={p.hook} len={len} />
+          <HookCard
+            format={p.format}
+            hook={p.hook}
+            len={len}
+            part={p.part}
+            behind={
+              <Silent>
+                <Freeze frame={ahead}>
+                  <Waits holds={p.holds}>
+                    <Inner {...inner} />
+                  </Waits>
+                </Freeze>
+              </Silent>
+            }
+          />
         </Sequence>
       </AbsoluteFill>
     );

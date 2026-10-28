@@ -8,7 +8,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
 import { HUES } from "./hues";
-import { NASKH, OnStage, SIDE, Sfx, VAZIR, W, Words, clamped, ease, fade, grow, leave, pop, rise, useCurrentFrame } from "./kit";
+import { NASKH, OnStage, SIDE, Sfx, VAZIR, W, Words, clamped, ease, fade, grow, leave, pop, rise, useCurrentFrame, PartLine } from "./kit";
 import type { ThenNowProps } from "./props";
 import { scenes, type Cues } from "./voice";
 import { seriesText } from "./values";
@@ -102,7 +102,10 @@ export const ThenNow: React.FC<ThenNowProps> = (p) => {
       {/* the name and the kind of Reel, small, at the top */}
       <div style={{ position: "absolute", top: 60, right: SIDE, left: SIDE, display: "flex", alignItems: "center", justifyContent: "space-between", direction: "rtl" }}>
         <span style={{ fontFamily: NASKH, fontWeight: 700, fontSize: 52, color: PAPER.ink }}>دیوان</span>
-        <span style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 30, color: RED }}>{p.kicker}</span>
+        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+          <span style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 30, color: RED }}>{p.kicker}</span>
+          <PartLine color={PAPER.ink3} />
+        </span>
       </div>
       <div style={{ position: "absolute", top: 150, right: SIDE, left: SIDE, height: 4, background: PAPER.ink, opacity: 0.85 }} />
 

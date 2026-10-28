@@ -20,6 +20,8 @@ export type Base = {
   music?: string;
   /** the first seconds (Hook.tsx); always sent, null for none, so a sample's hook never takes its place */
   hook: HookView | null;
+  /** where this Reel stands in its series, and the next one's name (formats.ts, numbered) */
+  part?: { n: number; of: number; next: string | null };
   /** the narrator's lines as the renderer hands them in (worker.mjs): a file in the public folder, its moment, its length in frames */
   voiceIn?: VoiceIn[];
   /** set by the composition's metadata (voice.ts), not by the site: each line placed, the holds, how long the hook stays */

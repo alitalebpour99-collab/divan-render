@@ -19,7 +19,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { HOOK_FRAMES } from "./Hook";
-import { C, H, OnStage, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
+import { C, H, OnStage, PartCtx, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
 import type { Base } from "./props";
 import { PaperGround } from "./ThenNow";
 
@@ -94,6 +94,10 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
   const Staged: React.FC<P> = (p) => {
     // the ground is drawn before the Reel paints itself: it takes the series' colour here
     paint(p.format);
+    // the last two and a half seconds name the next episode
+    const frame = useCurrentFrame();
+    const { durationInFrames } = useVideoConfig();
+    const part = p.part ? { ...p.part, ending: frame >= durationInFrames - 75 } : null;
     return (
       <AbsoluteFill>
         <Ground hooked={Boolean(p.hook?.text)} format={p.format} hookLen={p.hookLen ?? HOOK_FRAMES} />
@@ -111,7 +115,9 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
           }}
         >
           <OnStage.Provider value={true}>
-            <Inner {...p} />
+            <PartCtx.Provider value={part}>
+              <Inner {...p} />
+            </PartCtx.Provider>
           </OnStage.Provider>
         </div>
         <Edges hooked={Boolean(p.hook?.text)} format={p.format} hookLen={p.hookLen ?? HOOK_FRAMES} />

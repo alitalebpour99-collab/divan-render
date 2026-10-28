@@ -25,8 +25,8 @@ const LINE = 276;
 const END = 396;
 export const thenNowDuration = () => END + 135;
 /** The narrator's moments in this layout (voice.ts; the site's lines name them, lib/social/voice.ts). */
-// «۴٫۳ برابر» is said as its badge lands, once the line has drawn
-export const thenNowCues = (): Cues => ({ ...scenes([Q, THEN, NOW, LINE, END]), start: Q + 2, then: THEN, now: NOW, change: LINE + 76, explain: END });
+// how far it moved is said while the line draws
+export const thenNowCues = (): Cues => ({ ...scenes([Q, THEN, NOW, LINE, END]), start: Q + 2, then: THEN, now: NOW, change: LINE + 10, explain: END });
 
 /** The paper itself: warm ground, a fine print of lines, a soft edge, full-bleed. */
 export const PaperGround: React.FC = () => (

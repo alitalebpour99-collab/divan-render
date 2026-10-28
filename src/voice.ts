@@ -33,6 +33,13 @@ const SETTLE = 18;
 const END_CUE = 30;
 /** the last word is said this long before the film ends */
 const TAIL = 12;
+/**
+ * A line may begin this much before its moment when the voice is free: a
+ * narrator starts the sentence as the picture comes, and the figure, said a
+ * second into it, lands with the picture. Waiting for the picture left the
+ * voice silent in mid-thought (Reel 77, owner 2026-10-28: «خوب نمی‌خونه»).
+ */
+const EARLY = 24;
 
 const sumHolds = (holds: Hold[]) => holds.reduce((s, h) => s + h.len, 0);
 /** a frame of the layout as a frame of the film, once the holds before it are counted */
@@ -79,6 +86,7 @@ export function layVoice(lines: VoiceIn[] | undefined, cues: Cues, body: number,
       from = free;
     }
     if (!line) continue;
+    if (line.cue !== "start" && from > free) from = Math.max(free, from - EARLY);
     voice.push({ file: line.file, from, frames: line.frames });
     free = from + line.frames + GAP;
   }

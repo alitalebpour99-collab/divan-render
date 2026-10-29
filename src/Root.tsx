@@ -17,6 +17,9 @@ import talksSample from "../samples/talks.json";
 import warSample from "../samples/war.json";
 import thenNowSample from "../samples/thennow.json";
 import raceSample from "../samples/race.json";
+import decadeSample from "../samples/decade.json";
+import fiveSample from "../samples/five.json";
+import trueFalseSample from "../samples/truefalse.json";
 import { Arsenal, arsenalDuration, arsenalCues } from "./Arsenal";
 import { Borders, bordersLength } from "./Borders";
 import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
@@ -28,7 +31,7 @@ import { HOOK_FRAMES, HOOK_OVERLAP, withHook } from "./Hook";
 import { layVoice, type Cues } from "./voice";
 import { onStage } from "./Safe";
 import { Nuclear, nuclearDuration, nuclearCues } from "./Nuclear";
-import { Power, powerDuration } from "./Power";
+import { Power, powerCues, powerDuration } from "./Power";
 import { Quiz, quizDuration, quizCues } from "./Quiz";
 import { Precedent, precedentDuration, precedentCues } from "./Precedent";
 import { Region, regionDuration, regionCues } from "./Region";
@@ -40,7 +43,10 @@ import { Talks, talksCues, talksDuration } from "./Talks";
 import { WarReplay, warDuration, warCues } from "./WarReplay";
 import { ThenNow, thenNowDuration, thenNowCues } from "./ThenNow";
 import { Race, raceDuration, raceCues } from "./Race";
-import type { Base, PowerProps, QuizProps, RaceProps, ThenNowProps } from "./props";
+import { Decade, decadeDuration, decadeCues } from "./Decade";
+import { Five, fiveDuration, fiveCues } from "./Five";
+import { TrueFalse, trueFalseDuration, trueFalseCues } from "./TrueFalse";
+import type { Base, DecadeProps, PowerProps, QuizProps, RaceProps, ThenNowProps, FiveProps, TrueFalseProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
 
 // One composition per format of the page (the id is the format's id in
@@ -66,6 +72,12 @@ const H = {
   // the two short formats of 23 October 2026 open on their own question (hook null)
   thennow: onStage(withHook(ThenNow)),
   race: onStage(withHook(Race)),
+  // «دههٔ تو» (28 October 2026) opens on its own question too, the name very large on the old photo
+  decade: onStage(withHook(Decade)),
+  // the countdown of five figures opens on its theme, with the figure it ends on
+  five: onStage(withHook(Five)),
+  // the game «درست یا غلط» opens on its own title too
+  truefalse: onStage(withHook(TrueFalse)),
 };
 const as = <T,>(sample: unknown) => sample as T;
 const none = (): Cues => ({});
@@ -101,9 +113,12 @@ export const Root: React.FC = () => (
     <Composition id="nuclear" component={H.nuclear} {...frame} durationInFrames={650} defaultProps={plain<NuclearProps>(nuclearSample)} calculateMetadata={timed(nuclearDuration, nuclearCues)} />
     <Composition id="figure" component={H.figure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={timed(figureDuration, figureCues)} />
     <Composition id="quiz" component={H.quiz} {...frame} durationInFrames={480} defaultProps={plain<QuizProps>(quizSample)} calculateMetadata={timed(quizDuration, quizCues)} />
-    <Composition id="power" component={H.power} {...frame} durationInFrames={1420} defaultProps={plain<PowerProps>(powerSample)} calculateMetadata={timed(powerDuration, none)} />
+    <Composition id="power" component={H.power} {...frame} durationInFrames={1420} defaultProps={plain<PowerProps>(powerSample)} calculateMetadata={timed(powerDuration, powerCues)} />
     <Composition id="thennow" component={H.thennow} {...frame} durationInFrames={thenNowDuration()} defaultProps={plain<ThenNowProps>(thenNowSample)} calculateMetadata={timed<ThenNowProps>(thenNowDuration, thenNowCues)} />
     <Composition id="race" component={H.race} {...frame} durationInFrames={raceDuration()} defaultProps={plain<RaceProps>(raceSample)} calculateMetadata={timed<RaceProps>(raceDuration, raceCues)} />
+    <Composition id="decade" component={H.decade} {...frame} durationInFrames={decadeDuration(plain<DecadeProps>(decadeSample))} defaultProps={plain<DecadeProps>(decadeSample)} calculateMetadata={timed<DecadeProps>(decadeDuration, decadeCues)} />
+    <Composition id="five" component={H.five} {...frame} durationInFrames={fiveDuration(as<FiveProps>(fiveSample))} defaultProps={plain<FiveProps>(fiveSample)} calculateMetadata={timed<FiveProps>(fiveDuration, fiveCues)} />
+    <Composition id="truefalse" component={H.truefalse} {...frame} durationInFrames={trueFalseDuration(plain<TrueFalseProps>(trueFalseSample))} defaultProps={plain<TrueFalseProps>(trueFalseSample)} calculateMetadata={timed(trueFalseDuration, trueFalseCues)} />
     <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} />
     {/* a post of several pictures: one card per frame, each saved as a still (1080 by 1350, Instagram's 4:5) */}
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />

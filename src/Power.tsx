@@ -7,17 +7,32 @@
 // range has two sources (data/iran-arms.json), every rank is the site's own,
 // and nothing is counted that no open source counts. Every word and figure
 // comes from the props the site sends.
+//
+// Since 29 October 2026 the page posts it in four short parts, one subject a
+// Reel (missiles, drones, air defence, Iran's place in the region): one Reel
+// of all five scenes ran 47 seconds, and a Reel is watched to its end when it
+// is short. The props of a part carry only its scenes; the rest are null.
 import React from "react";
 import { AbsoluteFill, Audio, interpolate, staticFile } from "remotion";
 import { Backdrop, Brand, C, FPS, Foot, Kicker, NASKH, Progress, SAFE_BOTTOM, SIDE, SIDE_RAIL, VAZIR, W, clamped, ease, fade, faNum, grow, leave, paint, pop, rise, starts, useCurrentFrame } from "./kit";
 import type { PowerProps, PowerRow } from "./props";
+import { scenes, type Cues } from "./voice";
 
-const LENGTHS = [330, 210, 240, 240, 210, 190];
-function plan() {
-  const at = starts(LENGTHS);
-  return { at, total: LENGTHS.reduce((a, b) => a + b, 0) };
+const PARTS = ["missiles", "drones", "air", "land", "beyond"] as const;
+type PartKey = (typeof PARTS)[number];
+const LONG: Record<PartKey, number> = { missiles: 330, drones: 240, air: 270, land: 240, beyond: 210 };
+const OUTRO = 170;
+function plan(p: PowerProps) {
+  const parts = PARTS.filter((k) => p[k]);
+  const lengths = [...parts.map((k) => LONG[k]), OUTRO];
+  return { parts, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
 }
-export const powerDuration = (_p: PowerProps) => plan().total;
+export const powerDuration = (p: PowerProps) => plan(p).total;
+/** the narrator speaks of each subject once its scene has come in (lib/social/voice.ts) */
+export const powerCues = (p: PowerProps): Cues => {
+  const { parts, at } = plan(p);
+  return { ...scenes(at), ...Object.fromEntries(parts.map((k, i) => [k, at[i] + 20])) };
+};
 
 const TOP = 236;
 const BODY = 470;
@@ -57,7 +72,7 @@ const Scene: React.FC<{ from: number; until: number; children: React.ReactNode }
 // ---------- 1 · the missiles ----------
 const Missiles: React.FC<{ p: PowerProps; from: number; until: number }> = ({ p, from, until }) => {
   const frame = useCurrentFrame();
-  const m = p.missiles;
+  const m = p.missiles!;
   const rows = m.items;
   const pitch = Math.min(66, (BOTTOM - 70 - (BODY + 60)) / Math.max(1, rows.length));
   const labelW = 230;
@@ -127,7 +142,7 @@ const Wing: React.FC<{ size: number; color: string; lit: number }> = ({ size, co
 
 const Drones: React.FC<{ p: PowerProps; from: number; until: number }> = ({ p, from, until }) => {
   const frame = useCurrentFrame();
-  const d = p.drones;
+  const d = p.drones!;
   const cols = 9;
   const n = d.models;
   const gridTop = BODY + 10;
@@ -169,7 +184,7 @@ const Drones: React.FC<{ p: PowerProps; from: number; until: number }> = ({ p, f
 // ---------- 3 · air defence ----------
 const Air: React.FC<{ p: PowerProps; from: number; until: number }> = ({ p, from, until }) => {
   const frame = useCurrentFrame();
-  const a = p.air;
+  const a = p.air!;
   const cx = W / 2;
   const base = 470;
   const radii = [400, 290, 180];
@@ -273,21 +288,24 @@ const Outro: React.FC<{ p: PowerProps; from: number; total: number }> = ({ p, fr
 
 export const Power: React.FC<PowerProps> = (p) => {
   paint("power");
-  const { at, total } = plan();
-  const [aM, aD, aA, aL, aB, aO] = at;
+  const { parts, at, total } = plan(p);
+  const marks = at.slice(1);
+  const scene = (k: PartKey, from: number, until: number) => {
+    if (k === "missiles") return <Missiles key={k} p={p} from={from} until={until} />;
+    if (k === "drones") return <Drones key={k} p={p} from={from} until={until} />;
+    if (k === "air") return <Air key={k} p={p} from={from} until={until} />;
+    const s = p[k]!;
+    return <Places key={k} from={from} until={until} kicker={s.kicker} title={s.title} sub={s.sub} rows={s.rows} />;
+  };
   return (
     <AbsoluteFill style={{ direction: "rtl" }}>
       {p.music ? <Audio src={staticFile(p.music)} /> : null}
       <Backdrop total={total} glowY={34} />
       <Brand tag={p.series} />
-      <Progress total={total} marks={[aD, aA, aL, aB, aO]} />
-      <Missiles p={p} from={aM} until={aD} />
-      <Drones p={p} from={aD} until={aA} />
-      <Air p={p} from={aA} until={aL} />
-      <Places from={aL} until={aB} kicker={p.land.kicker} title={p.land.title} sub={p.land.sub} rows={p.land.rows} />
-      <Places from={aB} until={aO} kicker={p.beyond.kicker} title={p.beyond.title} sub={p.beyond.sub} rows={p.beyond.rows} />
-      <Outro p={p} from={aO} total={total} />
-      {[aD, aA, aL, aB, aO].map((a) => (
+      <Progress total={total} marks={marks} />
+      {parts.map((k, i) => scene(k, at[i], at[i + 1]))}
+      <Outro p={p} from={at[parts.length]} total={total} />
+      {marks.map((a) => (
         <Sweep key={a} at={a - 4} />
       ))}
     </AbsoluteFill>

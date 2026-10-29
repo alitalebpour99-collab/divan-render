@@ -288,17 +288,21 @@ export type QuizProps = Base & {
 /** A place of Iran among the states of the region: «راکت‌انداز», «حدود ۱٬۴۷۶ دستگاه», 1 of 9. */
 export type PowerRow = { label: string; value: string; rank: number; of: number; note: string | null };
 
-/** «قدرت ایران»: Iran's missiles, drones and air defence by name, and its first places in the region. */
+/**
+ * «قدرت ایران»: Iran's missiles, drones and air defence by name, and its first
+ * places in the region. Since 29 October 2026 one part a Reel: a part's props
+ * carry its own scenes and the others are null (the place has two, land and beyond).
+ */
 export type PowerProps = Base & {
   format: "power";
   /** the ballistic missiles whose range two sources give, longest first; `claim` is Iran's own word about one of them */
-  missiles: { kicker: string; title: string; sub: string | null; items: { name: string; km: number; claim: string | null }[]; unranged: string | null; max: number; ticks: { km: number; label: string }[] };
+  missiles: { kicker: string; title: string; sub: string | null; items: { name: string; km: number; claim: string | null }[]; unranged: string | null; max: number; ticks: { km: number; label: string }[] } | null;
   /** how many models the list names, and the known ones with what they do */
-  drones: { kicker: string; title: string; sub: string | null; models: number; items: { name: string; role: string }[] };
+  drones: { kicker: string; title: string; sub: string | null; models: number; items: { name: string; role: string }[] } | null;
   /** the systems by layer, the longest range first */
-  air: { kicker: string; title: string; sub: string | null; layers: { name: string; items: string[] }[] };
-  land: { kicker: string; title: string; sub: string | null; rows: PowerRow[] };
-  beyond: { kicker: string; title: string; sub: string | null; rows: PowerRow[] };
+  air: { kicker: string; title: string; sub: string | null; layers: { name: string; items: string[] }[] } | null;
+  land: { kicker: string; title: string; sub: string | null; rows: PowerRow[] } | null;
+  beyond: { kicker: string; title: string; sub: string | null; rows: PowerRow[] } | null;
   outro: { name: string; words: string[]; call: string; handle: string };
   source: string;
 };
@@ -363,7 +367,123 @@ export type RaceProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | CardsProps | StoryProps;
+/** One row of «دههٔ تو»: an indicator in the year a generation was born, and its latest value. */
+export type DecadeRow = {
+  /** the World Bank's code, «SP.POP.TOTL» (the narrator says each row in its own words) */
+  code: string;
+  /** the site's name of the series, «جمعیت» */
+  label: string;
+  unit: SeriesUnit;
+  /** the value in the year of birth, as the World Bank gives it and as the site writes it */
+  then: { value: number; text: string };
+  /** the latest value, and its year in the solar calendar in Persian digits («۱۴۰۴») */
+  now: { value: number; text: string; year: string };
+  /** what changed, in a few words: «۱٫۸ برابر», «۱۵٫۷ سال بیشتر» */
+  change: string;
+};
+
+/** «دههٔ تو»: the Iran a generation was born into, against today; the old half sepia, the new half the night. */
+export type DecadeProps = Base & {
+  format: "decade";
+  /** «دههٔ تو» */
+  kicker: string;
+  /** the generation as Iranians name it, «دهه‌شصتی‌ها» */
+  name: string;
+  /** «وقتی به دنیا آمدید، ایران چه شکلی بود؟» */
+  question: string;
+  /** the year read, in the solar calendar and the Gregorian one, Persian digits: «۱۳۶۵», «۱۹۸۶» */
+  year: string;
+  gregorian: string;
+  /** «میانهٔ دههٔ شصت» */
+  note: string;
+  /** the other column: «امروز», and a line on what it is */
+  today: string;
+  todayNote: string;
+  /** three or four rows: only indicators with a value in that very year */
+  rows: DecadeRow[];
+  /** «برای یک دهه‌شصتی بفرست» */
+  send: string;
+  source: string;
+  foot: string;
+};
+
+/** One figure of «پنج عدد». */
+export type FiveCard = {
+  /** its place in the countdown: 5 … 1 */
+  n: number;
+  /** the series' own name: «تنش آبی» */
+  label: string;
+  /** the figure as the site writes it («۱٬۴۳۵ مترمکعب»), and its two parts: the number the board flips to («۱٬۴۳۵», «۸۱٫۳٪») and the unit under it */
+  text: string;
+  num: string;
+  unit: string;
+  /** the year of the figure, in Persian digits */
+  year: string;
+  /** what the series measures, in the site's own sentence */
+  means: string;
+  /** the first year beside the latest, where it says as much: its year, its figure as the site writes it, and both values for two bars */
+  then: { year: string; text: string; value: number; now: number } | null;
+  /** the narrator's sentence on this figure, with digits (lib/social/voice.ts writes them out) */
+  say: string;
+};
+
+/** «پنج عدد»: five of Iran's World Bank series on one theme, counted down from five to one (a countdown, not a ranking). */
+export type FiveProps = Base & {
+  format: "five";
+  /** «پنج عدد · آب و کشاورزی» */
+  kicker: string;
+  /** «آب و کشاورزی ایران» */
+  theme: string;
+  /** the five in the order they are counted, «۵» first */
+  cards: FiveCard[];
+  /** the closing question: «کدامش غافلگیرت کرد؟ شماره‌اش را بنویس» */
+  ask: string;
+  source: string;
+  foot: string;
+};
+
+/** One figure of a round of «درست یا غلط»: the country, its value as the source gives it, as the card writes it, and as the narrator says it (short). */
+export type TrueFalseFigure = { name: string; value: number; text: string; said: string };
+
+/** One round of «درست یا غلط»: a sentence about Iran and one neighbour, and what the figures say of it. */
+export type TrueFalseRound = {
+  /** what is compared: «پژوهشگران در هر میلیون نفر» */
+  topic: string;
+  /** the same in a word or two, for the score at the end: «پژوهشگران» */
+  short: string;
+  /** «جمعیت ایران از ترکیه بیشتر است.» */
+  sentence: string;
+  /** the sentence says Iran has more, or less */
+  claim: "more" | "less";
+  /** whether the sentence is true: computed from the two figures, never chosen */
+  truth: boolean;
+  /** the one year both figures are for, in Persian digits */
+  year: string;
+  /** Iran, then the neighbour */
+  a: TrueFalseFigure;
+  b: TrueFalseFigure;
+  /** the unit as the narrator says it after the two figures: «نفر» */
+  unit: string;
+  /** where the two figures come from, in a few words */
+  source: string;
+};
+
+/** «درست یا غلط»: three sentences about Iran among the nine states, each with a count of three, a stamp and the two figures. */
+export type TrueFalseProps = Base & {
+  format: "truefalse";
+  /** «درست یا غلط؟» */
+  kicker: string;
+  /** the opening line, said by the narrator: «سه جمله دربارهٔ ایران و همسایه‌ها. درست یا غلط؟» */
+  question: string;
+  rounds: TrueFalseRound[];
+  /** the question back to the viewer at the end: «چند تا را درست گفتی؟» and how to answer */
+  ask: string;
+  answer: string;
+  source: string;
+  foot: string;
+};
+
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

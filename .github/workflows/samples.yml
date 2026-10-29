@@ -44,15 +44,18 @@ jobs:
           node -e "import('@remotion/renderer').then((m) => m.ensureBrowser())"
           node build.mjs
       - name: Render every pair, and its tile
+        # a sample that stalls ends here, not after the job's hours
+        timeout-minutes: 25
         env:
-          RENDER_GL: swangle
           LIST: ${{ inputs.list }}
         run: |
           for pair in $LIST; do
             comp="${pair%%:*}"; name="${pair#*:}"
             echo "== $comp from samples/$name.json"
             if [ "$comp" = "cards" ]; then node render.mjs cards --props "samples/$name.json" --bundle bundle --still all --out "$name"; continue; fi
-            node render.mjs "$comp" --props "samples/$name.json" --bundle bundle --out "$name"
+            # with the narrator's lines when the sample has them (samples/<name>.voice.json, as lib/social/voice.ts makes them)
+            voice=""; if [ -f "samples/$name.voice.json" ]; then voice="--voice samples/$name.voice.json"; fi
+            node render.mjs "$comp" --props "samples/$name.json" --bundle bundle --out "$name" $voice
             if [ -f "samples/$name.cover.json" ]; then node render.mjs cover --props "samples/$name.cover.json" --bundle bundle --still 0 --out "$name-tile"; fi
           done
           ls -la out

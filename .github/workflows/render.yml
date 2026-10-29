@@ -93,8 +93,11 @@ jobs:
           node -e "import('@remotion/renderer').then((m) => m.ensureBrowser())"
           node build.mjs
 
+      # Chrome draws with its own default: no Reel uses WebGL, and «swangle»
+      # (WebGL drawn in software) made every frame about eight times slower on
+      # these machines (29 October 2026: a Reel of «دههٔ تو» drew 119 frames in
+      # ten minutes with it, the same Reel with its narrator 1112 in three
+      # without it).
       - if: steps.look.outputs.waiting != '0'
         name: Draw what waits, hand it back
-        env:
-          RENDER_GL: swangle
         run: node worker.mjs

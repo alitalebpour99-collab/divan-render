@@ -38,8 +38,11 @@ Before each Reel the worker looks at the machine (`/proc/meminfo`,
 `/proc/loadavg`) and waits while it is short of memory or busy.
 
 Settings: `DIVAN_RENDER_SECRET`, `DIVAN_URL`, `RENDER_CONCURRENCY`,
-`RENDER_GL`, `QUIET_URL` (another renderer on the same machine to wait for),
-`POLL_SECONDS`, `START_FREE_MB`, `ABORT_FREE_MB`, `HOLD_UNTIL`.
+`RENDER_GL` (unset: Chrome's own default; «swangle» drew every frame about
+eight times slower on GitHub), `QUIET_URL` (another renderer on the same
+machine to wait for), `POLL_SECONDS`, `START_FREE_MB`, `ABORT_FREE_MB`,
+`HOLD_UNTIL`, `RENDER_MAX_MS` (a Reel still drawing after this long, 15 min,
+is given up and tried again; the log says where it had reached).
 
 ## Look at a format
 

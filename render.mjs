@@ -51,7 +51,16 @@ if (stills) {
   const inputProps = { ...props, voiceIn, music };
   const composition = await selectComposition({ serveUrl, id, inputProps, timeoutInMilliseconds });
   const outputLocation = `out/${name}.mp4`;
-  await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3), timeoutInMilliseconds });
+  // every tenth of the frames, with the time it took: a sample that crawls shows where
+  let tenth = 0;
+  const onProgress = ({ renderedFrames }) => {
+    const now = Math.floor((renderedFrames / composition.durationInFrames) * 10);
+    if (now > tenth) {
+      tenth = now;
+      console.log("frame", renderedFrames, "of", composition.durationInFrames, "after", Math.round((Date.now() - t0) / 1000), "s");
+    }
+  };
+  await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3), timeoutInMilliseconds, onProgress });
   dropVoice(path.join(serveUrl, "public"), name);
   console.log(finish(outputLocation, seconds));
   console.log("wrote", outputLocation, composition.durationInFrames, "frames,", seconds.toFixed(1), "s, in", Math.round((Date.now() - t0) / 1000), "s");

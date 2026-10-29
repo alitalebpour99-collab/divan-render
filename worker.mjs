@@ -43,6 +43,13 @@ const GL = process.env.RENDER_GL || undefined;
 // the machine must have this much memory free before a Reel is started, and this much while it renders
 const START_FREE_MB = Number(process.env.START_FREE_MB) || 2200;
 const ABORT_FREE_MB = Number(process.env.ABORT_FREE_MB) || 450;
+/**
+ * A Reel that has not been drawn in this long is given up and tried again
+ * later, with what it had reached in the log: on 29 October a Reel of «دههٔ تو»
+ * drew for half an hour and said nothing (a log on GitHub is read only once the
+ * run has ended). A Reel of twenty seconds takes two to four minutes.
+ */
+const RENDER_MAX_MS = Number(process.env.RENDER_MAX_MS) || 15 * 60_000;
 // the operator's way to keep the worker out of a window somebody else needs: no Reel is started before this moment (an ISO time)
 const HOLD_UNTIL = Date.parse(process.env.HOLD_UNTIL ?? "") || 0;
 const PORT = Number(process.env.PORT) || 0;
@@ -164,6 +171,18 @@ async function render(job) {
   const { cancelSignal, cancel } = makeCancelSignal();
   let tight = 0;
   let gaveUp = false;
+  let slow = false;
+  // where the render is, for the log: each stage, then every tenth of the frames with the time it took
+  let reached = "start";
+  const step = (what) => {
+    reached = what;
+    console.log(`Reel ${job.id} (${job.format}): ${what} after ${Math.round((Date.now() - t0) / 1000)} s`);
+  };
+  const tooLong = setTimeout(() => {
+    slow = true;
+    console.log(`Reel ${job.id}: still drawing after ${Math.round(RENDER_MAX_MS / 60_000)} min (${reached}); giving this render up`);
+    cancel();
+  }, RENDER_MAX_MS);
   const watch = setInterval(() => {
     const m = machine();
     tight = m && m.freeMb < ABORT_FREE_MB ? tight + 1 : 0;
@@ -176,7 +195,8 @@ async function render(job) {
   try {
     // the tile for the profile grid
     const tile = await selectComposition({ serveUrl: serve, id: "cover", inputProps: job.cover, chromiumOptions, timeoutInMilliseconds });
-    await renderStill({ composition: tile, serveUrl: serve, output: cover, inputProps: job.cover, imageFormat: "jpeg", jpegQuality: 92, chromiumOptions, timeoutInMilliseconds });
+    await renderStill({ composition: tile, serveUrl: serve, output: cover, inputProps: job.cover, imageFormat: "jpeg", jpegQuality: 92, chromiumOptions, timeoutInMilliseconds, cancelSignal });
+    step("tile drawn");
     // the score is made for this Reel's own length
     // the narrator's lines go in first: the composition places them, and waits for them, which sets the Reel's length
     const voiceIn = voiceFiles(job.voice, path.join(serve, "public"), job.name);
@@ -186,7 +206,16 @@ async function render(job) {
     fs.writeFileSync(path.join(serve, "public", music), score({ id: job.format, seconds, duck: duckOf(first) }));
     const inputProps = { ...job.props, voiceIn, music };
     const composition = await selectComposition({ serveUrl: serve, id: job.format, inputProps, chromiumOptions, timeoutInMilliseconds });
-    await renderMedia({ composition, serveUrl: serve, codec: "h264", crf: 20, pixelFormat: "yuv420p", audioCodec: "aac", audioBitrate: "160k", inputProps, outputLocation: video, concurrency: CONCURRENCY, chromiumOptions, cancelSignal, timeoutInMilliseconds });
+    step(`${composition.durationInFrames} frames, ${(composition.props.voice ?? []).length} lines of the narrator`);
+    let tenth = 0;
+    const onProgress = ({ renderedFrames }) => {
+      const now = Math.floor((renderedFrames / composition.durationInFrames) * 10);
+      if (now > tenth) {
+        tenth = now;
+        step(`frame ${renderedFrames} of ${composition.durationInFrames}`);
+      }
+    };
+    await renderMedia({ composition, serveUrl: serve, codec: "h264", crf: 20, pixelFormat: "yuv420p", audioCodec: "aac", audioBitrate: "160k", inputProps, outputLocation: video, concurrency: CONCURRENCY, chromiumOptions, cancelSignal, timeoutInMilliseconds, onProgress });
     console.log(`Reel ${job.id}: ${finish(video, seconds)}`);
     for (const [kind, file, type] of [
       ["video", video, "video/mp4"],
@@ -200,11 +229,12 @@ async function render(job) {
   } catch (e) {
     state.failed += 1;
     // the message of a render error may quote the content: only its first line, cut short, goes to the site, and none of it to the log
-    const reason = gaveUp ? "the server ran short of memory; the render was given up and will be tried again" : String(e instanceof Error ? e.message : e).split("\n")[0].slice(0, 240);
+    const reason = gaveUp ? "the server ran short of memory; the render was given up and will be tried again" : slow ? `drawing took longer than ${Math.round(RENDER_MAX_MS / 60_000)} minutes (${reached}); it will be tried again` : String(e instanceof Error ? e.message : e).split("\n")[0].slice(0, 240);
     console.log(`Reel ${job.id} (${job.format}): failed after ${Math.round((Date.now() - t0) / 1000)} s`);
     await call(`?id=${job.id}&failed=1`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ error: reason }) }).catch(() => undefined);
   } finally {
     clearInterval(watch);
+    clearTimeout(tooLong);
     for (const file of [video, cover, path.join(serve, "public", music)]) fs.rmSync(file, { force: true });
     dropVoice(path.join(serve, "public"), job.name);
     state.lastReel = new Date().toISOString();

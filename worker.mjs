@@ -76,6 +76,46 @@ async function call(query, init = {}, tries = 3) {
 }
 
 /**
+ * A track of Divan's music library (job.music, a name the site chose for the
+ * Reel), fetched from the site with the render secret and kept for this run in
+ * the machine's temporary folder: the tracks are licensed to Divan and are not
+ * published with this repository or its runs. Null when it cannot be had; the
+ * Reel then gets the synthesized score.
+ */
+const tracks = new Map();
+async function trackFile(name) {
+  if (typeof name !== "string" || !/^[a-z0-9-]{3,40}$/.test(name)) return null;
+  if (tracks.has(name)) return tracks.get(name);
+  try {
+    const res = await fetch(`${SITE}/api/social/work?music=${encodeURIComponent(name)}`, { headers: { authorization: `Bearer ${SECRET}` }, signal: AbortSignal.timeout(60_000) });
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (!res.ok || bytes.length < 50_000) throw new Error(`HTTP ${res.status}`);
+    const dir = path.join(os.tmpdir(), "divan-tracks");
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${name}.mp3`);
+    fs.writeFileSync(file, bytes);
+    tracks.set(name, file);
+    return file;
+  } catch (e) {
+    console.log(`music ${name}: not fetched (${e instanceof Error ? e.message : e}); the synthesized score instead`);
+    return null;
+  }
+}
+
+/** The score of one Reel: its library track when there is one, else (or when the track cannot be read) the synthesized score. */
+async function scoreOf(job, seconds, duck) {
+  const track = await trackFile(job.music);
+  if (track) {
+    try {
+      return score({ id: job.format, seconds, duck, track });
+    } catch (e) {
+      console.log(`music ${job.music}: not read (${e instanceof Error ? e.message.split("\n")[0] : e}); the synthesized score instead`);
+    }
+  }
+  return score({ id: job.format, seconds, duck });
+}
+
+/**
  * The whole machine as Linux reports it: memory that can still be had, and how
  * busy the processors are. Inside a container these two files still describe
  * the host. Null where they do not exist (a developer's own computer).
@@ -203,7 +243,7 @@ async function render(job) {
     const first = await selectComposition({ serveUrl: serve, id: job.format, inputProps: { ...job.props, voiceIn }, chromiumOptions, timeoutInMilliseconds });
     const seconds = first.durationInFrames / first.fps;
     // the score steps back under each line, where the composition placed it
-    fs.writeFileSync(path.join(serve, "public", music), score({ id: job.format, seconds, duck: duckOf(first) }));
+    fs.writeFileSync(path.join(serve, "public", music), await scoreOf(job, seconds, duckOf(first)));
     const inputProps = { ...job.props, voiceIn, music };
     const composition = await selectComposition({ serveUrl: serve, id: job.format, inputProps, chromiumOptions, timeoutInMilliseconds });
     step(`${composition.durationInFrames} frames, ${(composition.props.voice ?? []).length} lines of the narrator`);

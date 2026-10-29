@@ -3,6 +3,15 @@
 // no download; the bar is stretched so the video is a whole number of bars, and
 // the last bar comes home and rests.
 //   score({ id, seconds }) -> Buffer (WAV, 44.1 kHz stereo 16-bit), as long as the video; id is the format
+//
+// Since 29 October 2026 a Reel's score is a track of Divan's music library when
+// the site hands one in (score({ …, track: file })): beds made once with
+// ElevenLabs Music in the one style the owner chose («اولی»: a steady pulse of
+// muted synth and low strings under a data documentary, no melody), kept on
+// the site and not in this public repository. The synthesized score stays for
+// a Reel without one.
+import { execFileSync } from "node:child_process";
+
 const RATE = 44100;
 const TAU = Math.PI * 2;
 const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
@@ -97,7 +106,81 @@ function room(channel, spread) {
   return allpass(allpass(wet, 556 + spread), 441 + spread);
 }
 
-export function score({ id, seconds, duck = [] }) {
+/** The level a track is brought to before it steps back under the narrator (RMS, dB): about the synthesized score's own, -17 to -20. */
+const TRACK_RMS = -20;
+/** When a Reel is longer than its track, the track starts again under this many seconds of crossfade. */
+const LOOP = 1.5;
+
+/** How loud the score is at a moment: in over 0.7 s, out over the last 2.6 s, and down to a third under a narrator's line, with a fifth of a second either side. */
+function level(t, seconds, duck) {
+  const under = duck.reduce((m, [a, b]) => Math.max(m, Math.min(smooth((t - a + 0.2) / 0.2), smooth((b + 0.25 - t) / 0.25))), 0);
+  return smooth(t / 0.7) * smooth((seconds - t) / 2.6) * (1 - 0.68 * under);
+}
+
+/** Two channels as a WAV file, each sample times gain. */
+function wav(L, R, gain) {
+  const total = L.length;
+  const data = Buffer.alloc(total * 4);
+  for (let n = 0; n < total; n += 1) {
+    data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, L[n] * gain)) * 32767), n * 4);
+    data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, R[n] * gain)) * 32767), n * 4 + 2);
+  }
+  const head = Buffer.alloc(44);
+  head.write("RIFF", 0);
+  head.writeUInt32LE(36 + data.length, 4);
+  head.write("WAVEfmt ", 8);
+  head.writeUInt32LE(16, 16);
+  head.writeUInt16LE(1, 20);
+  head.writeUInt16LE(2, 22);
+  head.writeUInt32LE(RATE, 24);
+  head.writeUInt32LE(RATE * 4, 28);
+  head.writeUInt16LE(4, 32);
+  head.writeUInt16LE(16, 34);
+  head.write("data", 36);
+  head.writeUInt32LE(data.length, 40);
+  return Buffer.concat([head, data]);
+}
+
+/** A Reel's score from a track of the library: from its beginning, looped with a crossfade when the Reel runs longer, at the synthesized score's level, in, out and under the narrator as that score is. */
+function fromTrack(file, seconds, duck) {
+  const pcm = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", file, "-ac", "2", "-ar", String(RATE), "-f", "f32le", "-"], { maxBuffer: 1 << 30 });
+  const all = new Float32Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 4));
+  const frames = Math.floor(all.length / 2);
+  if (frames < RATE * 4) throw new Error("the track is too short");
+  const total = Math.ceil(seconds * RATE);
+  const cross = Math.round(LOOP * RATE);
+  const span = frames - cross;
+  const L = new Float32Array(total);
+  const R = new Float32Array(total);
+  let sum = 0;
+  for (let n = 0; n < total; n += 1) {
+    const k = n % span;
+    let l = all[k * 2];
+    let r = all[k * 2 + 1];
+    if (n >= span && k < cross) {
+      // the track's own tail fades out under its beginning
+      const u = smooth(k / cross);
+      l = u * l + (1 - u) * all[(span + k) * 2];
+      r = u * r + (1 - u) * all[(span + k) * 2 + 1];
+    }
+    L[n] = l;
+    R[n] = r;
+    sum += l * l + r * r;
+  }
+  const rms = 10 * Math.log10(sum / (2 * total) + 1e-12);
+  let peak = 0;
+  for (let n = 0; n < total; n += 1) {
+    const v = level(n / RATE, seconds, duck);
+    L[n] *= v;
+    R[n] *= v;
+    peak = Math.max(peak, Math.abs(L[n]), Math.abs(R[n]));
+  }
+  const gain = Math.min(10 ** ((TRACK_RMS - rms) / 20), peak ? 0.9 / peak : 1);
+  return wav(L, R, gain);
+}
+
+export function score({ id, seconds, duck = [], track }) {
+  if (track) return fromTrack(track, seconds, duck);
   const { root, bpm, pulse } = MOODS[id] ?? MOODS.dilemma;
   const total = Math.ceil(seconds * RATE);
   const L = new Float32Array(total);
@@ -173,32 +256,10 @@ export function score({ id, seconds, duck = [] }) {
   let peak = 0;
   for (let n = 0; n < total; n += 1) {
     const t = n / RATE;
-    // under a narrator's line the score goes down to a third, with a fifth of a second either side
-    const under = duck.reduce((m, [a, b]) => Math.max(m, Math.min(smooth((t - a + 0.2) / 0.2), smooth((b + 0.25 - t) / 0.25))), 0);
-    const level = smooth(t / 0.7) * smooth((seconds - t) / 2.6) * (1 - 0.68 * under);
-    L[n] = (L[n] + 0.26 * wetL[n]) * level;
-    R[n] = (R[n] + 0.26 * wetR[n]) * level;
+    const v = level(t, seconds, duck);
+    L[n] = (L[n] + 0.26 * wetL[n]) * v;
+    R[n] = (R[n] + 0.26 * wetR[n]) * v;
     peak = Math.max(peak, Math.abs(L[n]), Math.abs(R[n]));
   }
-  const gain = peak ? 0.56 / peak : 1;
-
-  const data = Buffer.alloc(total * 4);
-  for (let n = 0; n < total; n += 1) {
-    data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, L[n] * gain)) * 32767), n * 4);
-    data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, R[n] * gain)) * 32767), n * 4 + 2);
-  }
-  const head = Buffer.alloc(44);
-  head.write("RIFF", 0);
-  head.writeUInt32LE(36 + data.length, 4);
-  head.write("WAVEfmt ", 8);
-  head.writeUInt32LE(16, 16);
-  head.writeUInt16LE(1, 20);
-  head.writeUInt16LE(2, 22);
-  head.writeUInt32LE(RATE, 24);
-  head.writeUInt32LE(RATE * 4, 28);
-  head.writeUInt16LE(4, 32);
-  head.writeUInt16LE(16, 34);
-  head.write("data", 36);
-  head.writeUInt32LE(data.length, 40);
-  return Buffer.concat([head, data]);
+  return wav(L, R, peak ? 0.56 / peak : 1);
 }

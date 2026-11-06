@@ -1,6 +1,7 @@
 // What every Divan Reel shares: the site's night palette and type, Instagram's
 // safe zones, the seal, the brand line, the closing line and the motion pieces.
 import React from "react";
+import SOUND_CODE from "./sound-code.json";
 import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame as useFilmFrame } from "remotion";
 import { loadFont as loadVazir } from "@remotion/google-fonts/Vazirmatn";
 import { loadFont as loadNaskh } from "@remotion/google-fonts/NotoNaskhArabic";
@@ -469,6 +470,70 @@ export const GoalCard: React.FC<{ goals: Goal[]; from: number; style?: React.CSS
         {goals.map((goal, i) => (
           <GoalColumn key={goal.id ?? i} goal={goal} g={interpolate(frame, [from + i * 10, from + 30 + i * 10], [0, 1], { ...clamped, easing: ease })} />
         ))}
+      </div>
+    </div>
+  );
+};
+
+// ---------- the sound code ----------
+/** The kinds of moment a template names; video/sfx.mjs says which sound each makes (src/sound-code.json). */
+export type SoundMoment = keyof typeof SOUND_CODE;
+/** A moment's own sound: a template says what happens (move, label, count, reveal, preReveal), the code says how it sounds. */
+export const Cue: React.FC<{ on: SoundMoment; at: number; volume?: number }> = ({ on, at, volume }) => <Sfx at={at} name={SOUND_CODE[on] as SfxName} volume={volume} />;
+
+// ---------- the narrator's words, as they are said ----------
+/** The captions' type: body text on the finished video (48 px and more, the stage draws at 85 %). */
+const CAPTION_PX = 66;
+/** The characters one group of words may hold: one line, two at most. */
+const GROUP = 26;
+/**
+ * Word-level captions (the owner, 6 November 2026): the narrator's words on
+ * the screen as they are said, a few at a time, the word being said in the
+ * series' colour and those already said in ink. The words and their frames
+ * come from video/voice.mjs (each line's `words`, placed with it by voice.ts);
+ * drawn on the film's own clock by the stage (Safe.tsx, onStage with
+ * captions), above the band Instagram writes its caption in. Between two lines
+ * nothing shows.
+ */
+export const Captions: React.FC<{ voice?: import("./voice").VoiceOut[] | null; bottom?: number }> = ({ voice, bottom = SAFE_BOTTOM + 36 }) => {
+  const frame = useFilmFrame();
+  const line = (voice ?? []).find((v) => v.words?.length && frame >= v.from && frame < v.from + v.frames + 4);
+  if (!line?.words) return null;
+  const t = frame - line.from;
+  // the words in groups that fit a line or two; a mark that ends a clause ends its group
+  const groups: import("./voice").Word[][] = [];
+  let cur: import("./voice").Word[] = [];
+  let size = 0;
+  for (const w of line.words) {
+    const n = Array.from(w.text).length + 1;
+    if (cur.length && size + n > GROUP) {
+      groups.push(cur);
+      cur = [];
+      size = 0;
+    }
+    cur.push(w);
+    size += n;
+    if (/[.؟!،؛:]$/.test(w.text)) {
+      groups.push(cur);
+      cur = [];
+      size = 0;
+    }
+  }
+  if (cur.length) groups.push(cur);
+  const now = groups.findIndex((g) => t < g[g.length - 1].from + g[g.length - 1].frames);
+  const group = groups[now < 0 ? groups.length - 1 : now];
+  return (
+    <div style={{ position: "absolute", left: SIDE, right: SIDE, bottom, display: "flex", justifyContent: "center", direction: "rtl", pointerEvents: "none" }}>
+      <div style={{ padding: "8px 28px 16px", borderRadius: 30, background: "rgba(8,12,22,.74)", border: `1.5px solid ${C.line}`, textAlign: "center", fontFamily: VAZIR, fontWeight: 800, fontSize: CAPTION_PX, lineHeight: 1.35, color: C.ink }}>
+        {group.map((w, i) => {
+          const said = t >= w.from;
+          const saying = said && t < w.from + w.frames;
+          return (
+            <span key={i} style={{ display: "inline-block", marginLeft: "0.28em", color: saying ? C.acc : said ? C.ink : C.ink3, transform: `translateY(${saying ? -3 : 0}px)` }}>
+              {w.text}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,8 +1,18 @@
 // The Reels' sound effects, synthesized like the score (music.mjs): no sample, no licence, no download.
 // Written once into public/sfx/ and committed; a Reel plays them at its own moments (kit.tsx, <Sfx>).
-//   node sfx.mjs        writes public/sfx/{whoosh,hit,tick,pop,rise,swish}.wav
+//   node sfx.mjs        writes public/sfx/{whoosh,hit,tick,pop,rise,swish}.wav and src/sound-code.json
 import fs from "node:fs";
 import path from "node:path";
+
+/**
+ * The sound code (the owner, 6 November 2026): what a moment of a Reel does
+ * says which sound it makes, the same in every template, so the ear learns it.
+ * A thing moves in or out: whoosh. A label lands: pop. A number counts: tick.
+ * The answer shows: hit. The moment before it: rise. The compositions read it
+ * from src/sound-code.json, which this script writes beside the sounds
+ * (kit.tsx, <Cue>).
+ */
+export const CODE = Object.freeze({ move: "whoosh", label: "pop", count: "tick", reveal: "hit", preReveal: "rise" });
 
 const RATE = 44100;
 const TAU = Math.PI * 2;
@@ -142,8 +152,11 @@ function swish(seconds = 0.3) {
   return wav(L, R);
 }
 
-const out = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1")), "public", "sfx");
+const here = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
+const out = path.join(here, "public", "sfx");
 fs.mkdirSync(out, { recursive: true });
+fs.writeFileSync(path.join(here, "src", "sound-code.json"), `${JSON.stringify(CODE, null, 1)}\n`);
+console.log("src/sound-code.json", JSON.stringify(CODE));
 const all = { whoosh: whoosh(), hit: hit(), tick: tick(), pop: pop(), rise: rise(), swish: swish() };
 for (const [name, bytes] of Object.entries(all)) {
   fs.writeFileSync(path.join(out, `${name}.wav`), bytes);

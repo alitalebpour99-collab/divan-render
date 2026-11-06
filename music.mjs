@@ -42,6 +42,11 @@ const MOODS = {
   // the countdown of five figures: a quick pulse under the flipping board
   five: { root: 46, bpm: 96, pulse: true },
   truefalse: { root: 47, bpm: 104, pulse: true },
+  // the content system's templates (src/Templates.tsx) take the score of the series they show
+  t1: { root: 38, bpm: 84, pulse: true },
+  t2: { root: 44, bpm: 62 },
+  t5: { root: 50, bpm: 72 },
+  t6: { root: 43, bpm: 92, pulse: true },
 };
 // i  VI  III  VII, as open voicings above the key note: root, fifth, tenth
 const CHORDS = [

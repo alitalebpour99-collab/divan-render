@@ -48,6 +48,8 @@ import { Five, fiveDuration, fiveCues } from "./Five";
 import { TrueFalse, trueFalseDuration, trueFalseCues } from "./TrueFalse";
 import type { Base, DecadeProps, PowerProps, QuizProps, RaceProps, ThenNowProps, FiveProps, TrueFalseProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
+// the content system's templates (T1, T2, T5, T6): in the studio and for the renderer, not planned by the site yet
+import { Templates } from "./Templates";
 
 // One composition per format of the page (the id is the format's id in
 // lib/social/formats.ts of the site), all in the Reel frame, plus the still
@@ -124,5 +126,6 @@ export const Root: React.FC = () => (
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />
     {/* the Story that follows a Reel onto the page */}
     <Composition id="story" component={Story} {...frame} durationInFrames={storyDuration()} defaultProps={as<StoryProps>(storySample)} />
+    <Templates />
   </>
 );

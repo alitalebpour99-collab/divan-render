@@ -483,7 +483,7 @@ export type TrueFalseProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps;
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps | T1Props | T2Props | T5Props | T6Props;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {
@@ -493,4 +493,61 @@ export type CoverProps = {
   title: string;
   /** one short figure or word that carries the tile, optional */
   mark?: string;
+};
+
+// ---------- the content system's templates (Templates.tsx; built by lib/social/templates.ts, not planned) ----------
+/** What every template carries besides its own content: the series whose colour it wears, its question, the question back at the end, its sources. */
+type TemplateBase = Base & {
+  /** the series whose colour (HUES) and emblem the template wears: «power», «dollar», «thennow» … */
+  of: string;
+  kicker: string;
+  /** the question on the first frame */
+  question: string;
+  /** the question back to the viewer at the end: one that loops to the start, or one to answer */
+  ask: string;
+  /** where every figure comes from, and when it was read */
+  source: string;
+  foot: string;
+};
+
+/** T1 «لایه به لایه»: a whole seen from above, one layer at a time (Iran's air defence: long, medium and short range). */
+export type T1Props = TemplateBase & {
+  format: "t1";
+  /** the layers from the outside in, each with how many it holds and their names */
+  layers: { name: string; count: number; items: string[] }[];
+  /** all the layers together: «۲۲ سامانه» */
+  totalText: string;
+};
+
+/** T2 «نگه دار، برگرد عقب»: today's figure held, then the line rewound to where it began (made only when the latest quote changed). */
+export type T2Props = TemplateBase & {
+  format: "t2";
+  unit: string;
+  today: { text: string; date: string };
+  first: { text: string; date: string; event: string | null };
+  /** the plain change from the first figure to today's: «۲٫۸ برابر» */
+  times: string;
+  /** every reading, oldest first: x and y in percent of the plot, its date and figure as written, and an event of that day */
+  points: { x: number; y: number; dateText: string; value: string; approx: boolean; event: string | null }[];
+};
+
+/** T5 «حدس بزن»: a question, four answers, a count of three, the answer, the whole ranking. */
+export type T5Props = TemplateBase & {
+  format: "t5";
+  options: string[];
+  answer: number;
+  reveal: string;
+  rows: { name: string; text: string; share: number; home: boolean }[];
+};
+
+/** T6 «اون موقع، الان»: one figure then and now, as two columns seen from above, and how far it moved. */
+export type T6Props = TemplateBase & {
+  format: "t6";
+  label: string;
+  then: { year: string; text: string; value: number };
+  now: { year: string; text: string; value: number };
+  change: string;
+  explain: string;
+  /** every year's value between, oldest first */
+  line: number[];
 };

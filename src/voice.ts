@@ -12,10 +12,12 @@
 /** A hold: at this frame of a layout the picture waits, on the frame before, for `len` frames (kit.tsx draws it). */
 export type Hold = { at: number; len: number };
 
-/** A line as the renderer hands it in: its file in the public folder, its moment and its length in frames. */
-export type VoiceIn = { file: string; cue: string; frames: number };
-/** A line placed: the frame of the film it starts on. */
-export type VoiceOut = { file: string; from: number; frames: number };
+/** One word of a line as it is said: its text, and its frames from the line's own start (video/voice.mjs makes them). */
+export type Word = { text: string; from: number; frames: number };
+/** A line as the renderer hands it in: its file in the public folder, its moment, its length in frames, and its words when known. */
+export type VoiceIn = { file: string; cue: string; frames: number; words?: Word[] };
+/** A line placed: the frame of the film it starts on (and its words, for the captions: kit.tsx, Captions). */
+export type VoiceOut = { file: string; from: number; frames: number; words?: Word[] };
 /**
  * The moments of a layout, in frames of the layout itself (before any hold).
  * A name that starts with «_» is only where a scene begins: no line is said
@@ -68,7 +70,7 @@ export function layVoice(lines: VoiceIn[] | undefined, cues: Cues, body: number,
   if (start && hooked) {
     // the question is said over the hook, which stays until it has been said
     hookLen = Math.max(hookBase, LEAD + start.frames + overlap);
-    voice.push({ file: start.file, from: LEAD, frames: start.frames });
+    voice.push({ file: start.file, from: LEAD, frames: start.frames, ...(start.words ? { words: start.words } : {}) });
     free = LEAD + start.frames + GAP;
   }
   const offset = hooked ? hookLen - overlap : 0;
@@ -87,7 +89,7 @@ export function layVoice(lines: VoiceIn[] | undefined, cues: Cues, body: number,
     }
     if (!line) continue;
     if (line.cue !== "start" && from > free) from = Math.max(free, from - EARLY);
-    voice.push({ file: line.file, from, frames: line.frames });
+    voice.push({ file: line.file, from, frames: line.frames, ...(line.words ? { words: line.words } : {}) });
     free = from + line.frames + GAP;
   }
   // the film runs until the last word has been said

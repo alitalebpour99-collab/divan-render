@@ -179,7 +179,7 @@ export const Dilemma: React.FC<DilemmaProps> = (p) => {
                 ))}
               </div>
               <div style={{ fontFamily: VAZIR, fontSize: 30, color: C.ink3, marginTop: 26, opacity: fade(frame, T_CONCLUDE + 104, 12) }}>
-                {faDigits(tally("for"))} موافق · {faDigits(tally("cond"))} مشروط · {faDigits(tally("against"))} مخالف
+                {faDigits(tally("for"))} موافق، {faDigits(tally("cond"))} مشروط، {faDigits(tally("against"))} مخالف
               </div>
             </>
           ) : null}

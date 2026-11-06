@@ -122,7 +122,7 @@ const Missiles: React.FC<{ p: PowerProps; from: number; until: number }> = ({ p,
       })}
       {rows.some((r) => r.claim) ? (
         <div style={{ position: "absolute", top: BODY + 56 + rows.length * pitch, right, left: SIDE, direction: "rtl", fontFamily: VAZIR, fontWeight: 800, fontSize: 30, color: C.acc, opacity: fade(frame, from + 22 + rows.length * 8, 12) }}>
-          {rows.filter((r) => r.claim).map((r) => `${r.name}: ${r.claim}`).join("  ·  ")}
+          {rows.filter((r) => r.claim).map((r) => `${r.name}: ${r.claim}`).join("؛ ")}
         </div>
       ) : null}
       {m.unranged ? (
@@ -222,7 +222,7 @@ const Air: React.FC<{ p: PowerProps; from: number; until: number }> = ({ p, from
           return (
             <div key={l.name} style={{ padding: "16px 24px", borderRadius: 22, background: C.panel, border: `1.5px solid ${i === 0 ? C.accLine : C.line}`, opacity: fade(frame, at, 10), transform: `translateX(${-rise(frame, at, 40, 16)}px)` }}>
               <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 32, color: C.acc }}>{l.name}</div>
-              <div style={{ fontFamily: VAZIR, fontSize: 35, lineHeight: 1.55, color: C.ink, marginTop: 4 }}>{l.items.join("  ·  ")}</div>
+              <div style={{ fontFamily: VAZIR, fontSize: 35, lineHeight: 1.55, color: C.ink, marginTop: 4 }}>{l.items.join("، ")}</div>
             </div>
           );
         })}
@@ -274,7 +274,7 @@ const Outro: React.FC<{ p: PowerProps; from: number; total: number }> = ({ p, fr
           {o.words.map((w, i) => (
             <span key={w} style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 40, color: C.acc, opacity: fade(frame, from + 24 + i * 6, 8), transform: `translateY(${rise(frame, from + 24 + i * 6, 24)}px)` }}>
               {w}
-              {i < o.words.length - 1 ? <span style={{ color: C.ink3, marginRight: 18 }}>·</span> : null}
+              {i < o.words.length - 1 ? <span style={{ color: C.ink3 }}>،</span> : null}
             </span>
           ))}
         </div>

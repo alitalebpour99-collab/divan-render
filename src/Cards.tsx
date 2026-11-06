@@ -107,7 +107,7 @@ const Figure: React.FC<{ c: Extract<CardView, { kind: "figure" }> }> = ({ c }) =
       <span style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 44, color: C.ink }}>{c.unit}</span>
     </div>
     <div style={{ fontFamily: VAZIR, fontSize: 36, lineHeight: 1.7, color: C.ink }}>{c.explain}</div>
-    <div style={{ fontFamily: VAZIR, fontSize: 26, lineHeight: 1.6, color: C.ink3 }}>{`${c.when} · منبع: ${c.source}`}</div>
+    <div style={{ fontFamily: VAZIR, fontSize: 26, lineHeight: 1.6, color: C.ink3 }}>{`${c.when}؛ منبع: ${c.source}`}</div>
   </div>
 );
 

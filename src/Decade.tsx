@@ -313,7 +313,7 @@ export const Decade: React.FC<DecadeProps> = (p) => {
                 <div style={{ position: "absolute", inset: 9, border: `2.5px solid ${STAMP}`, borderRadius: 14 }} />
                 {p.year}
               </div>
-              <div style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 44, color: OLD.ink2, whiteSpace: "nowrap", opacity: fade(frame, YEAR + 20, 10) }}>{`${p.gregorian} · ${p.note}`}</div>
+              <div style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 44, color: OLD.ink2, whiteSpace: "nowrap", opacity: fade(frame, YEAR + 20, 10) }}>{`${p.gregorian}، ${p.note}`}</div>
             </div>
           </div>
           <div style={{ position: "absolute", left: NEW_X, width: COL, top: headY, height: 0, opacity: rowsOut }}>

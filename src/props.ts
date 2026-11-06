@@ -266,6 +266,8 @@ export type FigureProps = Base & {
   when: string;
   source: string;
   foot: string;
+  /** the short version, 15 to 25 seconds with its narrator (Figure.tsx); null or left out for the whole one */
+  cut?: "short" | null;
 };
 
 /** «حدس بزن»: a question on a ranking of the site, four answers, a count of three, the answer, and the whole ranking. */
@@ -440,6 +442,8 @@ export type FiveProps = Base & {
   ask: string;
   source: string;
   foot: string;
+  /** the short version, 15 to 25 seconds with its narrator (Five.tsx); null or left out for the whole one */
+  cut?: "short" | null;
 };
 
 /** One figure of a round of «درست یا غلط»: the country, its value as the source gives it, as the card writes it, and as the narrator says it (short). */

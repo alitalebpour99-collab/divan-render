@@ -26,7 +26,7 @@ import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
 import { Cover } from "./Cover";
 import { Dilemma, dilemmaDuration } from "./Dilemma";
 import { Dollar, dollarDuration, dollarCues } from "./Dollar";
-import { Figure, figureDuration, figureCues } from "./Figure";
+import { Figure, figureCues, figureDuration, figureLook } from "./Figure";
 import { HOOK_FRAMES, HOOK_OVERLAP, withHook } from "./Hook";
 import { layVoice, type Cues } from "./voice";
 import { onStage } from "./Safe";
@@ -44,7 +44,7 @@ import { WarReplay, warDuration, warCues } from "./WarReplay";
 import { ThenNow, thenNowDuration, thenNowCues } from "./ThenNow";
 import { Race, raceDuration, raceCues } from "./Race";
 import { Decade, decadeDuration, decadeCues } from "./Decade";
-import { Five, fiveDuration, fiveCues } from "./Five";
+import { Five, fiveCues, fiveDuration, fiveLook } from "./Five";
 import { TrueFalse, trueFalseDuration, trueFalseCues } from "./TrueFalse";
 import type { Base, DecadeProps, PowerProps, QuizProps, RaceProps, ThenNowProps, FiveProps, TrueFalseProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
@@ -66,7 +66,8 @@ const H = {
   arsenal: onStage(withHook(Arsenal)),
   dollar: onStage(withHook(Dollar)),
   nuclear: onStage(withHook(Nuclear)),
-  figure: onStage(withHook(Figure)),
+  // the hook shows the figure counting in its ring, the countdown its last board flipping (Hook.tsx, look)
+  figure: onStage(withHook(Figure, figureLook)),
   quiz: onStage(withHook(Quiz)),
   power: onStage(withHook(Power)),
   // the two short formats of 23 October 2026 open on their own question (hook null)
@@ -75,7 +76,7 @@ const H = {
   // «دههٔ تو» (28 October 2026) opens on its own question too, the name very large on the old photo
   decade: onStage(withHook(Decade)),
   // the countdown of five figures opens on its theme, with the figure it ends on
-  five: onStage(withHook(Five)),
+  five: onStage(withHook(Five, fiveLook)),
   // the game «درست یا غلط» opens on its own title too
   truefalse: onStage(withHook(TrueFalse)),
 };

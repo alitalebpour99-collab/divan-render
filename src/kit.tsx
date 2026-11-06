@@ -5,7 +5,7 @@ import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurr
 import { loadFont as loadVazir } from "@remotion/google-fonts/Vazirmatn";
 import { loadFont as loadNaskh } from "@remotion/google-fonts/NotoNaskhArabic";
 import { CHROMA, HUES } from "./hues";
-import type { Hold } from "./voice";
+import { layVoice, type Cues, type Hold, type VoiceIn } from "./voice";
 
 export const { fontFamily: VAZIR } = loadVazir("normal", { weights: ["400", "500", "700", "800"], subsets: ["arabic", "latin"] });
 export const { fontFamily: NASKH } = loadNaskh("normal", { weights: ["500", "700"], subsets: ["arabic"] });
@@ -47,6 +47,40 @@ export const Bleed: React.FC<{ children?: React.ReactNode; style?: React.CSSProp
   );
 export const SIDE_RAIL = 150;
 export const SIDE = 70;
+
+// ---------- the smallest type, and the short versions ----------
+/**
+ * The owner's floor for type (6 November 2026): a title is at least 88 px and
+ * every text to be read at least 48 px, on the finished video. The safe stage
+ * draws the designed frame at STAGE_K (85 %), so on the designed frame they are
+ * 104 px and 57 px. The hook of every Reel keeps to them, and so do «عدد روز» and
+ * «پنج عدد»; the marks (the seal, the page's name, the address) are not text to
+ * be read.
+ */
+export const TITLE_MIN = Math.ceil(88 / STAGE_K);
+export const BODY_MIN = Math.ceil(48 / STAGE_K);
+
+/** The longest a short version runs with its narrator, and the shortest its scenes run (Figure.tsx, Five.tsx). */
+export const SHORT_MAX = 25 * FPS;
+export const SHORT_MIN = 15 * FPS;
+
+/**
+ * The moments a short version keeps, so that it runs no longer than SHORT_MAX
+ * with its narrator: the narrator's lines on the cues in `drop` are left out,
+ * one at a time in that order (the one least needed first), until the film
+ * fits. A line whose cue the layout does not name is not said (voice.ts), so
+ * the question and the line to follow the page always stay. Laid out by
+ * voice.ts itself, so the length is the one the film will have.
+ */
+export function shortCues(cues: Cues, lines: VoiceIn[] | undefined, body: number, hooked: boolean, hookBase: number, overlap: number, drop: string[]): Cues {
+  const out = { ...cues };
+  if (!lines?.length) return out;
+  for (const cue of [null, ...drop]) {
+    if (cue) delete out[cue];
+    if (layVoice(lines, out, body, hooked, hookBase, overlap).total <= SHORT_MAX) break;
+  }
+  return out;
+}
 
 // the night theme of the site (app/globals.css); the accent is the series' own colour, set by paint()
 export const C = {
@@ -264,10 +298,10 @@ export const AiChip: React.FC<{ opacity?: number }> = ({ opacity = 1 }) => (
   </span>
 );
 
-/** The closing line: where the content comes from, and where to see the whole of it. */
-export const Foot: React.FC<{ opacity?: number; children: React.ReactNode }> = ({ opacity = 1, children }) => (
+/** The closing line: where the content comes from, and where to see the whole of it. `size` is its text's (the layouts that keep the type floor give BODY_MIN). */
+export const Foot: React.FC<{ opacity?: number; size?: number; children: React.ReactNode }> = ({ opacity = 1, size = 22, children }) => (
   <div style={{ position: "absolute", bottom: SAFE_BOTTOM + 4, left: SIDE, right: SIDE_RAIL, direction: "rtl", opacity }}>
-    <div style={{ fontFamily: VAZIR, fontSize: 22, color: C.ink3, lineHeight: 1.7 }}>{children}</div>
+    <div style={{ fontFamily: VAZIR, fontSize: size, color: size >= BODY_MIN ? C.ink2 : C.ink3, lineHeight: size >= BODY_MIN ? 1.45 : 1.7 }}>{children}</div>
     <div style={{ fontFamily: VAZIR, fontSize: 30, fontWeight: 700, color: C.ink, direction: "ltr", textAlign: "right", marginTop: 8 }}>divan.ahura.cloud</div>
   </div>
 );

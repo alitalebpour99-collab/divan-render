@@ -64,7 +64,8 @@ export type FitAsk = { text: string; width: number; maxLines: number; size: numb
 export function fit(a: FitAsk, m: Measure = measure): { lines: Line[]; overflow: boolean; width: number } {
   const weight = a.weight ?? 700;
   const min = a.min ?? MIN_TEXT;
-  const words = a.text.trim().split(/\s+/).filter(Boolean);
+  // words part at plain spaces only: a no-break space holds a Latin name together (plans.ts, plainFa)
+  const words = a.text.trim().split(/[ \t\n]+/).filter(Boolean);
   for (let size = a.size; size >= min; size -= 2) {
     const w = (s: string) => m(s, size, weight, a.family);
     const lines = breakLines(words, a.width, w);

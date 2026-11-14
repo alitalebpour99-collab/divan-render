@@ -5,7 +5,7 @@
 // real one). Every word on screen comes from the props; nothing is written here
 // except the fixed labels of the page (the legend of the war map, «منبع»).
 import { fit, linesHeight, type Measure } from "./fit.ts";
-import { COL_W, FPS, H, MIN_MARK, MIN_TEXT, ZONES, type Box, type Cue, type Hud, type Line, type MapLayer, type Piece, type Plan, type Pose, type Punch, type Shot, type Window } from "./space.ts";
+import { COL_W, COL_X, FPS, H, MIN_MARK, MIN_TEXT, ZONES, type Box, type Cue, type Hud, type Line, type MapLayer, type Piece, type Plan, type Pose, type Punch, type Shot, type Window } from "./space.ts";
 
 export const SET_FORMATS = ["figure", "war", "dilemma"] as const;
 export type SetFormat = (typeof SET_FORMATS)[number];
@@ -18,6 +18,8 @@ export type VoiceLine = { file: string; cue: string; frames: number };
 export type Ctx = { fonts: Fonts; voiceIn?: VoiceLine[]; badge: boolean; measure?: Measure };
 
 const FOREVER = 1e9;
+/** the whole width the apps leave free: a screen line (the source) may use it when the column is too narrow for a Latin name */
+const SAFE_W = ZONES.right - ZONES.left;
 const fa = (n: number | string) => String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 /** No «·» or «|» beside Persian (the owner, 6 November 2026): a separator becomes the Persian comma. */
 export const plainFa = (s: unknown) =>
@@ -25,13 +27,24 @@ export const plainFa = (s: unknown) =>
     .replace(/\s*[·|]\s*/g, "، ")
     .replace(/\s+/g, " ")
     .trim()
-    // a Latin name (a source) stays on one line: its spaces do not break, so its brackets keep their order beside Persian
-    .replace(/[A-Za-z][A-Za-z0-9 .,'&()-]*[A-Za-z0-9.)]/g, (run) => run.replace(/ /g, " "));
+    // a Latin name (a source) stays on one line: its spaces do not break, so its brackets keep their order beside Persian; a long one may break before its bracket, which stays whole
+    .replace(/[A-Za-z][A-Za-z0-9 .,'&()-]*[A-Za-z0-9.)]/g, (run) => run.replace(/ /g, " ").split(" (").join(" ("));
 export const wordsOf = (s: string) =>
   String(s)
     .replace(/[؟?!.،,؛:«»"()]/g, " ")
     .split(/\s+/)
     .filter(Boolean);
+const NUMERAL = /^[0-9۰-۹٫٬.,/]+$/;
+/**
+ * The words of a hook as a reader takes them in: a figure is seen at a glance,
+ * so two figures weigh one word («۱۸۴ رویداد در ۲۶۰ روز جنگ. کجا بودند؟» is
+ * six words and two figures: seven). The gate counts the same way (gate.mjs).
+ */
+export const hookWeight = (s: string) => {
+  const w = wordsOf(s);
+  const nums = w.filter((x) => NUMERAL.test(x)).length;
+  return w.length - nums + Math.ceil(nums / 2);
+};
 const firstSentences = (text: string) =>
   plainFa(text)
     .split(/(?<=[.!؟?])\s+/)
@@ -107,16 +120,16 @@ class Board {
   }
   /** A source chip under a piece (one line, a mark: it may be smaller than the reading floor). */
   chip(id: string, at: [number, number], text: string, show: Window[], w = COL_W - 170): Piece {
-    const lines = this.text(text, w - 40, 36, { weight: 500, maxLines: 1, min: MIN_MARK + 3, color: "ink2" });
+    const lines = this.text(text, w - 40, 42, { weight: 500, maxLines: 1, min: MIN_MARK, color: "ink2" });
     return this.piece({ id, kind: "chip", at, w, h: Math.round(linesHeight(lines, 1.35) + 24), lift: 0.05, show, lines, num: false });
   }
   /** A screen-fixed line at the bottom of the safe area: the source, the AI note, the day of the replay. */
-  hudLine(id: string, kind: Hud["kind"], text: string, show: Window[], place: "top" | "bottom", color = "ink2", size = 36): Hud {
-    const lines = this.text(text, COL_W - 40, size, { weight: 500, maxLines: kind === "source" ? 2 : 1, min: MIN_MARK + 3, color });
+  hudLine(id: string, kind: Hud["kind"], text: string, show: Window[], place: "top" | "bottom", color = "ink2", size = 42): Hud {
+    const lines = this.text(text, SAFE_W - 52, size, { weight: kind === "day" ? 700 : 500, maxLines: kind === "source" ? 2 : 1, min: MIN_MARK, color });
     const h = Math.round(linesHeight(lines, 1.35) + 22);
-    const width = Math.min(COL_W, Math.round(Math.max(...lines.map((l) => this.m(l.text, l.size, 500, this.ctx.fonts.vazir))) + 56));
-    // the source sits on the bottom row of the safe area; a title strip (a turning point, the AI note) under the app's header
-    const box: Box = { x: ZONES.right - 26 - width, y: place === "top" ? ZONES.top + 18 : ZONES.bottom - 18 - h, w: width, h };
+    const width = Math.min(SAFE_W, Math.round(Math.max(...lines.map((l) => this.m(l.text, l.size, l.weight, this.ctx.fonts.vazir))) + 56));
+    // the source sits on the bottom row of the safe area; a title strip (a turning point, the AI note) under the app's header; both centred on the column, as the cards are
+    const box: Box = { x: Math.max(ZONES.left, Math.min(ZONES.right - width, Math.round(COL_X - width / 2))), y: place === "top" ? ZONES.top + 18 : ZONES.bottom - 18 - h, w: width, h };
     const hud: Hud = { id, kind, box, show, lines };
     this.hud.push(hud);
     return hud;
@@ -181,7 +194,7 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const hookWin: Window[] = [[0, s0len]];
   const qLines = b.text(hookText, COL_W - 160, 100, { family: "naskh", maxLines: 2, color: "ink" });
   const q = b.plate("hook", [s0[0], s0[1] - 300], COL_W - 90, qLines, hookWin, { kind: "plate" });
-  const fig = b.piece({ id: "hook-figure", kind: "figure", at: [s0[0], s0[1] + 120], w: 640, h: 300, lift: 0.08, show: [...hookWin], lines: b.text(figureText, 600, 210, { weight: 800, maxLines: 1, min: 120, color: "acc" }), num: true, emblem: p.percent != null ? "ring" : "figure" });
+  const fig = b.piece({ id: "hook-figure", kind: "figure", at: [s0[0], s0[1] + 120], w: 560, h: 280, lift: 0.08, show: [...hookWin], lines: b.text(figureText, 520, 200, { weight: 800, maxLines: 1, min: 120, color: "acc" }), num: true, emblem: p.percent != null ? "ring" : "figure" });
   if (s0len > 2.8 * FPS) b.punch(Math.round(s0len * 0.62), 0.025, "a beat while the question is said");
   b.t = s0len;
 
@@ -191,10 +204,10 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const a1 = b.t + 8;
   const s1len = Math.round(3.0 * FPS);
   const w1: Window[] = [[a1, b.t + s1len]];
-  b.plate("section", [s1[0], s1[1] - 470], COL_W - 260, b.text(plainFa(`عدد روز: ${p.section}`), COL_W - 300, 54, { weight: 700, maxLines: 1, color: "acc" }), w1, { lift: 0.02 });
-  b.plate("label", [s1[0], s1[1] - 250], COL_W - 90, b.text(plainFa(p.label), COL_W - 160, 82, { family: "naskh", maxLines: 2, color: "ink" }), w1);
-  b.piece({ id: "count", kind: "counter", at: [s1[0], s1[1] + 60], w: 640, h: 240, lift: 0.08, show: w1, lines: b.text(plainFa(p.valueText), 600, 180, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.value, decimals: p.decimals, text: plainFa(p.valueText), from: a1, frames: 26 }, num: true });
-  if (p.unit) b.plate("unit", [s1[0], s1[1] + 370], COL_W - 170, b.text(plainFa(p.unit), COL_W - 180, 62, { maxLines: 2, color: "ink" }), w1, { lift: 0.03 });
+  b.plate("section", [s1[0], s1[1] - 535], COL_W - 160, b.text(plainFa(`عدد روز: ${p.section}`), COL_W - 220, 54, { weight: 700, maxLines: 1, color: "acc" }), w1, { lift: 0.02 });
+  b.plate("label", [s1[0], s1[1] - 285], COL_W - 90, b.text(plainFa(p.label), COL_W - 160, 76, { family: "naskh", maxLines: 2, color: "ink" }), w1);
+  b.piece({ id: "count", kind: "counter", at: [s1[0], s1[1] + 10], w: 560, h: 240, lift: 0.08, show: w1, lines: b.text(plainFa(p.valueText), 520, 180, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.value, decimals: (plainFa(p.valueText).split(/[٫.]/)[1] ?? "").replace(/[^0-9۰-۹]/g, "").length, text: plainFa(p.valueText), from: a1, frames: 26 }, num: true });
+  if (p.unit) b.plate("unit", [s1[0], s1[1] + 285], COL_W - 170, b.text(plainFa(p.unit), COL_W - 180, 62, { maxLines: 2, color: "ink" }), w1, { lift: 0.03 });
   b.cue(a1 + 2, "tick", "the count starts");
   b.cue(a1 + 28, "pop", "the figure lands");
   b.punch(a1 + 28, 0.03, "the figure lands");
@@ -243,14 +256,15 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
   const pose0 = POSE([iran[0], iran[1] - 40], 1.0);
   b.shot(0, pose0, "cut", "the hook over the map, moving from frame 0", 0.03, 0.6);
   b.cue(3, "hit", "a sound in the first half second");
-  b.punch(14, 0.03, "the count lands");
+  b.punch(14, 0.03, "the hook lands");
   const figureText = plainFa(p.hook?.figure ?? fa(p.counts.total));
-  const hookText = plainFa(p.hook?.short ?? p.hook?.text ?? "رویداد ثبت‌شده در جنگ. کجاها؟");
+  // the count belongs inside its sentence («۱۸۴ رویداد در ۲۶۰ روز جنگ. کجا بودند؟»): a figure set apart from it left the sentence without its subject (the review of 2026-11-14)
+  const said = plainFa(p.hook?.short ?? p.hook?.text ?? `${figureText} رویداد ثبت‌شده در جنگ. کجا بودند؟`);
+  const hookText = said.includes(figureText) ? said : `${figureText} ${said}`;
   const startLen = b.say("start", 4);
   const s0len = span(Math.round(2.5 * FPS), startLen + 4);
   const hookWin: Window[] = [[0, s0len]];
-  const q = b.plate("hook", [pose0.x, pose0.y - 400], COL_W - 90, b.text(hookText, COL_W - 160, 84, { family: "naskh", maxLines: 2, color: "ink" }), hookWin);
-  const fig = b.piece({ id: "hook-figure", kind: "figure", at: [pose0.x, pose0.y + 300], w: 560, h: 230, lift: 0.08, show: [...hookWin], lines: b.text(figureText, 520, 190, { weight: 800, maxLines: 1, min: 110, color: "acc" }), num: true, emblem: "war" });
+  const q = b.plate("hook", [pose0.x, pose0.y - 330], COL_W - 70, b.text(hookText, COL_W - 140, 96, { family: "naskh", maxLines: 3, color: "ink" }), hookWin, { num: true });
   b.t = s0len;
 
   // the replay: the events come onto the map day by day; the camera follows where they fall
@@ -284,7 +298,8 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
     const at = Math.round(frameOfDay(m.day));
     if (at - lastMile < Math.round(1.2 * FPS)) continue;
     lastMile = at;
-    b.hudLine(`mile-${m.day}`, "day", plainFa(`${m.fa}، روز ${fa(m.day)}`), [[at, Math.min(at + Math.round(1.6 * FPS), a + PLAY)]], "top", "ink", 48);
+    // a label read over the moving map: 60 px, one at a time (never more than three, the review of 2026-11-14)
+    b.hudLine(`mile-${m.day}`, "day", plainFa(`${m.fa}، روز ${fa(m.day)}`), [[at, Math.min(at + Math.round(1.6 * FPS), a + PLAY)]], "top", "ink", 60);
     b.cue(at, "tick", `turning point: ${m.fa}`);
     b.punch(at, 0.02, `turning point: ${m.fa}`);
   }
@@ -296,15 +311,15 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
   const t1 = b.t + 8;
   const tallyLen = Math.round(3.4 * FPS);
   const tw: Window[] = [[t1, b.t + tallyLen]];
-  b.piece({ id: "total", kind: "counter", at: [s2[0], s2[1] - 470], w: 560, h: 200, lift: 0.04, show: tw, lines: b.text(fa(p.counts.total), 520, 160, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.counts.total, decimals: 0, text: fa(p.counts.total), from: t1, frames: 24 }, num: true });
-  b.plate("total-line", [s2[0], s2[1] - 170], COL_W - 110, [...b.text("رویداد ثبت‌شده، هر کدام با منبعش", COL_W - 170, 58, { maxLines: 2, color: "ink" }), ...b.text("این فهرست همهٔ حمله‌ها نیست.", COL_W - 170, 48, { maxLines: 2, min: MIN_TEXT, color: "ink2", weight: 500 })], tw, { lift: 0.03 });
+  // the hook already said how many: the tally does not count them a second time (the review of 2026-11-14), it says what kind they are
+  b.plate("total-line", [s2[0], s2[1] - 250], COL_W - 90, [...b.text("هر رویداد با منبعش ثبت شده است", COL_W - 160, 62, { maxLines: 2, color: "ink" }), ...b.text("این فهرست همهٔ حمله‌ها نیست.", COL_W - 160, 50, { maxLines: 2, min: MIN_TEXT, color: "ink2", weight: 500 })], tw, { lift: 0.03 });
   const rows = [
     { t: "confirmed", label: "تأییدشده", n: p.counts.confirmed },
     { t: "claim", label: "ادعای یک طرف", n: p.counts.claim },
     { t: "unverified", label: "تأییدنشده", n: p.counts.unverified },
   ];
   rows.forEach((r, k) => {
-    b.piece({ id: `legend-${r.t}`, kind: "legend", at: [s2[0], s2[1] + 90 + k * 120], w: COL_W - 110, h: 100, lift: 0.03, show: [[t1 + 10 + k * 6, b.t + tallyLen]], lines: [{ text: r.label, size: 54, weight: 700 }, { text: fa(r.n), size: 60, weight: 800 }], mark: r.t, count: { to: r.n, decimals: 0, text: fa(r.n), from: t1 + 10 + k * 6, frames: 18 }, num: true });
+    b.piece({ id: `legend-${r.t}`, kind: "legend", at: [s2[0], s2[1] + 30 + k * 130], w: COL_W - 90, h: 110, lift: 0.03, show: [[t1 + 4 + k * 5, b.t + tallyLen]], lines: [{ text: r.label, size: 54, weight: 700 }, { text: fa(r.n), size: 60, weight: 800 }], mark: r.t, count: { to: r.n, decimals: 0, text: fa(r.n), from: t1 + 4 + k * 5, frames: 18 }, num: true });
   });
   b.cue(t1 + 2, "tick", "the count starts");
   b.cue(t1 + 26, "pop", "the count lands");
@@ -316,7 +331,7 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
   b.hudLine("source", "source", plainFa(p.src ?? `منبع: رویدادهای ثبت‌شدهٔ دیوان، هر کدام با منبعش، تا ${faDateShort(p.warAsOf)}`), [[0, FOREVER]], "bottom");
 
   const ask = plainFa(p.ask ?? "کدام رویداد را از نزدیک دیده بودی؟");
-  const total = close(b, [iran[0] - 1700, iran[1] + 300], ask, plainFa(p.foot), { pieces: [q, fig], pose: pose0 });
+  const total = close(b, [iran[0] - 1700, iran[1] + 300], ask, plainFa(p.foot), { pieces: [q], pose: pose0 });
   const map: MapLayer = { at: centre, w: WAR_MAP.w, h: WAR_MAP.h, pins };
   return finishPlan(b, total, { text: hookText, figure: figureText, from: 0 }, map);
 }
@@ -330,7 +345,7 @@ function faDateShort(iso: string): string {
 }
 
 // ---------- «دوراهی امروز» ----------
-type DilemmaIn = { question: string; facts: { k: string; v: string; s: string }[]; options: { title: string; line: string }[]; pick: number; why: string; advisors: { name: string; stance: "for" | "cond" | "against" }[]; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
+type DilemmaIn = { question: string; facts: { k: string; v: string; s: string }[]; options: { title: string; line: string; gained?: string }[]; pick: number; why: string; advisors: { name: string; stance: "for" | "cond" | "against" }[]; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
 const ADVISER_EMBLEM: [RegExp, string][] = [
   [/اقتصاد/, "treasury"],
   [/دیپلماسی/, "chancery"],
@@ -361,16 +376,16 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   const factsLen = Math.round((1.4 + 1.05 * facts.length) * FPS);
   const a1 = b.t + 8;
   const STEP = 390;
-  const fromOf = (k: number) => a1 + 6 + k * Math.round(1.05 * FPS);
+  // the first two rows come with their words, a breath apart (a plate never waits empty for its text: the review of 2026-11-14); the third when the camera steps down to it
+  const fromOf = (k: number) => (k < 2 ? a1 + k * 6 : a1 + 6 + k * Math.round(1.05 * FPS));
   facts.forEach((f, k) => {
     const from = fromOf(k);
     // two rows on screen at a time; for the third the camera steps down and the first leaves
     const until = k + 2 < facts.length ? fromOf(k + 2) - 4 : b.t + factsLen;
     const y = s1[1] - STEP / 2 + k * STEP;
     // the row's label, its words, and its source as the plate's last line (a mark, smaller)
-    const lines = [...b.text(plainFa(f.k), COL_W - 170, 50, { weight: 800, maxLines: 1, color: "acc" }), ...b.text(plainFa(f.v), COL_W - 170, 62, { family: "naskh", maxLines: 2, color: "ink" }), ...b.text(plainFa(`منبع: ${f.s}`), COL_W - 170, 36, { weight: 500, maxLines: 1, min: MIN_MARK + 3, color: "ink2" })];
-    // the first two plates lie on the table from the scene's start, their words come one after the other
-    b.plate(`fact-${k}`, [s1[0], y], COL_W - 100, lines, [[k < 2 ? a1 : from, until]], { num: /[0-9۰-۹]/.test(f.v), lit: null, mark: "src", reveal: from });
+    const lines = [...b.text(plainFa(f.k), COL_W - 170, 50, { weight: 800, maxLines: 1, color: "acc" }), ...b.text(plainFa(f.v), COL_W - 170, 62, { family: "naskh", maxLines: 2, color: "ink" }), ...b.text(plainFa(`منبع: ${f.s}`), COL_W - 170, 42, { weight: 500, maxLines: 1, min: MIN_MARK, color: "ink2" })];
+    b.plate(`fact-${k}`, [s1[0], y], COL_W - 90, lines, [[from, until]], { num: /[0-9۰-۹]/.test(f.v), lit: null, mark: "src" });
     if (k >= 2) b.shot(from - 6, POSE([s1[0], s1[1] + (k - 1) * STEP], 1, k % 2 ? 1 : -1), "glide", `down to fact ${k + 1}`);
     b.cue(from + 2, "pop", `fact ${k + 1}`);
     if (k === 1) b.punch(from, 0.018, `fact ${k + 1}`);
@@ -380,23 +395,38 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   // the roads: numbered brass seals, the camera passing along them
   const s2 = ST(2);
   const roads = p.options.slice(0, 4);
-  const roadsLen = Math.round((0.6 + 1.1 * roads.length) * FPS);
+  // every road with a one-line «چرا» under its name (the review of 2026-11-14: only the road Divan picked was explained); time to read each
+  const roadsLen = Math.round((1.2 + 1.9 * roads.length) * FPS);
   const a2 = b.t;
-  const gap = roads.length > 3 ? 272 : 300;
-  const roadH = roads.length > 3 ? 222 : 244;
-  const y0 = s2[1] - ((roads.length - 1) * gap) / 2;
+  const W_ROAD = COL_W - 90;
+  const MEDAL = 88;
+  const made = roads.map((o) => {
+    const title = b.text(plainFa(o.title), W_ROAD - 2 * 26 - MEDAL - 22, 60, { family: "naskh", maxLines: roads.length > 3 ? 1 : 2, color: "ink" });
+    const reason = plainFa(o.gained || o.line || "");
+    const sub = reason ? b.text(`چرا: ${reason}`, W_ROAD - 2 * 26, 48, { weight: 500, maxLines: roads.length > 3 ? 1 : 2, min: MIN_TEXT, color: "ink2" }) : [];
+    const h = Math.round(2 * 20 + Math.max(MEDAL, linesHeight(title, 1.42)) + (sub.length ? 8 + linesHeight(sub, 1.42) : 0));
+    return { title, sub, h };
+  });
+  const GAP = 16;
+  const column = made.reduce((s, m) => s + m.h, 0) + GAP * (made.length - 1);
+  let y = s2[1] - column / 2;
   roads.forEach((o, k) => {
-    const at: [number, number] = [s2[0] + (k % 2 ? 24 : -24), y0 + k * gap];
-    const from = a2 + 8 + k * Math.round(1.1 * FPS);
-    const lines = b.text(plainFa(o.title), COL_W - 300, 66, { family: "naskh", maxLines: 2, color: "ink" });
-    // every road's medallion lies on the table from the start of the scene; its name comes as the camera reaches it
-    b.piece({ id: `road-${k}`, kind: "road", at, w: COL_W - 100, h: roadH, lift: 0.05, show: [[a2 + 8, b.t + roadsLen]], reveal: from, lines, mark: fa(k + 1), lit: null });
-    // the camera stays on the whole column and leans toward each road as it lands
-    if (k === 0) b.shot(a2, POSE([s2[0], s2[1] - 40], 1, -1), "whip", "to the roads");
-    else b.shot(from - 4, POSE([s2[0], s2[1] + (k / Math.max(1, roads.length - 1) - 0.5) * 80], 1, k % 2 ? 1 : -1), "glide", `along the roads, ${k + 1}`);
+    const m = made[k];
+    const at: [number, number] = [s2[0], y + m.h / 2];
+    y += m.h + GAP;
+    // each card comes with its name and its reason, a breath after the one above it (never an empty card waiting for its words)
+    const from = a2 + 6 + k * 8;
+    b.piece({ id: `road-${k}`, kind: "road", at, w: W_ROAD, h: m.h, lift: 0.05, show: [[from, b.t + roadsLen]], lines: m.title, sub: m.sub, mark: fa(k + 1), lit: null });
     b.cue(from + 2, "pop", `road ${k + 1}`);
   });
-  b.hudLine("ai-roads", "ai", "راه‌ها و سنجش: تحلیل هوش مصنوعی، نه خبر", [[a2 + 8, a2 + roadsLen]], "top", "claim", 40);
+  // the camera stays on the whole column and leans toward each road while it is read
+  b.shot(a2, POSE([s2[0], s2[1]], 1, -1), "whip", "to the roads");
+  roads.forEach((_, k) => {
+    if (!k) return;
+    const at = a2 + Math.round((0.6 + 1.9 * k) * FPS);
+    b.shot(at, POSE([s2[0], s2[1] + (k / Math.max(1, roads.length - 1) - 0.5) * 40], 1, k % 2 ? 1 : -1), "glide", `along the roads, ${k + 1}`);
+  });
+  b.hudLine("ai-roads", "ai", "تحلیل هوش مصنوعی، نه خبر", [[a2 + 6, a2 + roadsLen]], "top", "claim", 48);
   b.t += roadsLen;
 
   // the road Divan would take, and why
@@ -406,12 +436,12 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   b.shot(b.t, POSE(s3, 1, -1.2), "whip", "to the pick");
   const pickLen = Math.round(3.8 * FPS);
   const a3 = b.t + 8;
-  b.piece({ id: "pick", kind: "road", at: [s3[0], s3[1] - 300], w: COL_W - 100, h: 250, lift: 0.07, show: [[a3, b.t + pickLen]], lines: b.text(plainFa(roads[pick]?.title ?? ""), COL_W - 300, 74, { family: "naskh", maxLines: 2, color: "ink" }), mark: fa(pick + 1), lit: "acc" });
-  b.plate("why", [s3[0], s3[1] + 120], COL_W - 90, [...b.text("راهی که دیوان می‌رفت", COL_W - 160, 52, { weight: 800, maxLines: 1, color: "acc" }), ...b.text(plainFa(p.why), COL_W - 160, 58, { maxLines: 5, color: "ink", weight: 500 })], [[a3, b.t + pickLen]], { reveal: a3 + 14 });
+  b.piece({ id: "pick", kind: "road", at: [s3[0], s3[1] - 300], w: COL_W - 90, h: 250, lift: 0.07, show: [[a3, b.t + pickLen]], lines: b.text(plainFa(roads[pick]?.title ?? ""), COL_W - 280, 74, { family: "naskh", maxLines: 2, color: "ink" }), mark: fa(pick + 1), lit: "acc" });
+  b.plate("why", [s3[0], s3[1] + 120], COL_W - 90, [...b.text("راهی که دیوان می‌رفت", COL_W - 160, 52, { weight: 800, maxLines: 1, color: "acc" }), ...b.text(plainFa(p.why), COL_W - 160, 58, { maxLines: 5, color: "ink", weight: 500 })], [[a3 + 4, b.t + pickLen]]);
   b.cue(a3 + 2, "hit", "the pick");
   b.punch(a3 + 2, 0.04, "the pick");
   b.punch(a3 + Math.round(2.0 * FPS), 0.02, "a beat while the reason is read");
-  b.hudLine("ai-pick", "ai", "تحلیل هوش مصنوعی، نه خبر", [[a3, b.t + pickLen]], "top", "claim", 40);
+  b.hudLine("ai-pick", "ai", "تحلیل هوش مصنوعی، نه خبر", [[a3, b.t + pickLen]], "top", "claim", 48);
   b.t += pickLen;
 
   // the five advisers, when the dossier has them: emblems, never faces
@@ -420,7 +450,7 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
     b.shot(b.t, POSE(s4, 1, 1), "whip", "to the advisers");
     const advLen = Math.round(2.8 * FPS);
     const a4 = b.t + 8;
-    b.plate("adv-title", [s4[0], s4[1] - 500], COL_W - 110, [...b.text("نظر پنج مشاور", COL_W - 170, 58, { weight: 800, maxLines: 1, color: "acc" }), ...b.text("تحلیل هوش مصنوعی، نه خبر", COL_W - 170, 40, { weight: 500, maxLines: 1, min: MIN_MARK + 3, color: "claim" })], [[a4, b.t + advLen]], { lift: 0.02 });
+    b.plate("adv-title", [s4[0], s4[1] - 500], COL_W - 110, [...b.text("نظر پنج مشاور", COL_W - 170, 58, { weight: 800, maxLines: 1, color: "acc" }), ...b.text("تحلیل هوش مصنوعی، نه خبر", COL_W - 170, 44, { weight: 500, maxLines: 1, min: MIN_MARK, color: "claim" })], [[a4, b.t + advLen]], { lift: 0.02 });
     p.advisors.slice(0, 5).forEach((ad, k) => {
       const row = Math.floor(k / 2);
       const col = k % 2;
@@ -444,6 +474,19 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
 function finishPlan(b: Board, total: number, hook: Plan["hook"], map: MapLayer | null): Plan {
   const closeShot = b.shots.find((s) => s.why === "to the close");
   const homeShot = b.shots.find((s) => s.why.startsWith("home"));
+  // no empty frame between two scenes (the review of 2026-11-14 found one of half a second at the close): what was on the
+  // table rides out with the camera's move, and what comes is there as the move begins
+  for (const s of b.shots) {
+    if (s.at <= 0 || s.move === "cut") continue;
+    const len = s.move === "whip" ? 7 : 12;
+    for (const p of b.pieces)
+      p.show = p.show.map(([a, c]) => {
+        const end = c === s.at ? s.at + len : c;
+        // a piece coming with this move comes 6 frames sooner (a stagger between pieces is kept)
+        const start = a > s.at && a <= s.at + 30 && a < FOREVER ? Math.max(s.at + 1, a - (s.move === "whip" ? 6 : 10)) : a;
+        return [start, end] as Window;
+      });
+  }
   // a window that runs to the end stays open (the first picture is whole on the last frame, for the loop)
   for (const p of b.pieces) p.show = p.show.map(([a, c]) => [a, c >= FOREVER ? FOREVER : Math.min(c, total)] as Window);
   for (const h of b.hud) h.show = h.show.map(([a, c]) => [a, c >= FOREVER ? FOREVER : Math.min(c, total)] as Window);
@@ -483,7 +526,10 @@ function finishPlan(b: Board, total: number, hook: Plan["hook"], map: MapLayer |
 export function setPossible(props: { hook?: { text?: string; figure?: string | null; short?: string | null } | null; question?: string }): boolean {
   const h = props.hook;
   const text = h?.short ?? h?.text ?? props.question ?? "";
-  return wordsOf(plainFa(text)).length + (h?.figure ? 1 : 0) <= 7;
+  const t = plainFa(text);
+  // a figure already inside the sentence is not shown a second time
+  const apart = h?.figure && !t.includes(plainFa(h.figure)) ? 1 : 0;
+  return hookWeight(t) + apart <= 7;
 }
 
 /** The plan of a set Reel from its props. `place` puts a longitude/latitude on the table (the war map). */

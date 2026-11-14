@@ -122,11 +122,16 @@ three most posted Reels: «عدد روز» (`figure`), «جنگ، روز به ر
   at most 7 words from frame 0 with no logo or card first, a camera event at
   least every 3 s and no 2.5 s frozen, the loop back to the first picture,
   every text inside the safe zones on every frame it is seen, type of 48 px or
-  more (marks such as the source 29 px or more), no screen line over a piece,
+  more (marks such as the source 40 px or more), no screen line over a piece,
   both halves of the frame used, every figure with its source on screen, no
   «·» or «|» beside Persian, the channel badge, at most two effects a second,
   −14 LUFS within 1 LU with the true peak at −1 dBTP or lower, near-black 35 %
-  or less, three or four words on the tile. The plan's checks run before
+  or less, three or four words on the tile; since the review of 2026-11-14
+  also no card seen before its words and no stretch with nothing on the screen
+  (`empty-card`), the cards of every resting moment centred on the screen and
+  filling the column (`fill-x`), and a figure the hook counts inside its
+  sentence («۱۸۴ رویداد در ۲۶۰ روز جنگ. کجا بودند؟», `hook-number`; two
+  figures weigh one word in the 7). The plan's checks run before
   anything is drawn; a Reel that fails is not handed back and the site hears
   why in plain Persian («این ویدیو از بازبینی پیش از ارسال رد شد: …»).
 - The channel badge: «دیوان» with a tiny heart and a tiny follow mark, in a

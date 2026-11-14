@@ -85,7 +85,8 @@ const HookCard: React.FC<{ format: string; hook: HookView; len: number; behind?:
           transformOrigin: "right center",
         }}
       >
-        {hook.figure ? <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: figureSize, lineHeight: 1.05, color: C.acc, whiteSpace: "nowrap", textShadow: `0 0 40px ${C.bg}` }}>{hook.figure}</div> : null}
+        {/* a figure already inside the sentence («۱۸۴ رویداد در …») is not set apart a second time */}
+        {hook.figure && !hook.text.includes(hook.figure) ? <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: figureSize, lineHeight: 1.05, color: C.acc, whiteSpace: "nowrap", textShadow: `0 0 40px ${C.bg}` }}>{hook.figure}</div> : null}
         <div style={{ fontFamily: NASKH, fontWeight: 700, fontSize: size, lineHeight: 1.42, color: C.ink, textWrap: "balance", textShadow: `0 2px 30px ${C.bg}` } as React.CSSProperties}>{hook.text}</div>
         {/* a bar that runs out with the hook: the viewer sees that the answer is coming */}
         <div style={{ width: 320, height: 10, borderRadius: 5, background: C.line, overflow: "hidden" }}>

@@ -176,8 +176,8 @@ const Text: React.FC<{ lines: Line[]; align?: "start" | "center"; opacity?: numb
     ))}
   </div>
 );
-/** Latin runs (a source's name) kept whole inside a Persian line, so their brackets and words keep their order. */
-const latin = (s: string) => s.split(/([A-Za-z][A-Za-z0-9  .,'&()-]*[A-Za-z0-9.)])/g).map((part, i) => (i % 2 ? <bdi key={i} dir="ltr">{part}</bdi> : part));
+/** Latin runs (a source's name) kept whole inside a Persian line, so their brackets and words keep their order; a run that opens with its bracket (a long name broken before it) keeps the bracket inside. */
+const latin = (s: string) => s.split(/(\(?[A-Za-z][A-Za-z0-9  .,'&()-]*[A-Za-z0-9.)])/g).map((part, i) => (i % 2 ? <bdi key={i} dir="ltr">{part}</bdi> : part));
 /** A brass frame: a thin outer line, a finer inner one and four corner marks. */
 const Brass: React.FC<{ lit?: boolean; radius?: number }> = ({ lit, radius = 10 }) => (
   <>
@@ -239,6 +239,20 @@ const Body: React.FC<{ p: Piece; frame: number }> = ({ p, frame }) => {
   }
   if (p.kind === "road") {
     const lit = p.lit === "acc";
+    const medal = p.sub?.length ? 88 : p.h - 70;
+    if (p.sub?.length) {
+      // the name beside its number, the reason under both, the whole card centred
+      return (
+        <div style={{ position: "absolute", inset: 0, background: lit ? T.plateLit : T.plate, borderRadius: 14, display: "flex", flexDirection: "column", justifyContent: "center", gap: 8, padding: "20px 26px", boxSizing: "border-box" }}>
+          <Brass lit={lit} radius={14} />
+          <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+            <div style={{ flex: "none", width: medal, height: medal, borderRadius: "50%", border: `3px solid ${lit ? T.brassLight : T.brass}`, background: lit ? T.brass : "rgba(201,164,92,.12)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: VAZIR, fontWeight: 800, fontSize: medal * 0.52, color: lit ? "#10261f" : T.brassLight }}>{p.mark}</div>
+            <Text lines={p.lines ?? []} opacity={reveal} />
+          </div>
+          <Text lines={p.sub} opacity={reveal} />
+        </div>
+      );
+    }
     return (
       <div style={{ position: "absolute", inset: 0, background: lit ? T.plateLit : T.plate, borderRadius: 14, display: "flex", alignItems: "center", gap: 30, padding: "0 34px", boxSizing: "border-box" }}>
         <Brass lit={lit} radius={14} />

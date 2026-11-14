@@ -41,8 +41,16 @@ export const ZONES = {
 };
 /** The middle of the frame, where the badge never goes: the middle third of the height. */
 export const MIDDLE = { top: Math.round(H / 3), bottom: Math.round((2 * H) / 3) };
-/** The column every text is written in: inside the zones with a margin. */
-export const COL = { left: ZONES.left + 30, right: ZONES.right - 26 };
+/**
+ * The column every text is written in. Centred on the screen as a viewer sees
+ * it (the review of 2026-11-14: cards centred on the safe area's own middle sat
+ * against the left edge, because the rail's strip is cut from the right only),
+ * a little left of the frame's middle so that a card leaning in still keeps off
+ * the rail.
+ */
+export const COL_HALF = 340;
+export const COL_X0 = 520;
+export const COL = { left: COL_X0 - COL_HALF, right: COL_X0 + COL_HALF };
 export const COL_W = COL.right - COL.left;
 export const COL_X = (COL.left + COL.right) / 2;
 /** The middle of the safe area: where the camera puts what it looks at. */
@@ -50,11 +58,11 @@ export const EYE_Y = Math.round((ZONES.top + ZONES.bottom) / 2);
 /**
  * The owner's floor for type (6 November 2026): every text to be read at least
  * 48 px on the finished video. Marks that are not read as a sentence (the
- * source chip, the channel badge) may go down to 1.5 % of the height (STYLE
- * GUIDE R5), never lower.
+ * source line, the AI note, the channel badge) never under 40 px (the review
+ * of 2026-11-14: an 18 px AI note and 20 px map labels could not be read).
  */
 export const MIN_TEXT = 48;
-export const MIN_MARK = Math.ceil(0.015 * H);
+export const MIN_MARK = 40;
 
 export type Box = { x: number; y: number; w: number; h: number };
 export const inZones = (b: Box, slack = 0.5) => b.x >= ZONES.left - slack && b.y >= ZONES.top - slack && b.x + b.w <= ZONES.right + slack && b.y + b.h <= ZONES.bottom + slack;
@@ -171,8 +179,10 @@ export type Piece = {
   /** a number on the piece (the road's or the seal's), drawn in its corner */
   mark?: string;
   num?: boolean;
-  /** the frame the piece's texts come in, when they come later than the piece itself */
+  /** the frame the piece's texts come in, when they come later than the piece itself (the gate refuses a card seen empty) */
   reveal?: number;
+  /** a road's one-line reason, under its name */
+  sub?: Line[];
 };
 /** A screen-fixed piece: the source chip, the AI chip, the channel badge, the day counter. */
 export type Hud = { id: string; kind: "source" | "badge" | "ai" | "day"; box: Box; show: Window[]; lines: Line[] };

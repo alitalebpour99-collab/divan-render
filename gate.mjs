@@ -9,7 +9,10 @@
 //   moves        a camera event at least every 3 s, and no 2.5 s of frozen picture (measured)
 //   loop         the camera ends where it began with the first picture back, and the last frame looks like the first (measured)
 //   safe         every text inside the frame and outside the apps' header, rail and caption rows, on every frame it is seen
-//   text-size    no text to be read under 48 px (the owner's floor), no mark under 1.5 % of the height
+//   text-size    no text to be read under 48 px (the owner's floor), no text at all under 40 px (the source, the AI note, a label)
+//   empty-card   no card seen without its words, and no stretch of frames with nothing on the table (the review of 2026-11-14)
+//   fill-x       the cards of a resting moment fill the column and sit in the middle of the screen, not against one edge
+//   hook-number  a figure the hook counts stands inside its sentence («۱۸۴ رویداد در ۲۶۰ روز جنگ»), never apart from a sentence that needs it
 //   overlap      no screen line (source, AI note, badge) over a piece of the table
 //   halves       the upper and the lower half of the safe area both hold something at every resting moment
 //   source       every figure on screen has its source on screen at the same time
@@ -38,10 +41,24 @@ const K = 2617 / H;
 const CUT = (W * K - 1320) / 2;
 export const ZONES = { top: Math.ceil((0.11 * 2868) / K), right: Math.floor((0.86 * 1320 + CUT) / K), left: Math.ceil(CUT / K), bottom: Math.floor(2158 / K) };
 export const MIDDLE = { top: Math.round(H / 3), bottom: Math.round((2 * H) / 3) };
-const COL_X = (ZONES.left + 30 + ZONES.right - 26) / 2;
+// the column's middle, as src/set/space.ts has it (COL_X0): a little left of the frame's middle, clear of the rail
+const COL_X = 520;
 const EYE_Y = Math.round((ZONES.top + ZONES.bottom) / 2);
 export const MIN_TEXT = 48;
-export const MIN_MARK = Math.ceil(0.015 * H);
+export const MIN_MARK = 40;
+/** A word the hook's figure counts: a sentence that begins with one needs its figure in front of it. */
+const COUNTED = /^(رویداد|رویدادها|حمله|حمله‌ها|نفر|تن|مورد|کشته|زخمی|بار|دور|کشور|روز|سال|ماه|تأسیسات|موشک|پهپاد)$/;
+/** fill-x: the middle of the cards within this many px of the frame's middle, their width at least this share of the safe width */
+const FILL = { centre: 40, width: 0.6 };
+/** empty-card: at most this many frames (0.13 s) with nothing on the screen */
+const EMPTY_RUN = 4;
+const NUMERAL = /^[0-9۰-۹٫٬.,/]+$/;
+/** The words of a hook as a reader takes them in: two figures weigh one word (src/set/plans.ts hookWeight). */
+export const hookWeight = (s) => {
+  const w = wordsOf(s);
+  const nums = w.filter((x) => NUMERAL.test(x)).length;
+  return w.length - nums + Math.ceil(nums / 2);
+};
 const HOOK = Math.round(1.5 * FPS);
 const FADE = 6;
 const MOVE = { cut: 0, whip: 7, glide: 20 };
@@ -117,7 +134,7 @@ export function planChecks(plan, cover) {
 
   // the hook: what is readable in the first 1.5 s, the screen lines (the source) not counted
   const early = plan.pieces.filter((p) => p.show.some(([a]) => a < HOOK) && (p.lines ?? []).length);
-  const hookWords = early.reduce((n, p) => n + p.lines.reduce((m, l) => m + wordsOf(l.text).length, 0), 0);
+  const hookWords = hookWeight(early.flatMap((p) => p.lines.map((l) => l.text)).join(" "));
   const fromZero = early.some((p) => p.show.some(([a]) => a === 0));
   const card = plan.hud.some((h) => h.kind === "badge" && h.show.some(([a]) => a < HOOK));
   add("hook-words", hookWords >= 1 && hookWords <= 7 && fromZero && !card, `${hookWords} words in the first 1.5 s, from frame 0: ${fromZero}, badge or card first: ${card}`, `در ثانیهٔ اول ${fa(hookWords)} واژه روی تصویر است (حداکثر ۷، از همان فریم اول)`);
@@ -148,6 +165,8 @@ export function planChecks(plan, cover) {
   const covered = new Set();
   const unsourced = new Set();
   let emptyAt = -1;
+  const inMove = (f) => plan.shots.some((x) => x.at > 0 && f >= x.at && f <= x.at + MOVE[x.move]);
+  const offCentre = new Set();
   const restFrames = new Set(plan.shots.map((x) => x.at + MOVE[x.move] + 12).filter((f) => f < total));
   for (const f of frames.concat([...restFrames])) {
     const pose = poseAt(plan.shots, plan.punches, f);
@@ -155,17 +174,29 @@ export function planChecks(plan, cover) {
     const huds = plan.hud.filter((h) => seen(h.show, f) >= 0.5);
     for (const x of live) {
       if (!(x.p.lines ?? []).length) continue;
-      if (!inZones(x.b)) outside.add(`${x.p.id}@${sec(f)}s`);
-      for (const l of x.p.lines) {
-        const floor = l.size < 40 ? MIN_MARK : MIN_TEXT;
+      // a card riding out with the camera's whip or glide is not read: the zones hold for the frames between moves
+      if (!inZones(x.b) && !inMove(f)) outside.add(`${x.p.id}@${sec(f)}s`);
+      for (const l of [...x.p.lines, ...(x.p.sub ?? [])]) {
+        // a line drawn under 48 px is a mark (the source, the AI note): 40 px at least; every other line 48
+        const floor = l.size < MIN_TEXT ? MIN_MARK : MIN_TEXT;
         if (l.size * x.b.k < floor - 0.5) small.add(`${x.p.id} ${Math.round(l.size * x.b.k)} px`);
       }
-      for (const h of huds) if (meets(h.box, x.b)) covered.add(`${h.id} over ${x.p.id}@${sec(f)}s`);
+      for (const h of huds) if (!inMove(f) && meets(h.box, x.b)) covered.add(`${h.id} over ${x.p.id}@${sec(f)}s`);
       // two pieces with words never lie on each other (the tally's note once lay on its last row)
       for (const y of live) if (y !== x && (y.p.lines ?? []).length && x.p.id < y.p.id && meets(shrink(x.b), shrink(y.b))) covered.add(`${x.p.id} on ${y.p.id}@${sec(f)}s`);
     }
     const figures = live.filter((x) => hasDigits(x.p));
     if (figures.length && !huds.some((h) => h.kind === "source") && !live.some((x) => x.p.mark === "src")) for (const x of figures) unsourced.add(`${x.p.id}@${sec(f)}s`);
+    // the cards of a resting moment: centred on the screen and filling the column (the cards once sat against the left edge)
+    if (restFrames.has(f)) {
+      const cards = live.filter((x) => (x.p.lines ?? []).length && x.v >= 0.99);
+      if (cards.length) {
+        const l = Math.min(...cards.map((x) => x.b.x));
+        const r = Math.max(...cards.map((x) => x.b.x + x.b.w));
+        const mid = (l + r) / 2;
+        if (Math.abs(mid - W / 2) > FILL.centre || r - l < FILL.width * (ZONES.right - ZONES.left)) offCentre.add(`${sec(f)} s: ${Math.round(l)}–${Math.round(r)}`);
+      }
+    }
     if (restFrames.has(f) && emptyAt < 0 && !plan.map) {
       const things = live.map((x) => x.b);
       const mid = (ZONES.top + ZONES.bottom) / 2;
@@ -174,6 +205,37 @@ export function planChecks(plan, cover) {
       if (!up || !down) emptyAt = f;
     }
   }
+  // empty cards: a card seen before its words come; and empty stretches: frames with nothing on the table (the map counts)
+  const empty = new Set();
+  for (const p of plan.pieces) {
+    if (!["plate", "road", "legend", "ask", "chip"].includes(p.kind)) continue;
+    const start = Math.min(...p.show.map(([a]) => a));
+    if (!(p.lines ?? []).length) empty.add(`${p.id} has no words`);
+    else if (p.reveal != null && p.reveal > start + 2) empty.add(`${p.id} empty ${sec(p.reveal - start)} s before its words`);
+  }
+  {
+    // on the screen, not only on the table: a piece or the war map inside the frame (the war once showed nothing at 19 s, between its tally and its close)
+    const inFrame = (b) => b.x + b.w > 0 && b.y + b.h > 0 && b.x < W && b.y < H;
+    let run = 0;
+    for (let f = 0; f < total; f += 1) {
+      const pose = poseAt(plan.shots, plan.punches, f);
+      const any = plan.pieces.some((p) => seen(p.show, f) >= 0.5 && inFrame(boxOf(p, pose))) || (plan.map && inFrame(boxOf({ at: plan.map.at, w: plan.map.w, h: plan.map.h, lift: 0 }, pose)));
+      run = any ? 0 : run + 1;
+      if (run > EMPTY_RUN) {
+        empty.add(`nothing on the screen at ${sec(f - run)} s`);
+        run = -1e9;
+      }
+    }
+  }
+  // the hook's figure: inside its sentence, or the sentence stands without it
+  const hookFig = plan.hook.figure ? String(plan.hook.figure) : "";
+  const hookLines = plan.pieces.filter((p) => p.show.some(([a]) => a === 0));
+  const sentence = hookLines.filter((p) => p.kind === "plate" || p.kind === "ask").flatMap((p) => p.lines.map((l) => l.text)).join(" ");
+  const apart = hookFig && hookLines.some((p) => (p.kind === "figure" || p.kind === "counter") && p.lines?.some((l) => l.text.includes(hookFig)));
+  const firstWord = wordsOf(sentence)[0] ?? "";
+  const twice = hookFig && apart && sentence.includes(hookFig);
+  const bare = hookFig && apart && COUNTED.test(firstWord);
+  const lost = hookFig && !apart && sentence && !sentence.includes(hookFig);
   for (const h of plan.hud) {
     if (!inZones(h.box)) outside.add(h.id);
     for (const l of h.lines) if (l.size < MIN_MARK) small.add(`${h.id} ${l.size} px`);
@@ -182,6 +244,9 @@ export function planChecks(plan, cover) {
   add("safe", !outside.size, outside.size ? `outside the zones: ${list(outside)}` : `every text inside x ${ZONES.left}–${ZONES.right}, y ${ZONES.top}–${ZONES.bottom} on every frame it is seen`, "متنی بیرون از قاب امن است (زیر نوار یا دکمه‌های اینستاگرام)");
   add("text-size", !small.size && !(plan.overflow ?? []).length, small.size || (plan.overflow ?? []).length ? `too small: ${list(small)}${(plan.overflow ?? []).length ? `; did not fit: ${plan.overflow.join(" / ")}` : ""}` : `every text ${MIN_TEXT} px or more, marks ${MIN_MARK} px or more`, "متنی ریزتر از حد خواندن است یا در جایش جا نمی‌شود");
   add("overlap", !covered.size, covered.size ? list(covered) : "no screen line over a piece, no piece on another", "دو متن روی هم افتاده‌اند");
+  add("empty-card", !empty.size, empty.size ? list(empty) : "every card comes with its words, no empty stretch", "کارت خالی یا قاب خالی روی تصویر آمده است");
+  add("fill-x", !offCentre.size, offCentre.size ? `not centred or not filling the column: ${list(offCentre)}` : `the cards of every resting moment centred within ${FILL.centre} px of the middle, ${Math.round(FILL.width * 100)} % of the safe width or more`, "کارت‌ها وسط تصویر نیستند یا عرض را پر نمی‌کنند");
+  add("hook-number", !twice && !bare && !lost, twice ? `the figure ${hookFig} is in the sentence and again apart from it` : bare ? `«${firstWord}» opens the hook while its figure ${hookFig} stands apart` : lost ? `the hook's figure ${hookFig} is not on screen` : hookFig ? `the figure ${hookFig} stands ${apart ? "apart from a sentence that reads without it" : "inside its sentence"}` : "no figure in the hook", "عدد هوک از جمله‌اش جدا افتاده است");
   add("halves", emptyAt < 0, emptyAt < 0 ? "both halves hold something at every resting moment" : `half the frame is empty at ${sec(emptyAt)} s`, `در ثانیهٔ ${fa(Math.round(emptyAt / FPS))} نیمی از قاب خالی است`);
   add("source", !unsourced.size, unsourced.size ? `a figure without its source on screen: ${list(unsourced)}` : "every figure has its source on screen", "عددی بدون منبعش روی تصویر آمده است");
   const dots = textsOf(plan).filter(dotBeside);

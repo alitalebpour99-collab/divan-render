@@ -26,7 +26,7 @@ import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
 import { Cover } from "./Cover";
 import { Dilemma, dilemmaDuration } from "./Dilemma";
 import { Dollar, dollarDuration, dollarCues } from "./Dollar";
-import { Figure, figureDuration, figureCues } from "./Figure";
+import { Figure, figureCues, figureDuration, figureLook } from "./Figure";
 import { HOOK_FRAMES, HOOK_OVERLAP, withHook } from "./Hook";
 import { layVoice, type Cues } from "./voice";
 import { onStage } from "./Safe";
@@ -44,10 +44,19 @@ import { WarReplay, warDuration, warCues } from "./WarReplay";
 import { ThenNow, thenNowDuration, thenNowCues } from "./ThenNow";
 import { Race, raceDuration, raceCues } from "./Race";
 import { Decade, decadeDuration, decadeCues } from "./Decade";
-import { Five, fiveDuration, fiveCues } from "./Five";
+import { Five, fiveCues, fiveDuration, fiveLook } from "./Five";
 import { TrueFalse, trueFalseDuration, trueFalseCues } from "./TrueFalse";
 import type { Base, DecadeProps, PowerProps, QuizProps, RaceProps, ThenNowProps, FiveProps, TrueFalseProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
+// the content system's templates (T1, T2, T5, T6): in the studio and for the renderer, not planned by the site yet
+import { Templates } from "./Templates";
+import { NASKH, VAZIR } from "./kit";
+import { EXTENTS, makeMap } from "./geo";
+import { Table } from "./set/Table";
+import { CoverSet } from "./set/CoverSet";
+import { isSetFormat, planOf, setPossible, WAR_MAP, type SetFormat } from "./set/plans.ts";
+import { fit, measure, ready } from "./set/fit.ts";
+import type { Plan } from "./set/space.ts";
 
 // One composition per format of the page (the id is the format's id in
 // lib/social/formats.ts of the site), all in the Reel frame, plus the still
@@ -66,7 +75,8 @@ const H = {
   arsenal: onStage(withHook(Arsenal)),
   dollar: onStage(withHook(Dollar)),
   nuclear: onStage(withHook(Nuclear)),
-  figure: onStage(withHook(Figure)),
+  // the hook shows the figure counting in its ring, the countdown its last board flipping (Hook.tsx, look)
+  figure: onStage(withHook(Figure, figureLook)),
   quiz: onStage(withHook(Quiz)),
   power: onStage(withHook(Power)),
   // the two short formats of 23 October 2026 open on their own question (hook null)
@@ -75,7 +85,7 @@ const H = {
   // «دههٔ تو» (28 October 2026) opens on its own question too, the name very large on the old photo
   decade: onStage(withHook(Decade)),
   // the countdown of five figures opens on its theme, with the figure it ends on
-  five: onStage(withHook(Five)),
+  five: onStage(withHook(Five, fiveLook)),
   // the game «درست یا غلط» opens on its own title too
   truefalse: onStage(withHook(TrueFalse)),
 };
@@ -99,19 +109,59 @@ const timed =
  */
 const plain = <T,>(sample: unknown) => ({ ...(sample as object), hook: null }) as T;
 
+/**
+ * The set style (owner, 2026-11-13: the approved new style, in Divan's own
+ * look): «عدد روز», «جنگ، روز به روز» and «دوراهی امروز», Divan's most posted
+ * Reels, are drawn on the war-room table (src/set/). `style: "classic"` in the
+ * props (the worker's DIVAN_STYLE=classic) draws them as before; `badge: false`
+ * (DIVAN_BADGE=off) leaves the channel badge out. A Reel whose hook cannot be
+ * seven words (a stand-in dilemma with a long question) keeps the classic look.
+ * The plan, with every text already measured, travels in the props, so the
+ * gate (gate.mjs) checks what was drawn.
+ */
+type Switches = { style?: string; badge?: boolean; plan?: Plan };
+const FONTS = { vazir: VAZIR, naskh: NASKH };
+const styled =
+  <P extends Base>(format: SetFormat, classic: (x: { props: P }) => { durationInFrames: number; props: P }) =>
+  async ({ props }: { props: P & Switches }) => {
+    if (props.style === "classic" || !setPossible(props as never)) return classic({ props: { ...props, plan: undefined } });
+    await ready([VAZIR, NASKH]);
+    const map = format === "war" ? makeMap(EXTENTS.region, { x0: -WAR_MAP.w / 2, y0: -WAR_MAP.h / 2, x1: WAR_MAP.w / 2, y1: WAR_MAP.h / 2 }) : null;
+    const plan = planOf(format, props, { fonts: FONTS, badge: props.badge !== false, voiceIn: props.voiceIn, measure }, map ? (lon, lat) => map.at(lon, lat) : undefined);
+    // the voice as the plan placed it: the worker ducks the music under these lines
+    const voice = plan.voice.map((v) => ({ file: v.file, from: v.from, frames: v.frames }));
+    return { durationInFrames: plan.total, props: { ...props, plan, voice, holds: [], hookLen: 0 } };
+  };
+/** A format of the set style: the table when there is a plan, the classic look when there is not. */
+const either = <P,>(Classic: React.FC<P>) => {
+  const Comp: React.FC<P & Switches & { music?: string }> = (p) => (p.plan ? <Table plan={p.plan} music={p.music} /> : <Classic {...(p as P & React.JSX.IntrinsicAttributes)} />);
+  return Comp;
+};
+const SetFigure = either(H.figure);
+const SetWar = either(H.war);
+const SetDilemma = either(H.dilemma);
+/** The tile: a set format's tile is one object and its three or four big words, measured to fit. */
+const CoverAny: React.FC<CoverProps & { fitted?: import("./set/space.ts").Line[]; style?: string }> = (c) => (c.fitted ? <CoverSet format={c.format} fitted={c.fitted} /> : <Cover {...c} />);
+const coverMeta = async ({ props }: { props: CoverProps & { style?: string } }) => {
+  if (!isSetFormat(props.format) || props.style === "classic" || !props.big) return { props };
+  await ready([VAZIR, NASKH]);
+  const fitted = fit({ text: props.big, width: 880, maxLines: 2, size: 150, min: 96, weight: 700, family: NASKH, color: "ink" }).lines;
+  return { props: { ...props, fitted } };
+};
+
 export const Root: React.FC = () => (
   <>
-    <Composition id="dilemma" component={H.dilemma} {...frame} durationInFrames={900} defaultProps={plain<DilemmaProps>(dilemmaSample)} calculateMetadata={timed(dilemmaDuration, none)} />
+    <Composition id="dilemma" component={SetDilemma} {...frame} durationInFrames={900} defaultProps={plain<DilemmaProps>(dilemmaSample)} calculateMetadata={styled<DilemmaProps>("dilemma", timed(dilemmaDuration, none)) as never} />
     <Composition id="seat" component={H.seat} {...frame} durationInFrames={900} defaultProps={plain<SeatProps>(seatSample)} calculateMetadata={timed(seatDuration, seatCues)} />
     <Composition id="region" component={H.region} {...frame} durationInFrames={600} defaultProps={plain<RegionProps>(regionSample)} calculateMetadata={timed(regionDuration, regionCues)} />
     <Composition id="precedent" component={H.precedent} {...frame} durationInFrames={900} defaultProps={plain<PrecedentProps>(precedentSample)} calculateMetadata={timed(precedentDuration, precedentCues)} />
     <Composition id="talks" component={H.talks} {...frame} durationInFrames={900} defaultProps={plain<TalksProps>(talksSample)} calculateMetadata={timed(talksDuration, talksCues)} />
-    <Composition id="war" component={H.war} {...frame} durationInFrames={warDuration()} defaultProps={plain<WarProps>(warSample)} calculateMetadata={timed<WarProps>(warDuration, warCues)} />
+    <Composition id="war" component={SetWar} {...frame} durationInFrames={warDuration()} defaultProps={plain<WarProps>(warSample)} calculateMetadata={styled<WarProps>("war", timed<WarProps>(warDuration, warCues)) as never} />
     <Composition id="borders" component={H.borders} {...frame} durationInFrames={bordersLength()} defaultProps={plain<BordersProps>(bordersSample)} calculateMetadata={timed<BordersProps>(bordersLength, none)} />
     <Composition id="arsenal" component={H.arsenal} {...frame} durationInFrames={750} defaultProps={plain<ArsenalProps>(arsenalSample)} calculateMetadata={timed(arsenalDuration, arsenalCues)} />
     <Composition id="dollar" component={H.dollar} {...frame} durationInFrames={650} defaultProps={plain<DollarProps>(dollarSample)} calculateMetadata={timed(dollarDuration, dollarCues)} />
     <Composition id="nuclear" component={H.nuclear} {...frame} durationInFrames={650} defaultProps={plain<NuclearProps>(nuclearSample)} calculateMetadata={timed(nuclearDuration, nuclearCues)} />
-    <Composition id="figure" component={H.figure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={timed(figureDuration, figureCues)} />
+    <Composition id="figure" component={SetFigure} {...frame} durationInFrames={450} defaultProps={plain<FigureProps>(figureSample)} calculateMetadata={styled<FigureProps>("figure", timed(figureDuration, figureCues)) as never} />
     <Composition id="quiz" component={H.quiz} {...frame} durationInFrames={480} defaultProps={plain<QuizProps>(quizSample)} calculateMetadata={timed(quizDuration, quizCues)} />
     <Composition id="power" component={H.power} {...frame} durationInFrames={1420} defaultProps={plain<PowerProps>(powerSample)} calculateMetadata={timed(powerDuration, powerCues)} />
     <Composition id="thennow" component={H.thennow} {...frame} durationInFrames={thenNowDuration()} defaultProps={plain<ThenNowProps>(thenNowSample)} calculateMetadata={timed<ThenNowProps>(thenNowDuration, thenNowCues)} />
@@ -119,10 +169,11 @@ export const Root: React.FC = () => (
     <Composition id="decade" component={H.decade} {...frame} durationInFrames={decadeDuration(plain<DecadeProps>(decadeSample))} defaultProps={plain<DecadeProps>(decadeSample)} calculateMetadata={timed<DecadeProps>(decadeDuration, decadeCues)} />
     <Composition id="five" component={H.five} {...frame} durationInFrames={fiveDuration(as<FiveProps>(fiveSample))} defaultProps={plain<FiveProps>(fiveSample)} calculateMetadata={timed<FiveProps>(fiveDuration, fiveCues)} />
     <Composition id="truefalse" component={H.truefalse} {...frame} durationInFrames={trueFalseDuration(plain<TrueFalseProps>(trueFalseSample))} defaultProps={plain<TrueFalseProps>(trueFalseSample)} calculateMetadata={timed(trueFalseDuration, trueFalseCues)} />
-    <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} />
+    <Composition id="cover" component={CoverAny} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} calculateMetadata={coverMeta as never} />
     {/* a post of several pictures: one card per frame, each saved as a still (1080 by 1350, Instagram's 4:5) */}
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />
     {/* the Story that follows a Reel onto the page */}
     <Composition id="story" component={Story} {...frame} durationInFrames={storyDuration()} defaultProps={as<StoryProps>(storySample)} />
+    <Templates />
   </>
 );

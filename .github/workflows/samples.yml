@@ -48,6 +48,8 @@ jobs:
         timeout-minutes: 25
         env:
           LIST: ${{ inputs.list }}
+          # a sample is for looking: the gate reports (out/<name>.gate.json) and the run goes on
+          DIVAN_GATE: warn
         run: |
           for pair in $LIST; do
             comp="${pair%%:*}"; name="${pair#*:}"
@@ -56,9 +58,21 @@ jobs:
             # with the narrator's lines when the sample has them (samples/<name>.voice.json, as lib/social/voice.ts makes them)
             voice=""; if [ -f "samples/$name.voice.json" ]; then voice="--voice samples/$name.voice.json"; fi
             node render.mjs "$comp" --props "samples/$name.json" --bundle bundle --out "$name" $voice
-            if [ -f "samples/$name.cover.json" ]; then node render.mjs cover --props "samples/$name.cover.json" --bundle bundle --still 0 --out "$name-tile"; fi
+            # for looking without downloading the master: a small copy, a sheet of two frames a second, the loudness, the gate's report
+            mkdir -p small
+            ffmpeg -v error -y -i "out/$name.mp4" -vf scale=360:-2 -c:v libx264 -crf 30 -preset veryfast -c:a aac -b:a 96k "small/$name-360.mp4"
+            ffmpeg -v error -y -i "out/$name.mp4" -vf "fps=2,scale=216:-2,tile=10x6:padding=4:color=0x000000" -q:v 4 "small/$name-sheet-%02d.jpg"
+            ffmpeg -hide_banner -nostats -i "out/$name.mp4" -vn -af ebur128=peak=true -f null - 2>&1 | sed -n '/Summary:/,$p' > "small/$name-loudness.txt"
+            if [ -f "out/$name.gate.json" ]; then cp "out/$name.gate.json" small/; fi
+            if [ -f "samples/$name.cover.json" ]; then node render.mjs cover --props "samples/$name.cover.json" --bundle bundle --still 0 --out "$name-tile"; ffmpeg -v error -y -i "out/$name-tile-0000.png" -vf scale=540:-2 -q:v 3 "small/$name-tile.jpg" || true; fi
           done
           ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: small
+          path: small/
+          retention-days: 14
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: samples

@@ -19,7 +19,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { HOOK_FRAMES } from "./Hook";
-import { C, H, OnStage, PartCtx, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
+import { C, Captions, H, OnStage, PartCtx, STAGE_K, STAGE_X, STAGE_Y, W, clamped, ease, paint } from "./kit";
 import type { Base } from "./props";
 import { PaperGround } from "./ThenNow";
 import { DecadeGround } from "./Decade";
@@ -96,8 +96,8 @@ const Edges: React.FC<{ hooked: boolean; format: string; hookLen: number; reel?:
   </>
 );
 
-/** A Reel (with its hook) drawn on the safe stage. */
-export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
+/** A Reel (with its hook) drawn on the safe stage; with `captions`, the narrator's words as they are said (kit.tsx, Captions). */
+export function onStage<P extends Base>(Inner: React.FC<P>, opts: { captions?: boolean } = {}): React.FC<P> {
   const Staged: React.FC<P> = (p) => {
     // the ground is drawn before the Reel paints itself: it takes the series' colour here
     paint(p.format);
@@ -124,6 +124,7 @@ export function onStage<P extends Base>(Inner: React.FC<P>): React.FC<P> {
           <OnStage.Provider value={true}>
             <PartCtx.Provider value={part}>
               <Inner {...p} />
+              {opts.captions ? <Captions voice={p.voice} /> : null}
             </PartCtx.Provider>
           </OnStage.Provider>
         </div>

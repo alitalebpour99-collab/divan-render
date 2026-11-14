@@ -28,6 +28,7 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { makeCancelSignal, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
+import { GateRefusal, enforce, planChecks, verdict } from "./gate.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 import { score } from "./music.mjs";
 
@@ -53,6 +54,8 @@ const RENDER_MAX_MS = Number(process.env.RENDER_MAX_MS) || 15 * 60_000;
 // the operator's way to keep the worker out of a window somebody else needs: no Reel is started before this moment (an ISO time)
 const HOLD_UNTIL = Date.parse(process.env.HOLD_UNTIL ?? "") || 0;
 const PORT = Number(process.env.PORT) || 0;
+// the set style's switches (README «The set style»): the old look, the badge; DIVAN_GATE (on, warn, off) is read by gate.mjs
+const SWITCHES = { ...(process.env.DIVAN_STYLE ? { style: process.env.DIVAN_STYLE } : {}), ...(process.env.DIVAN_BADGE === "off" ? { badge: false } : {}) };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const state = { busy: false, started: new Date().toISOString(), lastLook: null, lastReel: null, rendered: 0, failed: 0 };
@@ -103,16 +106,16 @@ async function trackFile(name) {
 }
 
 /** The score of one Reel: its library track when there is one, else (or when the track cannot be read) the synthesized score. */
-async function scoreOf(job, seconds, duck) {
+async function scoreOf(job, seconds, duck, set = false) {
   const track = await trackFile(job.music);
   if (track) {
     try {
-      return score({ id: job.format, seconds, duck, track });
+      return score({ id: job.format, seconds, duck, track, set });
     } catch (e) {
       console.log(`music ${job.music}: not read (${e instanceof Error ? e.message.split("\n")[0] : e}); the synthesized score instead`);
     }
   }
-  return score({ id: job.format, seconds, duck });
+  return score({ id: job.format, seconds, duck, set });
 }
 
 /**
@@ -234,17 +237,29 @@ async function render(job) {
   }, 20_000);
   try {
     // the tile for the profile grid
-    const tile = await selectComposition({ serveUrl: serve, id: "cover", inputProps: job.cover, chromiumOptions, timeoutInMilliseconds });
-    await renderStill({ composition: tile, serveUrl: serve, output: cover, inputProps: job.cover, imageFormat: "jpeg", jpegQuality: 92, chromiumOptions, timeoutInMilliseconds, cancelSignal });
+    // a tile without its big words comes from a site that does not know the set style yet: that Reel keeps the classic look
+    const sw = { ...SWITCHES, ...(job.cover && !job.cover.big ? { style: "classic" } : {}) };
+    const tileProps = { ...job.cover, ...sw };
+    const tile = await selectComposition({ serveUrl: serve, id: "cover", inputProps: tileProps, chromiumOptions, timeoutInMilliseconds });
+    await renderStill({ composition: tile, serveUrl: serve, output: cover, inputProps: tile.props, imageFormat: "jpeg", jpegQuality: 92, chromiumOptions, timeoutInMilliseconds, cancelSignal });
     step("tile drawn");
     // the score is made for this Reel's own length
     // the narrator's lines go in first: the composition places them, and waits for them, which sets the Reel's length
     const voiceIn = voiceFiles(job.voice, path.join(serve, "public"), job.name);
-    const first = await selectComposition({ serveUrl: serve, id: job.format, inputProps: { ...job.props, voiceIn }, chromiumOptions, timeoutInMilliseconds });
+    const first = await selectComposition({ serveUrl: serve, id: job.format, inputProps: { ...job.props, ...sw, voiceIn }, chromiumOptions, timeoutInMilliseconds });
     const seconds = first.durationInFrames / first.fps;
-    // the score steps back under each line, where the composition placed it
-    fs.writeFileSync(path.join(serve, "public", music), await scoreOf(job, seconds, duckOf(first)));
-    const inputProps = { ...job.props, voiceIn, music };
+    const plan = first.props.plan;
+    // the set style's plan is checked before anything is drawn: a Reel that cannot pass is not drawn at all
+    if (plan && (process.env.DIVAN_GATE || "on") === "on") {
+      const early = { checks: planChecks(plan, String(job.cover?.big ?? "")) };
+      if (early.checks.some((c) => !c.ok)) {
+        for (const c of early.checks.filter((x) => !x.ok)) console.log(`gate FAIL ${c.id}: ${c.detail}`);
+        throw new GateRefusal(verdict(early));
+      }
+    }
+    if (plan) step(`set style: ${plan.shots.length} shots, ${plan.sfx.length} effects`);
+    fs.writeFileSync(path.join(serve, "public", music), await scoreOf(job, seconds, duckOf(first), Boolean(plan)));
+    const inputProps = { ...job.props, ...sw, voiceIn, music };
     const composition = await selectComposition({ serveUrl: serve, id: job.format, inputProps, chromiumOptions, timeoutInMilliseconds });
     step(`${composition.durationInFrames} frames, ${(composition.props.voice ?? []).length} lines of the narrator`);
     let tenth = 0;
@@ -257,6 +272,11 @@ async function render(job) {
     };
     await renderMedia({ composition, serveUrl: serve, codec: "h264", crf: 20, pixelFormat: "yuv420p", audioCodec: "aac", audioBitrate: "160k", inputProps, outputLocation: video, concurrency: CONCURRENCY, chromiumOptions, cancelSignal, timeoutInMilliseconds, onProgress });
     console.log(`Reel ${job.id}: ${finish(video, seconds)}`);
+    // the set style's gate on the finished file: a Reel that fails is not handed back, the owner reads why in plain Persian
+    if (composition.props.plan) {
+      const result = enforce({ plan: composition.props.plan, file: video, cover: String(job.cover?.big ?? "") });
+      step(result?.ok ? "gate passed" : "gate reported");
+    }
     for (const [kind, file, type] of [
       ["video", video, "video/mp4"],
       ["cover", cover, "image/jpeg"],
@@ -269,7 +289,7 @@ async function render(job) {
   } catch (e) {
     state.failed += 1;
     // the message of a render error may quote the content: only its first line, cut short, goes to the site, and none of it to the log
-    const reason = gaveUp ? "the server ran short of memory; the render was given up and will be tried again" : slow ? `drawing took longer than ${Math.round(RENDER_MAX_MS / 60_000)} minutes (${reached}); it will be tried again` : String(e instanceof Error ? e.message : e).split("\n")[0].slice(0, 240);
+    const reason = e instanceof GateRefusal ? e.message : gaveUp ? "the server ran short of memory; the render was given up and will be tried again" : slow ? `drawing took longer than ${Math.round(RENDER_MAX_MS / 60_000)} minutes (${reached}); it will be tried again` : String(e instanceof Error ? e.message : e).split("\n")[0].slice(0, 240);
     console.log(`Reel ${job.id} (${job.format}): failed after ${Math.round((Date.now() - t0) / 1000)} s`);
     await call(`?id=${job.id}&failed=1`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ error: reason }) }).catch(() => undefined);
   } finally {

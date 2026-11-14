@@ -42,6 +42,11 @@ const MOODS = {
   // the countdown of five figures: a quick pulse under the flipping board
   five: { root: 46, bpm: 96, pulse: true },
   truefalse: { root: 47, bpm: 104, pulse: true },
+  // the content system's templates (src/Templates.tsx) take the score of the series they show
+  t1: { root: 38, bpm: 84, pulse: true },
+  t2: { root: 44, bpm: 62 },
+  t5: { root: 50, bpm: 72 },
+  t6: { root: 43, bpm: 92, pulse: true },
 };
 // i  VI  III  VII, as open voicings above the key note: root, fifth, tenth
 const CHORDS = [
@@ -112,9 +117,9 @@ const TRACK_RMS = -20;
 const LOOP = 1.5;
 
 /** How loud the score is at a moment: in over 0.7 s, out over the last 2.6 s, and down to a third under a narrator's line, with a fifth of a second either side. */
-function level(t, seconds, duck) {
+function level(t, seconds, duck, deep = false) {
   const under = duck.reduce((m, [a, b]) => Math.max(m, Math.min(smooth((t - a + 0.2) / 0.2), smooth((b + 0.25 - t) / 0.25))), 0);
-  return smooth(t / 0.7) * smooth((seconds - t) / 2.6) * (1 - 0.68 * under);
+  return smooth(t / (deep ? 0.08 : 0.7)) * smooth((seconds - t) / (deep ? 0.25 : 2.6)) * (1 - (deep ? DUCK.deep : DUCK.classic) * under);
 }
 
 /** Two channels as a WAV file, each sample times gain. */
@@ -142,7 +147,7 @@ function wav(L, R, gain) {
 }
 
 /** A Reel's score from a track of the library: from its beginning, looped with a crossfade when the Reel runs longer, at the synthesized score's level, in, out and under the narrator as that score is. */
-function fromTrack(file, seconds, duck) {
+function fromTrack(file, seconds, duck, deep = false) {
   const pcm = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", file, "-ac", "2", "-ar", String(RATE), "-f", "f32le", "-"], { maxBuffer: 1 << 30 });
   const all = new Float32Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 4));
   const frames = Math.floor(all.length / 2);
@@ -170,7 +175,7 @@ function fromTrack(file, seconds, duck) {
   const rms = 10 * Math.log10(sum / (2 * total) + 1e-12);
   let peak = 0;
   for (let n = 0; n < total; n += 1) {
-    const v = level(n / RATE, seconds, duck);
+    const v = level(n / RATE, seconds, duck, deep);
     L[n] *= v;
     R[n] *= v;
     peak = Math.max(peak, Math.abs(L[n]), Math.abs(R[n]));
@@ -179,8 +184,84 @@ function fromTrack(file, seconds, duck) {
   return wav(L, R, gain);
 }
 
-export function score({ id, seconds, duck = [], track }) {
-  if (track) return fromTrack(track, seconds, duck);
+/**
+ * How far the bed steps down under the narrator: to 32 % (about −10 dB) in the
+ * classic look; to 14 % (about −17 dB, as Pickwise's and Bidar's set style) in
+ * the set style, where the bed comes back up between the lines.
+ */
+export const DUCK = { classic: 0.68, deep: 0.86 };
+
+/**
+ * The set style's bed (src/set/), made here like the synthesized score: a dark,
+ * minimal drone with a heartbeat sub pulse, as the owner wants a news page to
+ * sound (2026-10-28/29 on Manshur: dark minimal drones and a sub pulse kept;
+ * piano, santur, busy strings and glitchy beds turned down). A low root with
+ * its octave and a quiet fifth swelling and fading every eight seconds, a
+ * double thump every second (50 falling to 38 Hz), a breath of filtered noise
+ * on top. No melody, no beat to dance to, nothing that is not made in this file.
+ * It does not fade out at the end: the Reel loops, so it comes back on itself.
+ */
+export function drone({ id, seconds, duck = [] }) {
+  const { root } = MOODS[id] ?? MOODS.dilemma;
+  const f = hz(root - 12);
+  const total = Math.ceil(seconds * RATE);
+  const L = new Float32Array(total);
+  const R = new Float32Array(total);
+  let seed = 3;
+  const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+  let lowL = 0;
+  let lowR = 0;
+  for (let n = 0; n < total; n += 1) {
+    const t = n / RATE;
+    const breathe = 0.82 + 0.18 * Math.sin(TAU * 0.07 * t);
+    const drone = 0.16 * breathe * (Math.sin(TAU * f * t) + 0.42 * Math.sin(TAU * 2 * f * t + 0.4) + 0.1 * Math.sin(TAU * 3 * f * t + 1.1));
+    const swell = 0.5 - 0.5 * Math.cos(TAU * (t / 8));
+    const fifth = 0.035 * swell * Math.sin(TAU * f * 3 * t * 1.0008);
+    // a breath of air: white noise through two slow one-pole filters, a little apart in each ear
+    lowL += 0.012 * (noise() - lowL);
+    lowR += 0.012 * (noise() - lowR);
+    const air = 0.05 * (0.6 + 0.4 * Math.sin(TAU * 0.11 * t + 1));
+    L[n] = drone + fifth + air * lowL;
+    R[n] = drone * 0.98 + fifth * 1.02 + air * lowR;
+  }
+  // the heartbeat: two soft thumps a second, the second lighter
+  for (let beat = 0; beat < seconds; beat += 1) {
+    for (const [off, gain] of [
+      [0, 0.34],
+      [0.24, 0.2],
+    ]) {
+      const start = Math.round((beat + off) * RATE);
+      const length = Math.min(total - start, Math.round(0.45 * RATE));
+      let phase = 0;
+      for (let k = 0; k < length; k += 1) {
+        const tt = k / RATE;
+        const fr = 38 + 12 * Math.exp(-tt / 0.06);
+        phase += (TAU * fr) / RATE;
+        const v = gain * Math.exp(-tt / 0.16) * Math.sin(phase) * (tt < 0.006 ? tt / 0.006 : 1);
+        L[start + k] += v;
+        R[start + k] += v;
+      }
+    }
+  }
+  let peak = 0;
+  for (let n = 0; n < total; n += 1) {
+    const t = n / RATE;
+    const under = duck.reduce((m, [a, b]) => Math.max(m, Math.min(smooth((t - a + 0.25) / 0.25), smooth((b + 0.35 - t) / 0.35))), 0);
+    const v = smooth(t / 0.08) * smooth((seconds - t) / 0.25) * (1 - DUCK.deep * under);
+    L[n] *= v;
+    R[n] *= v;
+    peak = Math.max(peak, Math.abs(L[n]), Math.abs(R[n]));
+  }
+  return wav(L, R, peak ? 0.6 / peak : 1);
+}
+
+/**
+ * A Reel's score. `set`: the set style's bed: the drone above, or (with
+ * DIVAN_SET_MUSIC=library) the site's library track, ducked deeper.
+ */
+export function score({ id, seconds, duck = [], track, set = false }) {
+  if (set && (!track || process.env.DIVAN_SET_MUSIC !== "library")) return drone({ id, seconds, duck });
+  if (track) return fromTrack(track, seconds, duck, set);
   const { root, bpm, pulse } = MOODS[id] ?? MOODS.dilemma;
   const total = Math.ceil(seconds * RATE);
   const L = new Float32Array(total);

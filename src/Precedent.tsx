@@ -315,7 +315,7 @@ export const Precedent: React.FC<PrecedentProps> = (p) => {
   const T_CLOSE = at[3];
   const year = readYear(p.year);
   const land = year ? year.land : 0;
-  const where = [p.when, p.place].filter(Boolean).join(" · ");
+  const where = [p.when, p.place].filter(Boolean).join("، ");
 
   // the title is set as large as its length lets it: one line under the dial when it fits, two when not; always one line on the folder
   const titleEm = widthOf(p.title, 0.5, 0.46);

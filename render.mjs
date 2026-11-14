@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
+import { enforce } from "./gate.mjs";
 import { score } from "./music.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 
@@ -25,7 +26,11 @@ const stillArg = flag("--still");
 const stills = stillArg === "all" ? "all" : (stillArg?.split(",").map(Number) ?? null);
 const serveUrl = path.resolve(flag("--bundle") ?? "bundle");
 const name = flag("--out") ?? path.basename(propsFile).replace(/(\.cover)?\.json$/, "");
-const props = JSON.parse(fs.readFileSync(propsFile, "utf8"));
+// the set style's switches, as the worker reads them: DIVAN_STYLE=classic draws the old look, DIVAN_BADGE=off leaves the badge out
+const switches = { ...(process.env.DIVAN_STYLE ? { style: process.env.DIVAN_STYLE } : {}), ...(process.env.DIVAN_BADGE === "off" ? { badge: false } : {}) };
+const props = { ...JSON.parse(fs.readFileSync(propsFile, "utf8")), ...switches };
+const coverFile = propsFile.replace(/\.json$/, ".cover.json");
+const coverProps = fs.existsSync(coverFile) && !propsFile.endsWith(".cover.json") ? JSON.parse(fs.readFileSync(coverFile, "utf8")) : null;
 fs.mkdirSync("out", { recursive: true });
 
 // a busy machine may take longer than Remotion's half minute to open its browser (the worker allows two minutes too)
@@ -45,7 +50,8 @@ if (stills) {
   const first = await selectComposition({ serveUrl, id, inputProps: { ...props, voiceIn }, timeoutInMilliseconds });
   const seconds = first.durationInFrames / first.fps;
   const music = `music-${name}.wav`;
-  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first) }));
+  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) }));
+  if (first.props.plan) console.log("set style:", first.props.plan.shots.length, "shots,", first.props.plan.sfx.length, "effects,", first.props.plan.pieces.length, "pieces");
   for (const v of first.props.voice ?? []) console.log("voice", v.file, "at", (v.from / first.fps).toFixed(2), "s for", (v.frames / first.fps).toFixed(2), "s");
   if (first.props.holds?.length) console.log("holds", JSON.stringify(first.props.holds));
   const inputProps = { ...props, voiceIn, music };
@@ -63,5 +69,16 @@ if (stills) {
   await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3), timeoutInMilliseconds, onProgress });
   dropVoice(path.join(serveUrl, "public"), name);
   console.log(finish(outputLocation, seconds));
+  // the gate of the set style: the plan the film was drawn from, the file, the tile's words (a sample reports and goes on with DIVAN_GATE=warn)
+  const plan = composition.props.plan;
+  if (plan) {
+    let result = null;
+    try {
+      result = enforce({ plan, file: outputLocation, cover: coverProps ? String(coverProps.big ?? "") : undefined });
+    } finally {
+      if (result) fs.writeFileSync(`out/${name}.gate.json`, JSON.stringify({ ok: result.ok, seconds, checks: result.checks }, null, 1));
+    }
+    console.log(result?.ok ? "gate: every check passed" : "gate: failed (see above)");
+  }
   console.log("wrote", outputLocation, composition.durationInFrames, "frames,", seconds.toFixed(1), "s, in", Math.round((Date.now() - t0) / 1000), "s");
 }

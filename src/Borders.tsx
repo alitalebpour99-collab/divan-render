@@ -19,9 +19,9 @@ const faYear = (iso: string) => new Intl.DateTimeFormat("fa-IR-u-ca-persian", { 
 // the four stops, as on the History page of the site
 const after1828 = ERAS.eras["1828"].later[0];
 const STOPS: { key: EraKey | "today"; from: number; big: string; small: string; title: string; bar: string; years: string; area: number | null }[] = [
-  { key: "1700", from: 0, big: `حدود ${faYear("1700-07-01")}`, small: "خورشیدی · ۱۷۰۰ میلادی", title: "ایران در روزگار صفویان", bar: "صفویان", years: `${faDigits(ERAS.eras["1700"].row.FromYear)} تا ${faDigits(ERAS.eras["1700"].row.ToYear)}`, area: ERAS.eras["1700"].row.Area },
-  { key: "1813", from: 250, big: `پیش از ${faYear("1813-10-24")}`, small: "خورشیدی · ۱۸۱۳ میلادی", title: "پیش از عهدنامهٔ گلستان", bar: "قاجار، پیش از گلستان", years: `${faDigits(ERAS.eras["1813"].row.FromYear)} تا ${faDigits(ERAS.eras["1813"].row.ToYear)}`, area: ERAS.eras["1813"].row.Area },
-  { key: "1828", from: 400, big: `پیش از ${faYear("1828-02-22")}`, small: "خورشیدی · ۱۸۲۸ میلادی", title: "پیش از عهدنامهٔ ترکمانچای", bar: "قاجار، پیش از ترکمانچای", years: `${faDigits(ERAS.eras["1828"].row.FromYear)} تا ${faDigits(ERAS.eras["1828"].row.ToYear)}`, area: ERAS.eras["1828"].row.Area },
+  { key: "1700", from: 0, big: `حدود ${faYear("1700-07-01")}`, small: "خورشیدی، ۱۷۰۰ میلادی", title: "ایران در روزگار صفویان", bar: "صفویان", years: `${faDigits(ERAS.eras["1700"].row.FromYear)} تا ${faDigits(ERAS.eras["1700"].row.ToYear)}`, area: ERAS.eras["1700"].row.Area },
+  { key: "1813", from: 250, big: `پیش از ${faYear("1813-10-24")}`, small: "خورشیدی، ۱۸۱۳ میلادی", title: "پیش از عهدنامهٔ گلستان", bar: "قاجار، پیش از گلستان", years: `${faDigits(ERAS.eras["1813"].row.FromYear)} تا ${faDigits(ERAS.eras["1813"].row.ToYear)}`, area: ERAS.eras["1813"].row.Area },
+  { key: "1828", from: 400, big: `پیش از ${faYear("1828-02-22")}`, small: "خورشیدی، ۱۸۲۸ میلادی", title: "پیش از عهدنامهٔ ترکمانچای", bar: "قاجار، پیش از ترکمانچای", years: `${faDigits(ERAS.eras["1828"].row.FromYear)} تا ${faDigits(ERAS.eras["1828"].row.ToYear)}`, area: ERAS.eras["1828"].row.Area },
   { key: "today", from: 530, big: "امروز", small: "مرز کنونی ایران", title: "پس از ترکمانچای، تا امروز", bar: "پس از ترکمانچای", years: `${faDigits(after1828.FromYear)} تا ${faDigits(after1828.ToYear)}`, area: after1828.Area },
 ];
 const CLOSE = 660;
@@ -183,7 +183,7 @@ export const Borders: React.FC<BordersProps> = ({ music, series }) => {
         </div>
       ) : null}
 
-      <Foot opacity={closing ? fade(frame, CLOSE + 64, 14) : 0}>مرزهای تاریخی: Cliopatria (Seshat)، CC BY 4.0، ساده‌شده · نقشه: Natural Earth</Foot>
+      <Foot opacity={closing ? fade(frame, CLOSE + 64, 14) : 0}>مرزهای تاریخی: Cliopatria (Seshat)، CC BY 4.0، ساده‌شده؛ نقشه: Natural Earth</Foot>
     </AbsoluteFill>
   );
 };

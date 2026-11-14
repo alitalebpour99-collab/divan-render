@@ -44,6 +44,23 @@ machine to wait for), `POLL_SECONDS`, `START_FREE_MB`, `ABORT_FREE_MB`,
 `HOLD_UNTIL`, `RENDER_MAX_MS` (a Reel still drawing after this long, 15 min,
 is given up and tried again; the log says where it had reached).
 
+## The hook, the type and the short versions
+
+- **The hook** (`src/Hook.tsx`) shows the Reel's own picture under its
+  question, sharp and already moving on frame 0: a layout names the frame it
+  plays from and the band of the picture it shows (`look`, `withHook` in
+  `src/Root.tsx`). «عدد روز» shows its figure counting in the ring, «پنج عدد»
+  its last board flipping.
+- **Type** (`TITLE_MIN`, `BODY_MIN` in `src/kit.tsx`): a title at least 88 px
+  and every text to read at least 48 px on the finished video, that is 104 and
+  57 px on the designed frame (the safe stage draws it at 85 %). The hook, «عدد
+  روز» and «پنج عدد» keep to it; the name line at the top is the page's mark.
+- **Short versions**: `cut: "short"` in the props of «عدد روز» and «پنج عدد»
+  runs 15 to 25 seconds with the narrator. Its scenes are tighter, and the
+  narrator's lines that would not fit in 25 seconds are left out, the one
+  least needed first (`shortCues`); the question and the line to follow the
+  page always stay. Samples: `figure-short`, `five-short` (with a narrator).
+
 ## Look at a format
 
 Keep the packages out of a synced folder (OneDrive and the like).

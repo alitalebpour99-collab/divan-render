@@ -65,7 +65,7 @@ export const Dollar: React.FC<DollarProps> = (p) => {
       <Progress total={total} marks={[aDraw, aResult, aSource]} />
 
       <div style={{ position: "absolute", top: 222, right: SIDE, left: SIDE, opacity: fade(frame, 2, 12) }}>
-        <Kicker size={36}>اقتصاد · دلار در بازار آزاد</Kicker>
+        <Kicker size={36}>اقتصاد: دلار در بازار آزاد</Kicker>
         <Words text={p.question} from={6} step={3} style={{ marginTop: 10, fontFamily: NASKH, fontWeight: 700, fontSize: interpolate(grow(frame, aDraw, 20), [0, 1], [76, 50]), lineHeight: 1.4, color: C.ink }} />
       </div>
 
@@ -73,7 +73,7 @@ export const Dollar: React.FC<DollarProps> = (p) => {
       {frame < aDraw + 20 ? (
         <div style={{ position: "absolute", top: 760, right: SIDE, left: SIDE, textAlign: "center", opacity: leave(frame, aDraw + 14, 14) }}>
           <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 190, lineHeight: 1, color: C.acc, transform: `translateY(${rise(frame, 20, 40)}px)`, opacity: fade(frame, 20, 10) }}>{faNum(Math.round(p.last * grow(frame, 22, 60)))}</div>
-          <div style={{ marginTop: 20, fontFamily: VAZIR, fontWeight: 700, fontSize: 52, color: C.ink, opacity: fade(frame, 34, 12) }}>{`${p.unit} · ${p.lastDate}`}</div>
+          <div style={{ marginTop: 20, fontFamily: VAZIR, fontWeight: 700, fontSize: 52, color: C.ink, opacity: fade(frame, 34, 12) }}>{`${p.unit}، ${p.lastDate}`}</div>
           <div style={{ marginTop: 40, fontFamily: VAZIR, fontSize: 36, color: C.ink3, opacity: fade(frame, 56, 14) }}>{`${p.firstDate}: ${p.firstText}`}</div>
         </div>
       ) : null}
@@ -132,7 +132,7 @@ export const Dollar: React.FC<DollarProps> = (p) => {
             >
               <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 40, lineHeight: 1.4, color: C.ink }}>{current.q.event}</div>
               <div style={{ marginTop: 10, fontFamily: VAZIR, fontSize: 30, color: C.ink2 }}>
-                {`${current.q.dateText} · ${current.q.approx ? "حدود " : ""}${current.q.value} ${p.unit}`}
+                {`${current.q.dateText}: ${current.q.approx ? "حدود " : ""}${current.q.value} ${p.unit}`}
               </div>
             </div>
           ) : null}

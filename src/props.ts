@@ -9,7 +9,16 @@ export type Tone = "good" | "bad" | "both" | "none";
 export type GoalView = { id: string; name: string; band: [number, number]; verdict: string; tone: Tone };
 
 /** The opening of a Reel: its strongest figure (optional) and a question, readable from the first frame. */
-export type HookView = { text: string; figure: string | null };
+export type HookView = {
+  text: string;
+  figure: string | null;
+  /**
+   * The set style's hook (video/src/set/): the same question in at most seven
+   * words, the figure counted as one (the social audit of 2026-11-13). The
+   * classic look and the narrator keep `text`.
+   */
+  short?: string | null;
+};
 
 export type Base = {
   /** the composition that draws it */
@@ -28,6 +37,8 @@ export type Base = {
   voice?: VoiceOut[];
   holds?: Hold[];
   hookLen?: number;
+  /** the question to the viewer at the close, the caption's own (set style) */
+  ask?: string;
 };
 
 export type DilemmaProps = Base & {
@@ -148,6 +159,8 @@ export type WarProps = Base & {
   events: WarEventProps[];
   milestones: { date: string; day: number; fa: string }[];
   counts: { total: number; confirmed: number; claim: number; unverified: number; located: number };
+  /** the source line under every figure of the set style */
+  src?: string;
   foot: string;
 };
 
@@ -266,6 +279,8 @@ export type FigureProps = Base & {
   when: string;
   source: string;
   foot: string;
+  /** the short version, 15 to 25 seconds with its narrator (Figure.tsx); null or left out for the whole one */
+  cut?: "short" | null;
 };
 
 /** «حدس بزن»: a question on a ranking of the site, four answers, a count of three, the answer, and the whole ranking. */
@@ -440,6 +455,8 @@ export type FiveProps = Base & {
   ask: string;
   source: string;
   foot: string;
+  /** the short version, 15 to 25 seconds with its narrator (Five.tsx); null or left out for the whole one */
+  cut?: "short" | null;
 };
 
 /** One figure of a round of «درست یا غلط»: the country, its value as the source gives it, as the card writes it, and as the narrator says it (short). */
@@ -483,7 +500,7 @@ export type TrueFalseProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps;
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps | T1Props | T2Props | T5Props | T6Props;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {
@@ -493,4 +510,63 @@ export type CoverProps = {
   title: string;
   /** one short figure or word that carries the tile, optional */
   mark?: string;
+  /** the set style's tile: three or four big words (the gate refuses any other count) */
+  big?: string;
+};
+
+// ---------- the content system's templates (Templates.tsx; built by lib/social/templates.ts, not planned) ----------
+/** What every template carries besides its own content: the series whose colour it wears, its question, the question back at the end, its sources. */
+type TemplateBase = Base & {
+  /** the series whose colour (HUES) and emblem the template wears: «power», «dollar», «thennow» … */
+  of: string;
+  kicker: string;
+  /** the question on the first frame */
+  question: string;
+  /** the question back to the viewer at the end: one that loops to the start, or one to answer */
+  ask: string;
+  /** where every figure comes from, and when it was read */
+  source: string;
+  foot: string;
+};
+
+/** T1 «لایه به لایه»: a whole seen from above, one layer at a time (Iran's air defence: long, medium and short range). */
+export type T1Props = TemplateBase & {
+  format: "t1";
+  /** the layers from the outside in, each with how many it holds and their names */
+  layers: { name: string; count: number; items: string[] }[];
+  /** all the layers together: «۲۲ سامانه» */
+  totalText: string;
+};
+
+/** T2 «نگه دار، برگرد عقب»: today's figure held, then the line rewound to where it began (made only when the latest quote changed). */
+export type T2Props = TemplateBase & {
+  format: "t2";
+  unit: string;
+  today: { text: string; date: string };
+  first: { text: string; date: string; event: string | null };
+  /** the plain change from the first figure to today's: «۲٫۸ برابر» */
+  times: string;
+  /** every reading, oldest first: x and y in percent of the plot, its date and figure as written, and an event of that day */
+  points: { x: number; y: number; dateText: string; value: string; approx: boolean; event: string | null }[];
+};
+
+/** T5 «حدس بزن»: a question, four answers, a count of three, the answer, the whole ranking. */
+export type T5Props = TemplateBase & {
+  format: "t5";
+  options: string[];
+  answer: number;
+  reveal: string;
+  rows: { name: string; text: string; share: number; home: boolean }[];
+};
+
+/** T6 «اون موقع، الان»: one figure then and now, as two columns seen from above, and how far it moved. */
+export type T6Props = TemplateBase & {
+  format: "t6";
+  label: string;
+  then: { year: string; text: string; value: number };
+  now: { year: string; text: string; value: number };
+  change: string;
+  explain: string;
+  /** every year's value between, oldest first */
+  line: number[];
 };

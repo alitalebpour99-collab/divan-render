@@ -1,0 +1,7 @@
+{
+ "move": "whoosh",
+ "label": "pop",
+ "count": "tick",
+ "reveal": "hit",
+ "preReveal": "rise"
+}

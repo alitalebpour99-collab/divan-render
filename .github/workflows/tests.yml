@@ -1,0 +1,25 @@
+name: Tests
+
+# The set style's plans and the gate's own checks (tests/), without a browser
+# and without ffmpeg: a few seconds on every push and pull request.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    if: github.repository == 'alitalebpour99-collab/divan-render'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # the plans are TypeScript, read by Node with its own type stripping; no package is needed
+      - run: node --test tests/set.test.mjs

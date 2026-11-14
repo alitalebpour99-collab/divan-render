@@ -58,6 +58,13 @@ jobs:
     env:
       DIVAN_URL: https://divan.ahura.cloud
       DIVAN_RENDER_SECRET: ${{ secrets.DIVAN_RENDER_SECRET }}
+      # the set style's switches, as repository variables (README «The set style»); unset = the set style, the badge and the gate on.
+      # DIVAN_STYLE=classic draws the old look, DIVAN_BADGE=off leaves the badge out, DIVAN_GATE=warn reports and hands back anyway,
+      # DIVAN_SET_MUSIC=library plays the site's library track under the set style instead of the drone
+      DIVAN_STYLE: ${{ vars.DIVAN_STYLE }}
+      DIVAN_BADGE: ${{ vars.DIVAN_BADGE }}
+      DIVAN_GATE: ${{ vars.DIVAN_GATE }}
+      DIVAN_SET_MUSIC: ${{ vars.DIVAN_SET_MUSIC }}
     steps:
       - name: Anything to draw?
         id: look

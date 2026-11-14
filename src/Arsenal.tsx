@@ -235,7 +235,7 @@ export const Arsenal: React.FC<ArsenalProps> = (p) => {
 
       {/* the head of the whole Reel: the force and the kind */}
       <div style={{ position: "absolute", top: 222, right: SIDE, left: SIDE, opacity: fade(frame, 2, 12) }}>
-        <Kicker size={36}>{`جنگ‌افزار · ${p.force}`}</Kicker>
+        <Kicker size={36}>{`جنگ‌افزار: ${p.force}`}</Kicker>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, marginTop: 6 }}>
           <Words text={p.arm} from={6} step={4} style={{ fontFamily: NASKH, fontWeight: 700, fontSize: interpolate(shrink, [0, 1], [86, 58]), lineHeight: 1.3, color: C.ink }} />
           {/* the piece, small, once the hook is over */}

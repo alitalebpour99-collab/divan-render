@@ -139,9 +139,9 @@ function close(b: Board, at: [number, number], ask: string, foot: string, hook: 
   const len = span(Math.round(3.4 * FPS), end + 8);
   const shown: Window[] = [[start + 8, start + len]];
   const askLines = b.text(ask, COL_W - 170, 78, { family: "naskh", maxLines: 3, color: "ink" });
-  b.plate("ask", [at[0], at[1] - 230], COL_W - 110, askLines, shown, { kind: "ask", emblem: "council" });
+  b.plate("ask", [at[0], at[1] - 280], COL_W - 110, askLines, shown, { kind: "ask", emblem: "council" });
   const footLines = b.text(foot, COL_W - 140, 54, { maxLines: 3, min: MIN_TEXT, color: "ink2", weight: 500 });
-  b.plate("foot", [at[0], at[1] + 150], COL_W - 100, [...footLines, { text: "divan.ahura.cloud", size: 56, weight: 800, color: "acc" }], shown, { lift: 0.02 });
+  b.plate("foot", [at[0], at[1] + 200], COL_W - 100, [...footLines, { text: "divan.ahura.cloud", size: 56, weight: 800, color: "acc" }], shown, { lift: 0.02 });
   b.cue(start + 12, "pop", "the question lands");
   b.punch(start + Math.round(len * 0.55), 0.035, "a beat under the question");
   if (b.ctx.badge) {
@@ -156,8 +156,9 @@ function close(b: Board, at: [number, number], ask: string, foot: string, hook: 
   const home = b.t;
   b.shots.push({ at: home, pose: hook.pose, move: "glide", push: 0, sway: 0, why: "home, for the loop" });
   b.cue(home, "swish", "home");
-  for (const p of hook.pieces) p.show.push([home + 15, FOREVER]);
-  return home + 22;
+  for (const p of hook.pieces) p.show.push([home + 17, FOREVER]);
+  // the first picture stands whole for the last third of a second before the film starts again
+  return home + 30;
 }
 
 // ---------- «عدد روز» ----------
@@ -176,7 +177,7 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const startLen = b.say("start", 4);
   const s0len = span(Math.round(2.5 * FPS), startLen + 4);
   const hookWin: Window[] = [[0, s0len]];
-  const qLines = b.text(hookText, COL_W - 160, 92, { family: "naskh", maxLines: 2, color: "ink" });
+  const qLines = b.text(hookText, COL_W - 160, 100, { family: "naskh", maxLines: 2, color: "ink" });
   const q = b.plate("hook", [s0[0], s0[1] - 300], COL_W - 90, qLines, hookWin, { kind: "plate" });
   const fig = b.piece({ id: "hook-figure", kind: "figure", at: [s0[0], s0[1] + 120], w: 640, h: 300, lift: 0.08, show: [...hookWin], lines: b.text(figureText, 600, 210, { weight: 800, maxLines: 1, min: 120, color: "acc" }), num: true, emblem: p.percent != null ? "ring" : "figure" });
   if (s0len > 2.8 * FPS) b.punch(Math.round(s0len * 0.62), 0.025, "a beat while the question is said");
@@ -191,7 +192,7 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   b.plate("section", [s1[0], s1[1] - 470], COL_W - 260, b.text(plainFa(`عدد روز: ${p.section}`), COL_W - 300, 54, { weight: 700, maxLines: 1, color: "acc" }), w1, { lift: 0.02 });
   b.plate("label", [s1[0], s1[1] - 250], COL_W - 90, b.text(plainFa(p.label), COL_W - 160, 82, { family: "naskh", maxLines: 2, color: "ink" }), w1);
   b.piece({ id: "count", kind: "counter", at: [s1[0], s1[1] + 60], w: 640, h: 240, lift: 0.08, show: w1, lines: b.text(plainFa(p.valueText), 600, 180, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.value, decimals: p.decimals, text: plainFa(p.valueText), from: a1, frames: 26 }, num: true });
-  if (p.unit) b.plate("unit", [s1[0], s1[1] + 280], COL_W - 170, b.text(plainFa(p.unit), COL_W - 180, 62, { maxLines: 2, color: "ink" }), w1, { lift: 0.03 });
+  if (p.unit) b.plate("unit", [s1[0], s1[1] + 370], COL_W - 170, b.text(plainFa(p.unit), COL_W - 180, 62, { maxLines: 2, color: "ink" }), w1, { lift: 0.03 });
   b.cue(a1 + 2, "tick", "the count starts");
   b.cue(a1 + 28, "pop", "the figure lands");
   b.punch(a1 + 28, 0.03, "the figure lands");
@@ -293,17 +294,16 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
   const t1 = b.t + 8;
   const tallyLen = Math.round(3.4 * FPS);
   const tw: Window[] = [[t1, b.t + tallyLen]];
-  b.piece({ id: "total", kind: "counter", at: [s2[0], s2[1] - 400], w: 600, h: 230, lift: 0.08, show: tw, lines: b.text(fa(p.counts.total), 560, 180, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.counts.total, decimals: 0, text: fa(p.counts.total), from: t1, frames: 24 }, num: true });
-  b.plate("total-line", [s2[0], s2[1] - 160], COL_W - 110, b.text(plainFa(`رویداد ثبت‌شده تا ${p.warAsOf ? faDateShort(p.warAsOf) : ""}`), COL_W - 170, 60, { maxLines: 2, color: "ink" }), tw, { lift: 0.03 });
+  b.piece({ id: "total", kind: "counter", at: [s2[0], s2[1] - 470], w: 560, h: 200, lift: 0.04, show: tw, lines: b.text(fa(p.counts.total), 520, 160, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.counts.total, decimals: 0, text: fa(p.counts.total), from: t1, frames: 24 }, num: true });
+  b.plate("total-line", [s2[0], s2[1] - 170], COL_W - 110, [...b.text(plainFa(`رویداد ثبت‌شده تا ${p.warAsOf ? faDateShort(p.warAsOf) : ""}`), COL_W - 170, 58, { maxLines: 2, color: "ink" }), ...b.text("این فهرست همهٔ حمله‌ها نیست.", COL_W - 170, 48, { maxLines: 2, min: MIN_TEXT, color: "ink2", weight: 500 })], tw, { lift: 0.03 });
   const rows = [
     { t: "confirmed", label: "تأییدشده", n: p.counts.confirmed },
     { t: "claim", label: "ادعای یک طرف", n: p.counts.claim },
     { t: "unverified", label: "تأییدنشده", n: p.counts.unverified },
   ];
   rows.forEach((r, k) => {
-    b.piece({ id: `legend-${r.t}`, kind: "legend", at: [s2[0], s2[1] - 10 + k * 105], w: COL_W - 110, h: 100, lift: 0.03, show: [[t1 + 10 + k * 6, b.t + tallyLen]], lines: [{ text: r.label, size: 54, weight: 700 }, { text: fa(r.n), size: 60, weight: 800 }], mark: r.t, count: { to: r.n, decimals: 0, text: fa(r.n), from: t1 + 10 + k * 6, frames: 18 }, num: true });
+    b.piece({ id: `legend-${r.t}`, kind: "legend", at: [s2[0], s2[1] + 90 + k * 120], w: COL_W - 110, h: 100, lift: 0.03, show: [[t1 + 10 + k * 6, b.t + tallyLen]], lines: [{ text: r.label, size: 54, weight: 700 }, { text: fa(r.n), size: 60, weight: 800 }], mark: r.t, count: { to: r.n, decimals: 0, text: fa(r.n), from: t1 + 10 + k * 6, frames: 18 }, num: true });
   });
-  b.plate("note", [s2[0], s2[1] + 320], COL_W - 110, b.text("این فهرستِ همهٔ حمله‌ها نیست.", COL_W - 170, 50, { maxLines: 2, min: MIN_TEXT, color: "ink2", weight: 500 }), [[t1 + 30, b.t + tallyLen]], { lift: 0.02 });
   b.cue(t1 + 2, "tick", "the count starts");
   b.cue(t1 + 26, "pop", "the count lands");
   b.punch(t1 + 26, 0.03, "the count lands");
@@ -349,7 +349,7 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   const s0len = span(Math.round(2.6 * FPS), startLen + 4);
   const hookWin: Window[] = [[0, s0len]];
   const seal = b.piece({ id: "hook-seal", kind: "seal", at: [s0[0], s0[1] + 300], w: 330, h: 330, lift: 0.08, show: [...hookWin], emblem: "council" });
-  const q = b.plate("hook", [s0[0], s0[1] - 220], COL_W - 90, b.text(hookText, COL_W - 160, 96, { family: "naskh", maxLines: 3, color: "ink" }), hookWin);
+  const q = b.plate("hook", [s0[0], s0[1] - 220], COL_W - 90, b.text(hookText, COL_W - 160, 100, { family: "naskh", maxLines: 3, color: "ink" }), hookWin);
   b.t = s0len;
 
   // what happened: two or three rows, each with its source under it

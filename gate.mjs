@@ -102,6 +102,7 @@ export function seen(windows, f) {
   return v;
 }
 const inZones = (b) => b.x >= ZONES.left - 0.5 && b.y >= ZONES.top - 0.5 && b.x + b.w <= ZONES.right + 0.5 && b.y + b.h <= ZONES.bottom + 0.5;
+const shrink = (b) => ({ x: b.x + 4, y: b.y + 4, w: b.w - 8, h: b.h - 8 });
 const meets = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const textsOf = (plan) => [...plan.pieces.flatMap((p) => (p.lines ?? []).map((l) => l.text)), ...plan.hud.flatMap((h) => h.lines.map((l) => l.text)), plan.hook.text];
 const hasDigits = (p) => (p.lines ?? []).some((l) => DIGIT.test(l.text)) || Boolean(p.count);
@@ -160,6 +161,8 @@ export function planChecks(plan, cover) {
         if (l.size * x.b.k < floor - 0.5) small.add(`${x.p.id} ${Math.round(l.size * x.b.k)} px`);
       }
       for (const h of huds) if (meets(h.box, x.b)) covered.add(`${h.id} over ${x.p.id}@${sec(f)}s`);
+      // two pieces with words never lie on each other (the tally's note once lay on its last row)
+      for (const y of live) if (y !== x && (y.p.lines ?? []).length && x.p.id < y.p.id && meets(shrink(x.b), shrink(y.b))) covered.add(`${x.p.id} on ${y.p.id}@${sec(f)}s`);
     }
     const figures = live.filter((x) => hasDigits(x.p));
     if (figures.length && !huds.some((h) => h.kind === "source") && !live.some((x) => x.p.mark === "src")) for (const x of figures) unsourced.add(`${x.p.id}@${sec(f)}s`);
@@ -178,7 +181,7 @@ export function planChecks(plan, cover) {
   const list = (s) => [...s].slice(0, 6).join(", ");
   add("safe", !outside.size, outside.size ? `outside the zones: ${list(outside)}` : `every text inside x ${ZONES.left}–${ZONES.right}, y ${ZONES.top}–${ZONES.bottom} on every frame it is seen`, "متنی بیرون از قاب امن است (زیر نوار یا دکمه‌های اینستاگرام)");
   add("text-size", !small.size && !(plan.overflow ?? []).length, small.size || (plan.overflow ?? []).length ? `too small: ${list(small)}${(plan.overflow ?? []).length ? `; did not fit: ${plan.overflow.join(" / ")}` : ""}` : `every text ${MIN_TEXT} px or more, marks ${MIN_MARK} px or more`, "متنی ریزتر از حد خواندن است یا در جایش جا نمی‌شود");
-  add("overlap", !covered.size, covered.size ? list(covered) : "no screen line over a piece", "دو متن روی هم افتاده‌اند");
+  add("overlap", !covered.size, covered.size ? list(covered) : "no screen line over a piece, no piece on another", "دو متن روی هم افتاده‌اند");
   add("halves", emptyAt < 0, emptyAt < 0 ? "both halves hold something at every resting moment" : `half the frame is empty at ${sec(emptyAt)} s`, `در ثانیهٔ ${fa(Math.round(emptyAt / FPS))} نیمی از قاب خالی است`);
   add("source", !unsourced.size, unsourced.size ? `a figure without its source on screen: ${list(unsourced)}` : "every figure has its source on screen", "عددی بدون منبعش روی تصویر آمده است");
   const dots = textsOf(plan).filter(dotBeside);

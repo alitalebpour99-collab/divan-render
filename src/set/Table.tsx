@@ -122,7 +122,7 @@ const Cloth: React.FC<{ frame: number }> = ({ frame }) => {
         [2400, -1200, 560],
       ].map(([x, y, s]) => (
         <div key={`${x},${y}`} style={{ position: "absolute", left: x - s / 2, top: y - s / 2 }}>
-          <Compass size={s} spin={frame * 0.08} opacity={0.3} />
+          <Compass size={s} spin={frame * 0.08} opacity={0.5} />
         </div>
       ))}
     </>
@@ -171,11 +171,13 @@ const Text: React.FC<{ lines: Line[]; align?: "start" | "center"; opacity?: numb
   <div style={{ display: "flex", flexDirection: "column", alignItems: align === "center" ? "center" : "flex-start", opacity }}>
     {lines.map((l, i) => (
       <div key={i} dir="rtl" style={{ fontFamily: familyOf(l), fontSize: l.size, fontWeight: l.weight, color: COLOR[l.color ?? "ink"] ?? T.ink, lineHeight: 1.42, whiteSpace: "nowrap", unicodeBidi: "plaintext" }}>
-        {l.text}
+        {latin(l.text)}
       </div>
     ))}
   </div>
 );
+/** Latin runs (a source's name) kept whole inside a Persian line, so their brackets and words keep their order. */
+const latin = (s: string) => s.split(/([A-Za-z][A-Za-z0-9 .,'&()-]*[A-Za-z0-9.)])/g).map((part, i) => (i % 2 ? <bdi key={i} dir="ltr">{part}</bdi> : part));
 /** A brass frame: a thin outer line, a finer inner one and four corner marks. */
 const Brass: React.FC<{ lit?: boolean; radius?: number }> = ({ lit, radius = 10 }) => (
   <>
@@ -216,7 +218,10 @@ const Body: React.FC<{ p: Piece; frame: number }> = ({ p, frame }) => {
             <line key={i} x1={40 + ((p.w - 80) * i) / 20} y1={p.h - 26} x2={40 + ((p.w - 80) * i) / 20} y2={p.h - (i % 5 === 0 ? 50 : 38)} stroke={T.brass} strokeWidth="2" opacity={0.8} />
           ))}
         </svg>
-        <Text lines={shown(p.lines ?? [])} align="center" />
+        {/* above the drawn box: an absolute box paints over text that is not positioned */}
+        <div style={{ position: "relative" }}>
+          <Text lines={shown(p.lines ?? [])} align="center" />
+        </div>
       </div>
     );
   }

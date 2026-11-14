@@ -97,3 +97,56 @@ own repository (`--check` only compares).
 
 The type is Vazirmatn and Noto Naskh Arabic (SIL Open Font License), loaded
 from Google Fonts at render time.
+
+## The set style
+
+The owner approved the new video style on 13 November 2026 (lit sets, a
+camera that never stands still, few big words, more care for the sound) and
+asked for it in each project's own look. Divan's look is a calm war-room
+dossier: an ink-green table with a faint topographic map in its cloth, a
+plotting grid, thin brass rules and borders, compass roses set into it, and the
+episode's brass-framed plates, seals and pins lying on it. Advisers are brass
+seals with their emblem (`emblems.tsx`), never faces. It is drawn for Divan's
+three most posted Reels: «عدد روز» (`figure`), «جنگ، روز به روز» (`war`) and
+«دوراهی امروز» (`dilemma`). Every other format keeps its classic look.
+
+- `src/set/space.ts`: the camera over the table (push from frame 0, sway,
+  whips of 7 frames, glides of 20, punches), the platforms' safe zones measured
+  on the owner's screenshots (x 56–888, y 232–1583), the plan's types.
+- `src/set/plans.ts`: what each format puts on the table, where the camera
+  goes and when, which sound lands where. Pure; every word comes from the props.
+- `src/set/fit.ts`: every text measured with the real font before it is drawn.
+- `src/set/Table.tsx`, `src/set/CoverSet.tsx`: the drawing, the tile (one seal
+  and three or four big words). No WebGL.
+- `gate.mjs`: the checks a Reel must pass before it is handed back: a hook of
+  at most 7 words from frame 0 with no logo or card first, a camera event at
+  least every 3 s and no 2.5 s frozen, the loop back to the first picture,
+  every text inside the safe zones on every frame it is seen, type of 48 px or
+  more (marks such as the source 29 px or more), no screen line over a piece,
+  both halves of the frame used, every figure with its source on screen, no
+  «·» or «|» beside Persian, the channel badge, at most two effects a second,
+  −14 LUFS within 1 LU with the true peak at −1 dBTP or lower, near-black 35 %
+  or less, three or four words on the tile. The plan's checks run before
+  anything is drawn; a Reel that fails is not handed back and the site hears
+  why in plain Persian («این ویدیو از بازبینی پیش از ارسال رد شد: …»).
+- The channel badge: «دیوان» with a tiny heart and a tiny follow mark, in a
+  brass pill at the lower left of the safe area, for 2.2 s over the closing
+  question, gone before the loop. One master file for every platform.
+- Sound: per-scene effects (whoosh on a whip, tick when a figure counts, pop
+  when a plate lands, a rise before the pick, a hit at the reveal and in the
+  first half second), at most two a second; the bed is a dark minimal drone
+  with a heartbeat sub pulse made in `music.mjs` (`drone`), ducked about 17 dB
+  under the narrator; `finish.mjs` levels in two passes and measures.
+- A Reel whose hook cannot be seven words (the Decision Table's stand-in
+  dilemma) and a job from a site that sends no tile words keep the classic look.
+
+Switches (repository variables of `divan-render`, read by `render.yml`; unset
+means on): `DIVAN_STYLE=classic` (the old look), `DIVAN_BADGE=off`,
+`DIVAN_GATE=warn` (report and hand back anyway) or `off`,
+`DIVAN_SET_MUSIC=library` (the site's library track instead of the drone).
+
+Tests: `node --test tests/set.test.mjs` (Node 23.6 or later). Samples:
+`scripts/set-samples.mjs` in Divan's repository writes `samples/set-*.json`;
+the Samples workflow with `figure:set-figure war:set-war dilemma:set-dilemma`
+renders them and keeps an artifact «small» (a 360 px copy, sheets of two
+frames a second, the loudness, the gate's report).

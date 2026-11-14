@@ -24,7 +24,9 @@ export const plainFa = (s: unknown) =>
   String(s ?? "")
     .replace(/\s*[·|]\s*/g, "، ")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    // a Latin name (a source) stays on one line: its spaces do not break, so its brackets keep their order beside Persian
+    .replace(/[A-Za-z][A-Za-z0-9 .,'&()-]*[A-Za-z0-9.)]/g, (run) => run.replace(/ /g, " "));
 export const wordsOf = (s: string) =>
   String(s)
     .replace(/[؟?!.،,؛:«»"()]/g, " ")
@@ -295,7 +297,7 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
   const tallyLen = Math.round(3.4 * FPS);
   const tw: Window[] = [[t1, b.t + tallyLen]];
   b.piece({ id: "total", kind: "counter", at: [s2[0], s2[1] - 470], w: 560, h: 200, lift: 0.04, show: tw, lines: b.text(fa(p.counts.total), 520, 160, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.counts.total, decimals: 0, text: fa(p.counts.total), from: t1, frames: 24 }, num: true });
-  b.plate("total-line", [s2[0], s2[1] - 170], COL_W - 110, [...b.text(plainFa(`رویداد ثبت‌شده تا ${p.warAsOf ? faDateShort(p.warAsOf) : ""}`), COL_W - 170, 58, { maxLines: 2, color: "ink" }), ...b.text("این فهرست همهٔ حمله‌ها نیست.", COL_W - 170, 48, { maxLines: 2, min: MIN_TEXT, color: "ink2", weight: 500 })], tw, { lift: 0.03 });
+  b.plate("total-line", [s2[0], s2[1] - 170], COL_W - 110, [...b.text("رویداد ثبت‌شده، هر کدام با منبعش", COL_W - 170, 58, { maxLines: 2, color: "ink" }), ...b.text("این فهرست همهٔ حمله‌ها نیست.", COL_W - 170, 48, { maxLines: 2, min: MIN_TEXT, color: "ink2", weight: 500 })], tw, { lift: 0.03 });
   const rows = [
     { t: "confirmed", label: "تأییدشده", n: p.counts.confirmed },
     { t: "claim", label: "ادعای یک طرف", n: p.counts.claim },

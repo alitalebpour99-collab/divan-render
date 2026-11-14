@@ -177,7 +177,7 @@ const Text: React.FC<{ lines: Line[]; align?: "start" | "center"; opacity?: numb
   </div>
 );
 /** Latin runs (a source's name) kept whole inside a Persian line, so their brackets and words keep their order. */
-const latin = (s: string) => s.split(/([A-Za-z][A-Za-z0-9 .,'&()-]*[A-Za-z0-9.)])/g).map((part, i) => (i % 2 ? <bdi key={i} dir="ltr">{part}</bdi> : part));
+const latin = (s: string) => s.split(/([A-Za-z][A-Za-z0-9  .,'&()-]*[A-Za-z0-9.)])/g).map((part, i) => (i % 2 ? <bdi key={i} dir="ltr">{part}</bdi> : part));
 /** A brass frame: a thin outer line, a finer inner one and four corner marks. */
 const Brass: React.FC<{ lit?: boolean; radius?: number }> = ({ lit, radius = 10 }) => (
   <>

@@ -337,9 +337,9 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
   let lastMile = -999;
   for (const m of miles) {
     const at = Math.round(frameOfDay(m.day));
-    if (at - lastMile < Math.round(1.2 * FPS) || at > a + PLAY - 20) continue;
+    if (at - lastMile < Math.round(1.1 * FPS) || at > a + PLAY - 20) continue;
     lastMile = at;
-    b.hudLine(`mile-${m.day}`, "day", plainFa(`${m.fa}، روز ${fa(m.day)}`), [[at, Math.min(at + Math.round(1.6 * FPS), a + PLAY)]], "top", "ink", 56, counter.box.h + 14);
+    b.hudLine(`mile-${m.day}`, "day", plainFa(`${m.fa}، روز ${fa(m.day)}`), [[at, Math.min(at + Math.round(1.0 * FPS), a + PLAY)]], "top", "ink", 56, counter.box.h + 14);
     b.cue(at, "tick", `turning point: ${m.fa}`);
     b.punch(at, 0.02, `turning point: ${m.fa}`);
   }
@@ -607,14 +607,17 @@ function planVersus(p: VersusIn, ctx: Ctx): Plan {
   const s0 = VS(0);
   const pose0 = POSE(s0);
   const hookText = plainFa(p.hook?.short ?? p.hook?.text ?? `ایران یا ${p.b.name}؟`);
-  b.shot(0, pose0, "cut", "the hook, moving from frame 0", 0.028, 0.6);
+  b.shot(0, pose0, "cut", "the hook, moving from frame 0", 0.02, 0.6);
   b.cue(3, "hit", "a sound in the first half second");
-  b.punch(15, 0.03, "the question lands");
+  b.punch(15, 0.025, "the question lands");
   const startLen = b.say("start", 4);
   const s0len = span(Math.round(2.4 * FPS), startLen + 4);
   const hookWin: Window[] = [[0, s0len]];
-  // two flags and two tanks face each other under the question, already there on frame 0
-  const q = b.plate("hook", [s0[0], s0[1] - 400], COL_W - 70, b.text(hookText, COL_W - 140, 92, { family: "naskh", maxLines: 3, color: "ink" }), hookWin);
+  // two flags and two tanks face each other under the question, already there on frame 0; the question's plate hangs from a
+  // fixed bottom edge, so three lines grow upward and stay under the app's header (the Turkish sample's did not, 2026-11-15)
+  const hookLines = b.text(hookText, COL_W - 140, 88, { family: "naskh", maxLines: 3, color: "ink" });
+  const hookH = linesHeight(hookLines, 1.42) + 68;
+  const q = b.plate("hook", [s0[0], s0[1] - 160 - hookH / 2], COL_W - 70, hookLines, hookWin);
   const flagA = b.piece({ id: "hook-flag-a", kind: "flag", at: [s0[0] + 175, s0[1] + 10], w: 300, h: 210, lift: 0.06, show: [...hookWin], flag: p.a.iso3 });
   const flagB = b.piece({ id: "hook-flag-b", kind: "flag", at: [s0[0] - 175, s0[1] + 10], w: 300, h: 210, lift: 0.06, show: [...hookWin], flag: p.b.iso3, mirror: true });
   const tankA = b.piece({ id: "hook-tank-a", kind: "model", at: [s0[0] + 178, s0[1] + 330], w: 330, h: 170, lift: 0.08, show: [...hookWin], model: "tank" });

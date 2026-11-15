@@ -28,6 +28,8 @@ const MOODS = {
   war: { root: 45, bpm: 63 },
   borders: { root: 43, bpm: 54 },
   arsenal: { root: 40, bpm: 64 },
+  // «ایران در برابر …»: low and steady under the counts, a beat a kind
+  versus: { root: 39, bpm: 70, pulse: true },
   dollar: { root: 44, bpm: 62 },
   nuclear: { root: 42, bpm: 56 },
   figure: { root: 49, bpm: 64 },

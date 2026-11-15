@@ -142,6 +142,17 @@ three most posted Reels: «عدد روز» (`figure`), «جنگ، روز به ر
   first half second), at most two a second; the bed is a dark minimal drone
   with a heartbeat sub pulse made in `music.mjs` (`drone`), ducked about 17 dB
   under the narrator; `finish.mjs` levels in two passes and measures.
+- Two formats of 15 November 2026 are drawn only in this style, 15 to 25 s
+  each: «ایران در برابر …» (`versus`: two flags waving on brass poles
+  (`src/set/flags.tsx`, drawn by code) and the weapon of each kind as a model
+  in three dimensions (`src/set/models.tsx`, CSS 3D on SVG layers, no WebGL),
+  a card per state with its figure counting up, «نامطمئن» on a figure the site
+  doubts, the kind's own source line with both tables' dates) and the war map
+  (`war`: a relief map with pins that drop and stand on it, the day counting
+  at the top, the three places named most often as numbered pins and cards,
+  the last seven days' pins pulsing). Both fit their scenes into 25 s with the
+  narrator's lines (`VIRAL_MAX`). Samples: `set-versus-sau`, `set-versus-tur`,
+  `set-war`.
 - A Reel whose hook cannot be seven words (the Decision Table's stand-in
   dilemma) and a job from a site that sends no tile words keep the classic look.
 

@@ -160,7 +160,7 @@ export function seen(windows: Window[], f: number): number {
  * `at` (its centre). `num` marks a figure: the gate wants a source on screen
  * whenever one is seen. `claim` names the source chip that belongs to it.
  */
-export type PieceKind = "plate" | "figure" | "seal" | "road" | "chip" | "pin" | "counter" | "legend" | "ai" | "ask";
+export type PieceKind = "plate" | "figure" | "seal" | "road" | "chip" | "pin" | "counter" | "legend" | "ai" | "ask" | "model" | "flag" | "side";
 export type Piece = {
   id: string;
   kind: PieceKind;
@@ -171,7 +171,7 @@ export type Piece = {
   show: Window[];
   lines?: Line[];
   /** a figure that counts up as it arrives: the value, its decimals, how it is written when it lands */
-  count?: { to: number; decimals: number; text: string; from: number; frames: number };
+  count?: { to: number; decimals: number; text: string; from: number; frames: number; /** which of the lines counts (0 when left out) */ line?: number; /** words before the figure while it counts («حدود ») */ prefix?: string };
   /** an emblem drawn on the piece (emblems.tsx) */
   emblem?: string;
   /** the piece is lit (the road Divan would take, a stance) */
@@ -183,13 +183,23 @@ export type Piece = {
   reveal?: number;
   /** a road's one-line reason, under its name */
   sub?: Line[];
+  /** «ایران در برابر …»: the state whose flag the piece carries (ISO 3166 alpha-3) */
+  flag?: string;
+  /** the weapon a model piece shows, in three dimensions: tank, jet, gun, sub, ship (models.tsx) */
+  model?: string;
+  /** drawn facing the other way (the second of two pieces that face each other) */
+  mirror?: boolean;
+  /** the frame the piece is lit from, when it is lit later than it comes (the side that has more, once its figure has landed) */
+  litFrom?: number;
+  /** the figure on the piece is one the site marks as doubtful: drawn with a dashed frame */
+  doubt?: boolean;
 };
 /** A screen-fixed piece: the source chip, the AI chip, the channel badge, the day counter. */
-export type Hud = { id: string; kind: "source" | "badge" | "ai" | "day"; box: Box; show: Window[]; lines: Line[] };
+export type Hud = { id: string; kind: "source" | "badge" | "ai" | "day"; box: Box; show: Window[]; lines: Line[]; /** a figure that counts in the line (the day of the war during the replay), written as the line says when it lands */ count?: { to: number; from: number; frames: number; prefix?: string; linear?: boolean } };
 export type SfxName = "whoosh" | "hit" | "tick" | "pop" | "rise" | "swish";
 export type Cue = { at: number; name: SfxName; why: string };
 /** The map on the table (war): its window and where it lies on the table. */
-export type MapLayer = { at: [number, number]; w: number; h: number; pins: { x: number; y: number; t: "confirmed" | "claim" | "unverified"; from: number }[] };
+export type MapLayer = { at: [number, number]; w: number; h: number; pins: { x: number; y: number; t: "confirmed" | "claim" | "unverified"; from: number; /** one of the last seven days' events */ w?: boolean }[]; /** the frame the last seven days' pins begin to pulse */ pulse?: number };
 
 export type Plan = {
   format: string;

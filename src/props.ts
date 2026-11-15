@@ -162,6 +162,52 @@ export type WarProps = Base & {
   /** the source line under every figure of the set style */
   src?: string;
   foot: string;
+  /** «روز N جنگ روی نقشه» (2026-11-15): the places named most often in the list, most first (at most three), each with its events and where it lies */
+  places?: { name: string; n: number; c: [number, number] }[];
+  /** the seven days up to `warAsOf`: how many events, where most of them were, and the first and last day as written */
+  week?: { n: number; top: string | null; from: string; to: string; c: [number, number] | null };
+};
+
+/**
+ * «ایران در برابر …: با عدد» (2026-11-15): Iran and one other state of the
+ * nine, kind by kind of weapon, from the weapons block's own reading of
+ * Wikipedia's tables. A side's figure the site marks as doubtful (Iran's navy
+ * since the 2026 war) is shown with its label and not counted in the score;
+ * a kind a side's table does not list is said so, and not counted either.
+ */
+export type VersusSide = {
+  /** the figure as the site writes it («حدود ۱٬۵۱۳»), or the words that stand in its place («در جدول نیامده») */
+  text: string;
+  /** the number, or null when there is none to compare */
+  n: number | null;
+  /** the site's label for a doubtful table, shown on screen: «نامطمئن» */
+  doubt: string | null;
+  /** the revision date of the table the figure is read from, as written */
+  date: string | null;
+};
+export type VersusRow = {
+  id: string;
+  /** the kind's name on screen: «تانک» */
+  name: string;
+  icon: "jet" | "tank" | "gun" | "sub" | "ship" | "heli" | "spg" | "rocket" | "boat" | "plane" | "uav";
+  a: VersusSide;
+  b: VersusSide;
+  /** who has more, when both figures can be compared: "a" (Iran), "b", "tie"; null when the row is not counted */
+  lead: "a" | "b" | "tie" | null;
+  /** the source of this row's two figures, with their tables' dates */
+  src: string;
+};
+export type VersusProps = Base & {
+  format: "versus";
+  a: { iso3: string; name: string };
+  b: { iso3: string; name: string };
+  rows: VersusRow[];
+  /** the score: rows where each side has more, ties, and how many rows were counted */
+  score: { a: number; b: number; tie: number; of: number; text: string; note: string | null };
+  /** the source line of the opening and the close */
+  src: string;
+  ask: string;
+  foot: string;
 };
 
 export type BordersProps = Base & {
@@ -500,7 +546,7 @@ export type TrueFalseProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps | T1Props | T2Props | T5Props | T6Props;
+export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | VersusProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps | T1Props | T2Props | T5Props | T6Props;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {
@@ -512,6 +558,8 @@ export type CoverProps = {
   mark?: string;
   /** the set style's tile: three or four big words (the gate refuses any other count) */
   big?: string;
+  /** «ایران در برابر …»: the two states whose flags the tile shows (ISO 3166 alpha-3) */
+  pair?: string[];
 };
 
 // ---------- the content system's templates (Templates.tsx; built by lib/social/templates.ts, not planned) ----------

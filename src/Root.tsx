@@ -20,6 +20,7 @@ import raceSample from "../samples/race.json";
 import decadeSample from "../samples/decade.json";
 import fiveSample from "../samples/five.json";
 import trueFalseSample from "../samples/truefalse.json";
+import versusSample from "../samples/set-versus-sau.json";
 import { Arsenal, arsenalDuration, arsenalCues } from "./Arsenal";
 import { Borders, bordersLength } from "./Borders";
 import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
@@ -47,6 +48,7 @@ import { Decade, decadeDuration, decadeCues } from "./Decade";
 import { Five, fiveCues, fiveDuration, fiveLook } from "./Five";
 import { TrueFalse, trueFalseDuration, trueFalseCues } from "./TrueFalse";
 import type { Base, DecadeProps, PowerProps, QuizProps, RaceProps, ThenNowProps, FiveProps, TrueFalseProps } from "./props";
+import type { VersusProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
 // the content system's templates (T1, T2, T5, T6): in the studio and for the renderer, not planned by the site yet
 import { Templates } from "./Templates";
@@ -140,10 +142,22 @@ const either = <P,>(Classic: React.FC<P>) => {
 const SetFigure = either(H.figure);
 const SetWar = either(H.war);
 const SetDilemma = either(H.dilemma);
+/**
+ * «ایران در برابر …» (2026-11-15) exists only in the set style: there is no
+ * classic look to fall back to, so the switch DIVAN_STYLE=classic leaves it
+ * on the table too.
+ */
+const versusMeta = async ({ props }: { props: VersusProps & Switches }) => {
+  await ready([VAZIR, NASKH]);
+  const plan = planOf("versus", props, { fonts: FONTS, badge: props.badge !== false, voiceIn: props.voiceIn, measure });
+  return { durationInFrames: plan.total, props: { ...props, plan, voice: plan.voice.map((v) => ({ file: v.file, from: v.from, frames: v.frames })), holds: [], hookLen: 0 } };
+};
+const SetVersus: React.FC<VersusProps & Switches & { music?: string }> = (p) => (p.plan ? <Table plan={p.plan} music={p.music} /> : null);
 /** The tile: a set format's tile is one object and its three or four big words, measured to fit. */
-const CoverAny: React.FC<CoverProps & { fitted?: import("./set/space.ts").Line[]; style?: string }> = (c) => (c.fitted ? <CoverSet format={c.format} fitted={c.fitted} /> : <Cover {...c} />);
+const CoverAny: React.FC<CoverProps & { fitted?: import("./set/space.ts").Line[]; style?: string }> = (c) => (c.fitted ? <CoverSet format={c.format} fitted={c.fitted} pair={c.pair} /> : <Cover {...c} />);
 const coverMeta = async ({ props }: { props: CoverProps & { style?: string } }) => {
-  if (!isSetFormat(props.format) || props.style === "classic" || !props.big) return { props };
+  // «ایران در برابر …» has only the set style's tile
+  if (!isSetFormat(props.format) || (props.style === "classic" && props.format !== "versus") || !props.big) return { props };
   await ready([VAZIR, NASKH]);
   const fitted = fit({ text: props.big, width: 880, maxLines: 2, size: 150, min: 96, weight: 700, family: NASKH, color: "ink" }).lines;
   return { props: { ...props, fitted } };
@@ -157,6 +171,7 @@ export const Root: React.FC = () => (
     <Composition id="precedent" component={H.precedent} {...frame} durationInFrames={900} defaultProps={plain<PrecedentProps>(precedentSample)} calculateMetadata={timed(precedentDuration, precedentCues)} />
     <Composition id="talks" component={H.talks} {...frame} durationInFrames={900} defaultProps={plain<TalksProps>(talksSample)} calculateMetadata={timed(talksDuration, talksCues)} />
     <Composition id="war" component={SetWar} {...frame} durationInFrames={warDuration()} defaultProps={plain<WarProps>(warSample)} calculateMetadata={styled<WarProps>("war", timed<WarProps>(warDuration, warCues)) as never} />
+    <Composition id="versus" component={SetVersus} {...frame} durationInFrames={720} defaultProps={plain<VersusProps>(versusSample)} calculateMetadata={versusMeta as never} />
     <Composition id="borders" component={H.borders} {...frame} durationInFrames={bordersLength()} defaultProps={plain<BordersProps>(bordersSample)} calculateMetadata={timed<BordersProps>(bordersLength, none)} />
     <Composition id="arsenal" component={H.arsenal} {...frame} durationInFrames={750} defaultProps={plain<ArsenalProps>(arsenalSample)} calculateMetadata={timed(arsenalDuration, arsenalCues)} />
     <Composition id="dollar" component={H.dollar} {...frame} durationInFrames={650} defaultProps={plain<DollarProps>(dollarSample)} calculateMetadata={timed(dollarDuration, dollarCues)} />

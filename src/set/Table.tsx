@@ -11,6 +11,8 @@ import { NASKH, VAZIR } from "../kit";
 import { makeMap } from "../geo";
 import { FPS, H, W, COL_X, EYE_Y, poseAt, project, seen, speedAt, type Hud, type Line, type Piece, type Plan, type Pose } from "./space.ts";
 import { WAR_EXTENT } from "./plans.ts";
+import { Model3D } from "./models";
+import { Flag } from "./flags";
 
 /** Divan's set colours: ink green, brass, paper. The three meanings of the site stay (blue nearer the goal, red a strike, yellow a claim). */
 export const T = {
@@ -142,22 +144,53 @@ const WarMap: React.FC<{ plan: Plan; frame: number }> = ({ plan, frame }) => {
     <svg width={m.w + 800} height={m.h + 800} viewBox={`${x0} ${y0} ${m.w + 800} ${m.h + 800}`} style={{ position: "absolute", left: x0, top: y0 }}>
       <rect x={m.at[0] - m.w / 2 - 30} y={m.at[1] - m.h / 2 - 30} width={m.w + 60} height={m.h + 60} fill={T.sea} stroke={T.brass} strokeWidth="3" />
       <rect x={m.at[0] - m.w / 2 - 44} y={m.at[1] - m.h / 2 - 44} width={m.w + 88} height={m.h + 88} fill="none" stroke={T.brass} strokeWidth="1.2" opacity=".7" />
+      <defs>
+        {/* the relief: the land stands a few units off the sea, lit from the lamp at the upper left */}
+        <linearGradient id="war-land" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0" stopColor="#24604d" />
+          <stop offset="1" stopColor={T.land} />
+        </linearGradient>
+        <linearGradient id="war-iran" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0" stopColor="#3f7a5c" />
+          <stop offset="1" stopColor={T.iran} />
+        </linearGradient>
+        {([["confirmed", T.strike, "#3a0f08"], ["claim", T.claim, "#4a3708"]] as const).map(([id, mid, deep]) => (
+          <radialGradient key={id} id={`war-pin-${id}`} cx="0.36" cy="0.3" r="0.75">
+            <stop offset="0" stopColor="#fff1cc" />
+            <stop offset="0.35" stopColor={mid} />
+            <stop offset="1" stopColor={deep} />
+          </radialGradient>
+        ))}
+      </defs>
       <path d={map.grat} fill="none" stroke={T.brassLight} strokeWidth="1" opacity=".12" />
-      <path d={map.land} fill={T.land} stroke="rgba(234,208,143,.25)" strokeWidth="1.4" />
-      <path d={map.iran} fill={T.iran} />
+      {[14, 10, 6].map((d) => (
+        <path key={d} d={map.land} transform={`translate(${d * 0.4} ${d})`} fill="#081a15" opacity={0.5} />
+      ))}
+      <path d={map.land} fill="url(#war-land)" stroke="rgba(234,208,143,.3)" strokeWidth="1.4" />
+      {[8, 5, 2].map((d) => (
+        <path key={d} d={map.iran} transform={`translate(${d * 0.4} ${d})`} fill="#0d2a20" opacity={0.6} />
+      ))}
+      <path d={map.iran} fill="url(#war-iran)" />
       <path d={map.borders} fill="none" stroke="rgba(234,208,143,.3)" strokeWidth="1.5" strokeDasharray="6 6" />
       <path d={map.iran} fill="none" stroke={T.brassLight} strokeWidth="3" opacity=".9" />
       {m.pins.map((p, i) => {
         const since = replay ? frame - p.from : 99;
         if (since < 0) return null;
-        const pop = interpolate(since, [0, 6], [0, 1], clamp);
+        // a pin drops onto the map and stands on it: its shadow, its needle, its round head lit from above
+        const drop = interpolate(since, [0, 7], [-34, 0], { ...clamp, easing: (t) => 1 - (1 - t) ** 3 });
+        const pop = interpolate(since, [0, 4], [0, 1], clamp);
         const ring = interpolate(since, [0, 24], [0, 1], clamp);
         const col = TRUST[p.t];
+        // the last seven days' pins pulse in the week's scene
+        const pulse = p.w && m.pulse != null && frame >= m.pulse && frame < plan.home ? (frame - m.pulse) % 30 : -1;
         return (
-          <g key={i} transform={`translate(${p.x} ${p.y})`}>
+          <g key={i} transform={`translate(${p.x} ${p.y})`} opacity={pop}>
             {since < 24 ? <circle r={10 + ring * 46} fill="none" stroke={col} strokeWidth="2.6" opacity={0.9 * (1 - ring)} /> : null}
-            <g transform={`scale(${pop})`}>
-              {p.t === "confirmed" ? <circle r="8" fill={col} /> : p.t === "claim" ? <circle r="9" fill={T.sea} stroke={col} strokeWidth="3" strokeDasharray="4 3" /> : <circle r="7.5" fill={T.sea} stroke={col} strokeWidth="2.4" />}
+            {pulse >= 0 ? <circle r={12 + pulse * 1.6} fill="none" stroke={T.brassLight} strokeWidth="3" opacity={1 - pulse / 30} /> : null}
+            <ellipse cx="3" cy="2" rx="7" ry="3" fill="rgba(0,0,0,.5)" />
+            <g transform={`translate(0 ${drop})`}>
+              <line x1="0" y1="0" x2="0" y2="-18" stroke={T.brassLight} strokeWidth="2" />
+              <circle cy="-22" r={p.t === "confirmed" ? 7.5 : 6.5} fill={p.t === "unverified" ? T.ink2 : `url(#war-pin-${p.t})`} stroke={p.t === "claim" ? T.claim : "rgba(0,0,0,.4)"} strokeWidth={p.t === "claim" ? 2.4 : 1} strokeDasharray={p.t === "claim" ? "3 2" : undefined} />
             </g>
           </g>
         );
@@ -167,10 +200,10 @@ const WarMap: React.FC<{ plan: Plan; frame: number }> = ({ plan, frame }) => {
 };
 
 // ---------- the pieces ----------
-const Text: React.FC<{ lines: Line[]; align?: "start" | "center"; opacity?: number }> = ({ lines, align = "start", opacity = 1 }) => (
+const Text: React.FC<{ lines: Line[]; align?: "start" | "center"; opacity?: number; lineHeight?: number }> = ({ lines, align = "start", opacity = 1, lineHeight = 1.42 }) => (
   <div style={{ display: "flex", flexDirection: "column", alignItems: align === "center" ? "center" : "flex-start", opacity }}>
     {lines.map((l, i) => (
-      <div key={i} dir="rtl" style={{ fontFamily: familyOf(l), fontSize: l.size, fontWeight: l.weight, color: COLOR[l.color ?? "ink"] ?? T.ink, lineHeight: 1.42, whiteSpace: "nowrap", unicodeBidi: "plaintext" }}>
+      <div key={i} dir="rtl" style={{ fontFamily: familyOf(l), fontSize: l.size, fontWeight: l.weight, color: COLOR[l.color ?? "ink"] ?? T.ink, lineHeight, whiteSpace: "nowrap", unicodeBidi: "plaintext" }}>
         {latin(l.text)}
       </div>
     ))}
@@ -198,7 +231,42 @@ const countText = (to: number, decimals: number, u: number) => new Intl.NumberFo
 const Body: React.FC<{ p: Piece; frame: number }> = ({ p, frame }) => {
   const reveal = p.reveal ? interpolate(frame, [p.reveal, p.reveal + 8], [0, 1], clamp) : 1;
   const counting = p.count && frame < p.count.from + p.count.frames;
-  const shown = (lines: Line[]) => (counting && p.count ? lines.map((l, i) => (i === (p.kind === "legend" ? 1 : 0) ? { ...l, text: countText(p.count!.to, p.count!.decimals, interpolate(frame, [p.count!.from, p.count!.from + p.count!.frames], [0, 1], { ...clamp, easing: (t) => 1 - (1 - t) ** 3 })) } : l)) : lines);
+  const at = p.count?.line ?? (p.kind === "legend" ? 1 : 0);
+  const shown = (lines: Line[]) => (counting && p.count ? lines.map((l, i) => (i === at ? { ...l, text: `${p.count!.prefix ?? ""}${countText(p.count!.to, p.count!.decimals, interpolate(frame, [p.count!.from, p.count!.from + p.count!.frames], [0, 1], { ...clamp, easing: (t) => 1 - (1 - t) ** 3 }))}` } : l)) : lines);
+  const lit = p.lit && (p.litFrom == null || frame >= p.litFrom) ? p.lit : null;
+  const litIn = p.litFrom != null ? interpolate(frame, [p.litFrom, p.litFrom + 8], [0, 1], clamp) : 1;
+  if (p.kind === "model") return <Model3D id={p.model ?? "tank"} w={p.w} h={p.h} frame={frame} mirror={p.mirror} />;
+  if (p.kind === "flag") return <Flag iso3={p.flag ?? ""} width={p.w} height={p.h} frame={frame} pole={p.mirror ? "right" : "left"} />;
+  if (p.kind === "side") {
+    // a state's card: its flag waving at the top, its name, its figure counting up; lit when it has more, dashed when the site doubts it
+    const FLAG_H = 132;
+    return (
+      <div style={{ position: "absolute", inset: 0, background: lit ? T.plateLit : T.plate, borderRadius: 14, boxShadow: lit ? `0 0 ${46 * litIn}px rgba(234,208,143,${0.42 * litIn})` : "none" }}>
+        {p.doubt ? <div style={{ position: "absolute", inset: 0, borderRadius: 14, border: `3px dashed ${T.claim}` }} /> : <Brass lit={Boolean(lit)} radius={14} />}
+        <div style={{ position: "absolute", left: 24, right: 24, top: 22, height: FLAG_H }}>
+          <Flag iso3={p.flag ?? ""} width={p.w - 48} height={FLAG_H} frame={frame} />
+        </div>
+        <div style={{ position: "absolute", left: 0, right: 0, top: FLAG_H + 30, bottom: 20, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <Text lines={shown(p.lines ?? [])} align="center" lineHeight={1.3} />
+        </div>
+      </div>
+    );
+  }
+  if (p.kind === "pin") {
+    // a big numbered pin standing on the map: its shadow, its needle, a brass head with the number
+    const r = p.w * 0.42;
+    return (
+      <div style={{ position: "absolute", inset: 0 }}>
+        <svg width={p.w} height={p.h} viewBox={`0 0 ${p.w} ${p.h}`} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+          <ellipse cx={p.w / 2 + 6} cy={p.h - 4} rx={r * 0.7} ry={r * 0.22} fill="rgba(0,0,0,.55)" />
+          <path d={`M${p.w / 2 - r * 0.55} ${r * 1.3} L${p.w / 2} ${p.h - 4} L${p.w / 2 + r * 0.55} ${r * 1.3} Z`} fill={T.brassDark} />
+          <circle cx={p.w / 2} cy={r + 2} r={r} fill={T.brass} stroke={T.brassLight} strokeWidth="3" />
+          <circle cx={p.w / 2 - r * 0.3} cy={r * 0.7} r={r * 0.3} fill="rgba(255,246,220,.45)" />
+        </svg>
+        <div style={{ position: "absolute", left: 0, right: 0, top: 2, height: 2 * r, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: VAZIR, fontWeight: 800, fontSize: r * 1.15, color: "#10261f" }}>{p.mark}</div>
+      </div>
+    );
+  }
   if (p.kind === "plate" || p.kind === "ask" || p.kind === "chip") {
     return (
       <div style={{ position: "absolute", inset: 0, background: p.kind === "chip" ? "rgba(8,24,20,.8)" : T.plate, borderRadius: 10, padding: p.kind === "chip" ? "12px 20px" : "34px 36px", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center" }}>
@@ -314,9 +382,11 @@ const HudView: React.FC<{ h: Hud; frame: number }> = ({ h, frame }) => {
     );
   }
   const strip = h.kind === "day";
+  const c = h.count;
+  const lines = c && frame < c.from + c.frames ? h.lines.map((l, i) => (i ? l : { ...l, text: `${c.prefix ?? ""}${countText(c.to, 0, interpolate(frame, [c.from, c.from + c.frames], [0, 1], c.linear ? clamp : { ...clamp, easing: (t) => 1 - (1 - t) ** 3 }))}` })) : h.lines;
   return (
     <div style={{ position: "absolute", left: h.box.x, top: h.box.y, width: h.box.w, height: h.box.h, opacity: v, borderRadius: strip ? 8 : 12, background: strip ? "rgba(10,31,26,.92)" : "rgba(6,20,17,.74)", border: `${strip ? 2 : 1}px solid ${strip ? T.brass : "rgba(201,164,92,.45)"}`, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
-      <Text lines={h.lines} align="center" />
+      <Text lines={lines} align="center" />
     </div>
   );
 };

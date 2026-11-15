@@ -20,6 +20,8 @@ for (const [format, name] of [
   ["figure", "set-figure"],
   ["war", "set-war"],
   ["dilemma", "set-dilemma"],
+  ["versus", "set-versus-sau"],
+  ["versus", "set-versus-tur"],
 ]) {
   test(`${name}: every plan check passes`, () => {
     const props = read(name);

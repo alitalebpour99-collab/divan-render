@@ -7,11 +7,11 @@
 import { fit, linesHeight, type Measure } from "./fit.ts";
 import { COL_W, COL_X, FPS, H, MIN_MARK, MIN_TEXT, ZONES, type Box, type Cue, type Hud, type Line, type MapLayer, type Piece, type Plan, type Pose, type Punch, type Shot, type Window } from "./space.ts";
 
-export const SET_FORMATS = ["figure", "war", "dilemma"] as const;
+export const SET_FORMATS = ["figure", "war", "dilemma", "versus"] as const;
 export type SetFormat = (typeof SET_FORMATS)[number];
 export const isSetFormat = (f: unknown): f is SetFormat => typeof f === "string" && (SET_FORMATS as readonly string[]).includes(f);
 /** The range of lengths each format may run, in seconds (the social audit of 2026-11-13: one idea, 15 to 22 s; a dilemma has three roads to show). */
-export const LENGTH: Record<SetFormat, [number, number]> = { figure: [12, 26], war: [15, 32], dilemma: [16, 36] };
+export const LENGTH: Record<SetFormat, [number, number]> = { figure: [12, 26], war: [15, 25], dilemma: [16, 36], versus: [15, 25] };
 
 export type Fonts = { vazir: string; naskh: string };
 export type VoiceLine = { file: string; cue: string; frames: number };
@@ -82,6 +82,12 @@ class Board {
     this.voice.push({ file: line.file, from: at, frames: line.frames });
     return line.frames;
   }
+  /** How long the narrator's line for a moment runs, in frames (0 without one): for fitting the scenes into a length. */
+  lineFrames(cue: string): number {
+    return this.lines.find((l) => l.cue === cue)?.frames ?? 0;
+  }
+  /** The frame the war map's pins of the last seven days begin to pulse (the week's scene). */
+  mapPulse: number | null = null;
   hasLine(cue: string) {
     return this.lines.some((l) => l.cue === cue);
   }
@@ -124,12 +130,12 @@ class Board {
     return this.piece({ id, kind: "chip", at, w, h: Math.round(linesHeight(lines, 1.35) + 24), lift: 0.05, show, lines, num: false });
   }
   /** A screen-fixed line at the bottom of the safe area: the source, the AI note, the day of the replay. */
-  hudLine(id: string, kind: Hud["kind"], text: string, show: Window[], place: "top" | "bottom", color = "ink2", size = 42): Hud {
+  hudLine(id: string, kind: Hud["kind"], text: string, show: Window[], place: "top" | "bottom", color = "ink2", size = 42, below = 0): Hud {
     const lines = this.text(text, SAFE_W - 52, size, { weight: kind === "day" ? 700 : 500, maxLines: kind === "source" ? 2 : 1, min: MIN_MARK, color });
     const h = Math.round(linesHeight(lines, 1.35) + 22);
     const width = Math.min(SAFE_W, Math.round(Math.max(...lines.map((l) => this.m(l.text, l.size, l.weight, this.ctx.fonts.vazir))) + 56));
     // the source sits on the bottom row of the safe area; a title strip (a turning point, the AI note) under the app's header; both centred on the column, as the cards are
-    const box: Box = { x: Math.max(ZONES.left, Math.min(ZONES.right - width, Math.round(COL_X - width / 2))), y: place === "top" ? ZONES.top + 18 : ZONES.bottom - 18 - h, w: width, h };
+    const box: Box = { x: Math.max(ZONES.left, Math.min(ZONES.right - width, Math.round(COL_X - width / 2))), y: place === "top" ? ZONES.top + 18 + below : ZONES.bottom - 18 - h, w: width, h };
     const hud: Hud = { id, kind, box, show, lines };
     this.hud.push(hud);
     return hud;
@@ -241,13 +247,31 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   return finishPlan(b, total, { text: hookText, figure: figureText, from: 0 }, null);
 }
 
-// ---------- «جنگ، روز به روز» ----------
-type WarIn = { warStart: string; warAsOf: string; warDay: number; events: { d: number; c: [number, number] | null; t: "confirmed" | "claim" | "unverified"; i: boolean }[]; milestones: { date: string; day: number; fa: string }[]; counts: { total: number; confirmed: number; claim: number; unverified: number; located: number }; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
+// ---------- «روز N جنگ روی نقشه» ----------
+type WarIn = {
+  warStart: string;
+  warAsOf: string;
+  warDay: number;
+  events: { d: number; c: [number, number] | null; t: "confirmed" | "claim" | "unverified"; i: boolean }[];
+  milestones: { date: string; day: number; fa: string }[];
+  counts: { total: number; confirmed: number; claim: number; unverified: number; located: number };
+  places?: { name: string; n: number; c: [number, number] }[];
+  week?: { n: number; top: string | null; from: string; to: string; c: [number, number] | null };
+  foot: string;
+  hook: { text: string; figure: string | null; short?: string | null } | null;
+  ask?: string;
+  src?: string;
+};
 /** The map's window (the site's «region» extent) and its place on the table. */
 export const WAR_EXTENT: [[number, number], [number, number]] = [[31, 11.5], [64, 41]];
 export const WAR_MAP = { w: 1520, h: 1460 };
 /** A longitude/latitude on the table (the same Mercator as the map Table.tsx draws: geo.ts fits the extent into this box). */
 export type Project = (lon: number, lat: number) => [number, number];
+/** The longest a Reel of the two viral formats of 2026-11-15 may run: 25 s, a breath under it. */
+const VIRAL_MAX = 25 * FPS - 6;
+
+/** The close's length as close() lays it out, with the narrator's last line: for fitting the scenes before it into the budget. */
+const closeFrames = (b: Board) => span(Math.round(3.4 * FPS), b.lineFrames("end") + 8) + 30;
 
 function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
   const b = new Board(ctx, "war");
@@ -262,77 +286,133 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
   const said = plainFa(p.hook?.short ?? p.hook?.text ?? `${figureText} رویداد ثبت‌شده در جنگ. کجا بودند؟`);
   const hookText = said.includes(figureText) ? said : `${figureText} ${said}`;
   const startLen = b.say("start", 4);
-  const s0len = span(Math.round(2.5 * FPS), startLen + 4);
+  const s0len = span(Math.round(2.4 * FPS), startLen + 4);
   const hookWin: Window[] = [[0, s0len]];
   const q = b.plate("hook", [pose0.x, pose0.y - 330], COL_W - 70, b.text(hookText, COL_W - 140, 96, { family: "naskh", maxLines: 3, color: "ink" }), hookWin, { num: true });
   b.t = s0len;
 
-  // the replay: the events come onto the map day by day; the camera follows where they fall
-  const playLen = b.say("play", b.t + 6);
-  const PLAY = span(Math.round(10.5 * FPS), playLen + 8);
+  const places = (p.places ?? []).filter((x) => x.c).slice(0, 3);
+  const week = p.week ?? null;
+  // the scenes after the replay, so the replay takes what the 25 s leave (6.5 to 9 s)
+  const playMin = span(Math.round(6 * FPS), b.lineFrames("play") + 8);
+  let placesLen = places.length ? span(Math.round(3.2 * FPS), b.lineFrames("places") + 14) : 0;
+  let weekLen = week ? Math.round(3.0 * FPS) : 0;
+  // a long narration takes from the places and the week first (never under 2.4 s each), then the replay keeps at least 6 s
+  const short = playMin + s0len + placesLen + weekLen + closeFrames(b) - VIRAL_MAX;
+  if (short > 0 && week) weekLen -= Math.min(short, weekLen - Math.round(2.4 * FPS));
+  const short2 = playMin + s0len + placesLen + weekLen + closeFrames(b) - VIRAL_MAX;
+  if (short2 > 0 && places.length) placesLen -= Math.min(short2, placesLen - Math.max(Math.round(2.4 * FPS), b.lineFrames("places") + 14));
+  const room = VIRAL_MAX - s0len - placesLen - weekLen - closeFrames(b);
+  const PLAY = Math.max(playMin, Math.min(Math.round(9 * FPS), room));
+
+  // the replay: the events come onto the map day by day; the camera follows where they fall, a counter of the days at the top
+  b.say("play", b.t + 6);
   const a = b.t;
   const maxDay = Math.max(2, p.warDay);
   const frameOfDay = (d: number) => a + 10 + ((Math.max(1, d) - 1) / (maxDay - 1)) * (PLAY - 30);
   const inside = (c: [number, number]) => c[0] >= WAR_EXTENT[0][0] && c[0] <= WAR_EXTENT[1][0] && c[1] >= WAR_EXTENT[0][1] && c[1] <= WAR_EXTENT[1][1];
-  const pins = p.events.filter((e) => e.c && inside(e.c)).map((e) => {
-    const [x, y] = place(e.c![0], e.c![1]);
-    return { x, y, t: e.t, from: Math.round(frameOfDay(e.d)) };
-  });
-  // the camera: three or four looks, each at where the next stretch of days falls, a new one every 2.4 s or so
-  const looks = Math.max(3, Math.min(5, Math.round(PLAY / (2.4 * FPS))));
+  const weekFrom = week ? Math.max(1, maxDay - 6) : Infinity;
+  const pins = p.events
+    .filter((e) => e.c && inside(e.c))
+    .map((e) => {
+      const [x, y] = place(e.c![0], e.c![1]);
+      return { x, y, t: e.t, from: Math.round(frameOfDay(e.d)), ...(e.d >= weekFrom ? { w: true } : {}) };
+    });
+  const looks = Math.max(3, Math.min(4, Math.round(PLAY / (2.4 * FPS))));
   for (let k = 0; k < looks; k += 1) {
     const f0 = a + Math.round((k * PLAY) / looks);
     const f1 = a + Math.round(((k + 1) * PLAY) / looks);
     const here = pins.filter((q) => q.from >= f0 - 20 && q.from < f1 + 10);
     const cx = here.length ? here.reduce((s, q) => s + q.x, 0) / here.length : iran[0];
     const cy = here.length ? here.reduce((s, q) => s + q.y, 0) / here.length : iran[1];
-    // never so far from Iran that the map's middle leaves the frame
     const x = iran[0] + Math.max(-320, Math.min(320, cx - iran[0]));
     const y = iran[1] + Math.max(-300, Math.min(300, cy - iran[1])) + 60;
     b.shot(f0, POSE([x, y], k === 0 ? 1.12 : 1.12 + 0.05 * (k % 2), k % 2 ? 1.6 : -1.4), k === 0 ? "whip" : "glide", `the replay, look ${k + 1}`, 0.02, 0.4);
   }
-  // the turning points, each said on screen for a moment as the replay passes it
+  // the day of the war counting at the top while the pins come (the hub's note of 2026-11-15: «شمارنده»)
+  const counter = b.hudLine("day-count", "day", plainFa(`روز ${fa(p.warDay)}`), [[a + 6, a + PLAY]], "top", "acc", 64);
+  counter.count = { to: p.warDay, from: a + 10, frames: PLAY - 30, prefix: "روز ", linear: true };
+  // the turning points, each said on screen for a moment as the replay passes it, under the counter
   const miles = p.milestones.filter((m) => m.day >= 1 && m.day <= maxDay).slice(0, 6);
   let lastMile = -999;
   for (const m of miles) {
     const at = Math.round(frameOfDay(m.day));
-    if (at - lastMile < Math.round(1.2 * FPS)) continue;
+    if (at - lastMile < Math.round(1.2 * FPS) || at > a + PLAY - 20) continue;
     lastMile = at;
-    // a label read over the moving map: 60 px, one at a time (never more than three, the review of 2026-11-14)
-    b.hudLine(`mile-${m.day}`, "day", plainFa(`${m.fa}، روز ${fa(m.day)}`), [[at, Math.min(at + Math.round(1.6 * FPS), a + PLAY)]], "top", "ink", 60);
+    b.hudLine(`mile-${m.day}`, "day", plainFa(`${m.fa}، روز ${fa(m.day)}`), [[at, Math.min(at + Math.round(1.6 * FPS), a + PLAY)]], "top", "ink", 56, counter.box.h + 14);
     b.cue(at, "tick", `turning point: ${m.fa}`);
     b.punch(at, 0.02, `turning point: ${m.fa}`);
   }
   b.t = a + PLAY;
 
-  // the tally: what was recorded, what kind, as of when
-  const s2: [number, number] = [iran[0] + 1700, iran[1] + 360];
-  b.shot(b.t, POSE(s2, 1, 1.2), "whip", "to the tally");
-  const t1 = b.t + 8;
-  const tallyLen = Math.round(3.4 * FPS);
-  const tw: Window[] = [[t1, b.t + tallyLen]];
-  // the hook already said how many: the tally does not count them a second time (the review of 2026-11-14), it says what kind they are
-  b.plate("total-line", [s2[0], s2[1] - 250], COL_W - 90, [...b.text("هر رویداد با منبعش ثبت شده است", COL_W - 160, 62, { maxLines: 2, color: "ink" }), ...b.text("این فهرست همهٔ حمله‌ها نیست.", COL_W - 160, 50, { maxLines: 2, min: MIN_TEXT, color: "ink2", weight: 500 })], tw, { lift: 0.03 });
-  const rows = [
-    { t: "confirmed", label: "تأییدشده", n: p.counts.confirmed },
-    { t: "claim", label: "ادعای یک طرف", n: p.counts.claim },
-    { t: "unverified", label: "تأییدنشده", n: p.counts.unverified },
-  ];
-  rows.forEach((r, k) => {
-    b.piece({ id: `legend-${r.t}`, kind: "legend", at: [s2[0], s2[1] + 30 + k * 130], w: COL_W - 90, h: 110, lift: 0.03, show: [[t1 + 4 + k * 5, b.t + tallyLen]], lines: [{ text: r.label, size: 54, weight: 700 }, { text: fa(r.n), size: 60, weight: 800 }], mark: r.t, count: { to: r.n, decimals: 0, text: fa(r.n), from: t1 + 4 + k * 5, frames: 18 }, num: true });
-  });
-  b.cue(t1 + 2, "tick", "the count starts");
-  b.cue(t1 + 26, "pop", "the count lands");
-  b.punch(t1 + 26, 0.03, "the count lands");
-  b.punch(t1 + 60, 0.02, "a beat while the rows are read");
-  b.t += tallyLen;
+  // the places named most often: a numbered pin on each, their names and counts under the map
+  if (places.length) {
+    const at = places.map((x) => place(x.c[0], x.c[1]));
+    const xs = at.map((c) => c[0]);
+    const ys = at.map((c) => c[1]);
+    const bw = Math.max(...xs) - Math.min(...xs);
+    const bh = Math.max(...ys) - Math.min(...ys);
+    // the pins in the upper half of the safe area, the cards in the lower: the zoom that fits the pins in 640 × 420 screen pixels
+    const z = Math.max(0.72, Math.min(1.1, 640 / (bw + 160), 420 / (bh + 160)));
+    const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
+    const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+    const pose = POSE([cx, cy + 267 / z], z, 0.8);
+    b.shot(b.t, pose, "whip", "to the places", 0.012, 0.3);
+    const s = b.t + 12;
+    b.say("places", s);
+    const win = (k: number): Window[] => [[s + k * 6, b.t + placesLen]];
+    // each card as tall as its words (a long name takes two lines); the cards stop above the source line, and a card that would not fit is left out
+    const W_CARD = COL_W - 20;
+    const cards = places.map((x) => {
+      const lines = b.text(plainFa(`${x.name}: ${fa(x.n)} رویداد`), (W_CARD - 190) / z, Math.ceil(56 / z), { maxLines: 2, color: "ink", min: Math.ceil(MIN_TEXT / z) });
+      return { x, lines, h: Math.max(104 / z, linesHeight(lines, 1.32) + 26 / z) };
+    });
+    let y = 128 / z;
+    const kept = cards.filter((c) => {
+      const fits = (y + c.h) * z <= 492;
+      if (fits) y += c.h + 14 / z;
+      return fits;
+    });
+    y = 128 / z;
+    kept.forEach((c, k) => {
+      b.piece({ id: `pin-${k}`, kind: "pin", at: at[places.indexOf(c.x)], w: 96 / z, h: 128 / z, lift: 0.06, show: win(k), mark: fa(k + 1) });
+      b.piece({ id: `place-${k}`, kind: "road", at: [pose.x, pose.y + y + c.h / 2], w: W_CARD / z, h: c.h, lift: 0.03, show: win(k), lines: c.lines, mark: fa(k + 1), lit: k === 0 ? "acc" : null });
+      y += c.h + 14 / z;
+      b.cue(s + k * 6 + 2, "pop", `place ${k + 1}`);
+    });
+    b.hudLine("places-title", "day", kept.length > 1 ? "جاهایی که بیشتر آمده‌اند" : "جایی که بیشتر آمده است", [[s, b.t + placesLen]], "top", "ink", 60);
+    b.punch(s + 40, 0.02, "the places are read");
+    b.t += placesLen;
+  }
+
+  // what came this week: the camera over the week's place, its pins pulsing, one plate under the map
+  if (week) {
+    const c = week.c ? place(week.c[0], week.c[1]) : iran;
+    const z = 1.05;
+    const pose = POSE([c[0], c[1] + 240 / z], z, -1);
+    b.shot(b.t, pose, "whip", "to this week", 0.015, 0.4);
+    const s = b.t + 10;
+    const wide = (COL_W - 160) / z;
+    const lines = [
+      ...b.text(plainFa(week.n ? `این هفته: ${fa(week.n)} رویداد تازه` : "این هفته رویداد تازه‌ای ثبت نشد"), wide, Math.ceil(62 / z), { family: "naskh", maxLines: 2, color: "acc" }),
+      ...(week.n && week.top ? b.text(plainFa(`بیشتر در ${week.top}`), wide, Math.ceil(56 / z), { weight: 700, maxLines: 2, color: "ink" }) : []),
+      ...b.text(plainFa(`${week.from} تا ${week.to}`), wide, Math.ceil(50 / z), { weight: 500, maxLines: 1, min: Math.ceil(MIN_TEXT / z), color: "ink2" }),
+      ...b.text("این فهرست همهٔ حمله‌ها نیست.", wide, Math.ceil(50 / z), { weight: 500, maxLines: 2, min: Math.ceil(MIN_TEXT / z), color: "ink2" }),
+    ];
+    const h = Math.round(linesHeight(lines, 1.42) + 68);
+    b.plate("week", [pose.x, pose.y + (470 - (h * z) / 2) / z], (COL_W - 70) / z, lines, [[s, b.t + weekLen]], { num: true });
+    b.cue(s + 2, "pop", "this week lands");
+    b.punch(s + 2, 0.025, "this week lands");
+    b.mapPulse = s;
+    b.t += weekLen;
+  }
 
   // the source, from the first frame to the last
   b.hudLine("source", "source", plainFa(p.src ?? `منبع: رویدادهای ثبت‌شدهٔ دیوان، هر کدام با منبعش، تا ${faDateShort(p.warAsOf)}`), [[0, FOREVER]], "bottom");
 
-  const ask = plainFa(p.ask ?? "کدام رویداد را از نزدیک دیده بودی؟");
+  const ask = plainFa(p.ask ?? "شهر تو روی نقشه هست؟");
   const total = close(b, [iran[0] - 1700, iran[1] + 300], ask, plainFa(p.foot), { pieces: [q], pose: pose0 });
-  const map: MapLayer = { at: centre, w: WAR_MAP.w, h: WAR_MAP.h, pins };
+  const map: MapLayer = { at: centre, w: WAR_MAP.w, h: WAR_MAP.h, pins, ...(b.mapPulse != null ? { pulse: b.mapPulse } : {}) };
   return finishPlan(b, total, { text: hookText, figure: figureText, from: 0 }, map);
 }
 
@@ -471,6 +551,136 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   return finishPlan(b, total, { text: hookText, figure: null, from: 0 }, null);
 }
 
+
+// ---------- «ایران در برابر …: با عدد» ----------
+type VersusSideIn = { text: string; n: number | null; doubt: string | null; date: string | null };
+type VersusIn = {
+  a: { iso3: string; name: string };
+  b: { iso3: string; name: string };
+  rows: { id: string; name: string; icon: string; a: VersusSideIn; b: VersusSideIn; lead: "a" | "b" | "tie" | null; src: string }[];
+  score: { a: number; b: number; tie: number; of: number; text: string; note: string | null };
+  src: string;
+  ask?: string;
+  foot: string;
+  hook: { text: string; figure: string | null; short?: string | null } | null;
+};
+/** The versus' stations: a grid wide enough that two are never on screen together (the hook, five kinds, the score, the close). */
+const VS = (i: number): [number, number] => [[0, 0], [1800, 0], [1800, 2300], [0, 2300], [-1800, 2300], [-1800, 0], [-1800, -2300], [0, -2300], [1800, -2300]][i] as [number, number];
+/** Iran on the reading side (the right), the other state on the left; the gap between the two cards keeps them apart when the camera turns. */
+const SIDE_DX = 172;
+const SIDE_W = 296;
+
+/** One state's card: its flag, its name, its figure counting up (or the words in its place), and the site's doubt under it. */
+function sideCard(b: Board, id: string, at: [number, number], name: string, iso3: string, s: VersusSideIn, show: Window[], from: number, lit: boolean, litFrom: number): Piece {
+  const lines: Line[] = [...b.text(plainFa(name), SIDE_W - 40, 54, { weight: 700, maxLines: 1, color: "ink" })];
+  const figure = s.n != null;
+  const value = plainFa(s.text);
+  const approx = /^حدود\s/.test(value);
+  // «حدود» on a line of its own over the figure, so the figure keeps its size
+  if (figure && approx) lines.push(...b.text("حدود", SIDE_W - 40, 48, { weight: 600, maxLines: 1, color: "ink2" }));
+  const at1 = lines.length;
+  if (figure) lines.push(...b.text(value.replace(/^حدود\s+/, ""), SIDE_W - 30, 100, { weight: 800, maxLines: 1, min: 72, color: "acc" }));
+  else lines.push(...b.text(value, SIDE_W - 40, 52, { weight: 600, maxLines: 2, min: MIN_TEXT, color: "ink2" }));
+  if (s.doubt) lines.push(...b.text(plainFa(s.doubt), SIDE_W - 40, 50, { weight: 800, maxLines: 1, min: MIN_TEXT, color: "claim" }));
+  const FLAG_H = 132;
+  const h = Math.round(FLAG_H + 22 + linesHeight(lines, 1.3) + 2 * 26);
+  return b.piece({
+    id,
+    kind: "side",
+    at: [at[0], at[1] + h / 2],
+    w: SIDE_W,
+    h,
+    lift: 0.05,
+    show,
+    lines,
+    flag: iso3,
+    num: figure,
+    ...(figure ? { count: { to: s.n!, decimals: 0, text: value.replace(/^حدود\s+/, ""), from, frames: 24, line: at1 } } : {}),
+    lit: lit ? "acc" : null,
+    litFrom,
+    ...(s.doubt ? { doubt: true } : {}),
+  });
+}
+
+function planVersus(p: VersusIn, ctx: Ctx): Plan {
+  const b = new Board(ctx, "versus");
+  const s0 = VS(0);
+  const pose0 = POSE(s0);
+  const hookText = plainFa(p.hook?.short ?? p.hook?.text ?? `ایران یا ${p.b.name}؟`);
+  b.shot(0, pose0, "cut", "the hook, moving from frame 0", 0.028, 0.6);
+  b.cue(3, "hit", "a sound in the first half second");
+  b.punch(15, 0.03, "the question lands");
+  const startLen = b.say("start", 4);
+  const s0len = span(Math.round(2.4 * FPS), startLen + 4);
+  const hookWin: Window[] = [[0, s0len]];
+  // two flags and two tanks face each other under the question, already there on frame 0
+  const q = b.plate("hook", [s0[0], s0[1] - 400], COL_W - 70, b.text(hookText, COL_W - 140, 92, { family: "naskh", maxLines: 3, color: "ink" }), hookWin);
+  const flagA = b.piece({ id: "hook-flag-a", kind: "flag", at: [s0[0] + 175, s0[1] + 10], w: 300, h: 210, lift: 0.06, show: [...hookWin], flag: p.a.iso3 });
+  const flagB = b.piece({ id: "hook-flag-b", kind: "flag", at: [s0[0] - 175, s0[1] + 10], w: 300, h: 210, lift: 0.06, show: [...hookWin], flag: p.b.iso3, mirror: true });
+  const tankA = b.piece({ id: "hook-tank-a", kind: "model", at: [s0[0] + 178, s0[1] + 330], w: 330, h: 170, lift: 0.08, show: [...hookWin], model: "tank" });
+  const tankB = b.piece({ id: "hook-tank-b", kind: "model", at: [s0[0] - 178, s0[1] + 330], w: 330, h: 170, lift: 0.08, show: [...hookWin], model: "tank", mirror: true });
+  b.t = s0len;
+
+  // the budget: the kinds take what the 25 s leave after the opening, the score and the close (2.2 to 2.8 s each)
+  const rows = p.rows.slice(0, 5);
+  const scoreLen = span(Math.round(2.8 * FPS), b.lineFrames("score") + 10);
+  const room = VIRAL_MAX - s0len - scoreLen - closeFrames(b);
+  const kindLen = Math.max(Math.round(2.2 * FPS), Math.min(Math.round(2.8 * FPS), Math.floor(room / Math.max(1, rows.length))));
+
+  rows.forEach((r, k) => {
+    const st = VS(1 + k);
+    b.shot(b.t, POSE(st, 1, k % 2 ? -1.2 : 1.2), "whip", `to ${r.id}`);
+    const a1 = b.t + 8;
+    const end = b.t + kindLen;
+    const win: Window[] = [[a1, end]];
+    b.plate(`kind-${k}`, [st[0], st[1] - 520], COL_W - 110, b.text(plainFa(r.name), COL_W - 180, 80, { family: "naskh", weight: 700, maxLines: 1, color: "acc" }), win, { lift: 0.02 });
+    b.piece({ id: `model-${k}`, kind: "model", at: [st[0], st[1] - 290], w: 560, h: 230, lift: 0.08, show: win, model: r.icon });
+    const lands = a1 + 4 + 24;
+    sideCard(b, `side-a-${k}`, [st[0] + SIDE_DX, st[1] - 130], p.a.name, p.a.iso3, r.a, win, a1 + 4, r.lead === "a" || r.lead === "tie", lands);
+    sideCard(b, `side-b-${k}`, [st[0] - SIDE_DX, st[1] - 130], p.b.name, p.b.iso3, r.b, win, a1 + 4, r.lead === "b" || r.lead === "tie", lands);
+    b.cue(a1 + 4, "tick", `${r.id}: the count starts`);
+    b.cue(lands, r.lead ? "pop" : "tick", `${r.id}: the count lands`);
+    b.punch(lands, 0.03, `${r.id}: the count lands`);
+    // this kind's two figures with their tables' dates, at the foot of the screen while they are seen
+    // one source line hands over to the next across the whip, so a figure riding out with it still has its source under it
+    b.hudLine(`src-${k}`, "source", plainFa(r.src), [[b.t - 3, end + 3]], "bottom");
+    b.t = end;
+  });
+
+  // the score: «ایران ۳ از ۵»; what was not counted, and why
+  const ss = VS(1 + rows.length);
+  b.cue(b.t - 20, "rise", "before the score");
+  b.shot(b.t, POSE(ss, 1, -1), "whip", "to the score");
+  const a2 = b.t + 8;
+  b.say("score", a2);
+  const sEnd = b.t + scoreLen;
+  const sw: Window[] = [[a2, sEnd]];
+  b.plate("score-title", [ss[0], ss[1] - 480], COL_W - 90, b.text(plainFa(`در چند رده از ${fa(p.score.of)} بیشتر دارد؟`), COL_W - 160, 66, { family: "naskh", maxLines: 2, color: "ink" }), sw, { lift: 0.02 });
+  const tally = (n: number): VersusSideIn => ({ text: fa(n), n, doubt: null, date: null });
+  const lands = a2 + 28;
+  sideCard(b, "score-a", [ss[0] + SIDE_DX, ss[1] - 330], p.a.name, p.a.iso3, tally(p.score.a), sw, a2 + 4, p.score.a >= p.score.b, lands);
+  sideCard(b, "score-b", [ss[0] - SIDE_DX, ss[1] - 330], p.b.name, p.b.iso3, tally(p.score.b), sw, a2 + 4, p.score.b >= p.score.a, lands);
+  const noteLines = [
+    ...(p.score.tie ? b.text(plainFa(`برابر: ${fa(p.score.tie)}`), COL_W - 160, 52, { weight: 700, maxLines: 1, color: "ink" }) : []),
+    ...(p.score.note ? b.text(plainFa(p.score.note), COL_W - 160, 48, { weight: 500, maxLines: 3, min: MIN_TEXT, color: "claim" }) : []),
+    ...b.text("شمردن جنگ‌افزار توان جنگی را نمی‌سنجد.", COL_W - 160, 48, { weight: 500, maxLines: 2, min: MIN_TEXT, color: "ink2" }),
+  ];
+  const noteH = Math.round(linesHeight(noteLines, 1.42) + 68);
+  b.plate("score-note", [ss[0], ss[1] + 110 + noteH / 2], COL_W - 90, noteLines, sw, { lift: 0.02 });
+  b.cue(a2 + 4, "tick", "the score counts");
+  b.cue(lands, "hit", "the score lands");
+  b.punch(lands, 0.04, "the score lands");
+  b.t = sEnd;
+
+  // the general source: the opening, the score and the close
+  const first = s0len;
+  b.hudLine("source", "source", plainFa(p.src), [[0, first + 3], [first + rows.length * kindLen - 3, FOREVER]], "bottom");
+
+  const ask = plainFa(p.ask ?? "جفت بعدی کدام باشد؟");
+  const total = close(b, VS(2 + rows.length), ask, plainFa(p.foot), { pieces: [q, flagA, flagB, tankA, tankB], pose: pose0 });
+  return finishPlan(b, total, { text: hookText, figure: null, from: 0 }, null);
+}
+
 function finishPlan(b: Board, total: number, hook: Plan["hook"], map: MapLayer | null): Plan {
   const closeShot = b.shots.find((s) => s.why === "to the close");
   const homeShot = b.shots.find((s) => s.why.startsWith("home"));
@@ -536,6 +746,7 @@ export function setPossible(props: { hook?: { text?: string; figure?: string | n
 export function planOf(format: SetFormat, props: unknown, ctx: Ctx, place?: Project): Plan {
   if (format === "figure") return planFigure(props as FigureIn, ctx);
   if (format === "war") return planWar(props as WarIn, ctx, place ?? ((lon, lat) => [(lon - 47.5) * 46, (36 - lat) * 50]));
+  if (format === "versus") return planVersus(props as VersusIn, ctx);
   return planDilemma(props as DilemmaIn, ctx);
 }
 

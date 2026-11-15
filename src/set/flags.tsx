@@ -56,7 +56,7 @@ function Art({ iso3 }: { iso3: string }) {
       return (
         <>
           <rect width={W} height={H} fill="#006c35" />
-          <text x={W / 2} y={92} textAnchor="middle" direction="rtl" fontFamily={NASKH} fontWeight={700} fontSize={30} fill="#ffffff">
+          <text x={W / 2} y={90} textAnchor="middle" direction="rtl" fontFamily={NASKH} fontWeight={700} fontSize={26} textLength={236} lengthAdjust="spacingAndGlyphs" fill="#ffffff">
             لا إله إلا الله محمد رسول الله
           </text>
           <path d="M62 128 L232 128 L238 122 L244 128 L238 134 L232 130 L62 130 Z" fill="#ffffff" />

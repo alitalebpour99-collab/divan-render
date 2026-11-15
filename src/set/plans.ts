@@ -356,7 +356,7 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
     const z = Math.max(0.72, Math.min(1.1, 640 / (bw + 160), 420 / (bh + 160)));
     const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
     const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
-    const pose = POSE([cx, cy + 267 / z], z, 0.8);
+    const pose = POSE([cx, cy + 225 / z], z, 0.8);
     b.shot(b.t, pose, "whip", "to the places", 0.012, 0.3);
     const s = b.t + 12;
     b.say("places", s);

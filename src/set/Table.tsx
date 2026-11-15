@@ -321,10 +321,12 @@ const Body: React.FC<{ p: Piece; frame: number }> = ({ p, frame }) => {
         </div>
       );
     }
+    // a short card keeps a number that can be read: the medal never under 60 % of the card's height
+    const m = Math.max(p.h - 70, Math.round(p.h * 0.6));
     return (
       <div style={{ position: "absolute", inset: 0, background: lit ? T.plateLit : T.plate, borderRadius: 14, display: "flex", alignItems: "center", gap: 30, padding: "0 34px", boxSizing: "border-box" }}>
         <Brass lit={lit} radius={14} />
-        <div style={{ flex: "none", width: p.h - 70, height: p.h - 70, borderRadius: "50%", border: `3px solid ${lit ? T.brassLight : T.brass}`, background: lit ? T.brass : "rgba(201,164,92,.12)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: VAZIR, fontWeight: 800, fontSize: (p.h - 70) * 0.52, color: lit ? "#10261f" : T.brassLight }}>{p.mark}</div>
+        <div style={{ flex: "none", width: m, height: m, borderRadius: "50%", border: `3px solid ${lit ? T.brassLight : T.brass}`, background: lit ? T.brass : "rgba(201,164,92,.12)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: VAZIR, fontWeight: 800, fontSize: m * 0.52, color: lit ? "#10261f" : T.brassLight }}>{p.mark}</div>
         <Text lines={p.lines ?? []} opacity={reveal} />
       </div>
     );

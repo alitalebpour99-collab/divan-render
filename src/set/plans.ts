@@ -392,15 +392,16 @@ function planWar(p: WarIn, ctx: Ctx, place: Project): Plan {
     const pose = POSE([c[0], c[1] + 240 / z], z, -1);
     b.shot(b.t, pose, "whip", "to this week", 0.015, 0.4);
     const s = b.t + 10;
-    const wide = (COL_W - 160) / z;
+    // the plate as wide as the column allows, so «این هفته: ۵ رویداد تازه» reads on one line
+    const wide = (COL_W - 90) / z;
     const lines = [
-      ...b.text(plainFa(week.n ? `این هفته: ${fa(week.n)} رویداد تازه` : "این هفته رویداد تازه‌ای ثبت نشد"), wide, Math.ceil(62 / z), { family: "naskh", maxLines: 2, color: "acc" }),
+      ...b.text(plainFa(week.n ? `این هفته: ${fa(week.n)} رویداد تازه` : "این هفته رویداد تازه‌ای ثبت نشد"), wide, Math.ceil(62 / z), { family: "naskh", maxLines: 2, min: Math.ceil(52 / z), color: "acc" }),
       ...(week.n && week.top ? b.text(plainFa(`بیشتر در ${week.top}`), wide, Math.ceil(56 / z), { weight: 700, maxLines: 2, color: "ink" }) : []),
       ...b.text(plainFa(`${week.from} تا ${week.to}`), wide, Math.ceil(50 / z), { weight: 500, maxLines: 1, min: Math.ceil(MIN_TEXT / z), color: "ink2" }),
       ...b.text("این فهرست همهٔ حمله‌ها نیست.", wide, Math.ceil(50 / z), { weight: 500, maxLines: 2, min: Math.ceil(MIN_TEXT / z), color: "ink2" }),
     ];
     const h = Math.round(linesHeight(lines, 1.42) + 68);
-    b.plate("week", [pose.x, pose.y + (470 - (h * z) / 2) / z], (COL_W - 70) / z, lines, [[s, b.t + weekLen]], { num: true });
+    b.plate("week", [pose.x, pose.y + (470 - (h * z) / 2) / z], (COL_W - 20) / z, lines, [[s, b.t + weekLen]], { num: true });
     b.cue(s + 2, "pop", "this week lands");
     b.punch(s + 2, 0.025, "this week lands");
     b.mapPulse = s;

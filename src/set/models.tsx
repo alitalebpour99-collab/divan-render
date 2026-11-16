@@ -7,9 +7,10 @@
 // insignia, no model a viewer could take for a given state's), the same for
 // both sides of a comparison.
 import React from "react";
+import { OBJECTS } from "./props/objects.ts";
 
 /** One model: its outline parts on a 400 × 180 sheet (side view, nose or muzzle to the left), the details drawn on its face, and where its wheels are. */
-type Model = { body: string[]; dark?: string[]; lines?: string[]; wheels?: [number, number, number][]; ground: number };
+type Model = { body: string[]; dark?: string[]; lines?: string[]; wheels?: [number, number, number][]; ground: number; /** parts drawn in brass over the face */ brass?: string[]; /** the face's gradient, lit edge to shade (gunmetal when left out) */ metal?: [string, string, string, string]; /** the hue of the pressed-out layers */ hue?: number };
 
 const MODELS: Record<string, Model> = {
   tank: {
@@ -85,6 +86,8 @@ MODELS.heli = MODELS.jet;
 MODELS.spg = MODELS.gun;
 MODELS.rocket = MODELS.gun;
 MODELS.boat = MODELS.ship;
+// the objects of «عدد روز» (props/objects.ts): the same drawing, their own metal
+for (const [id, m] of Object.entries(OBJECTS)) MODELS[id] = m;
 MODELS.plane = MODELS.jet;
 MODELS.uav = MODELS.jet;
 
@@ -122,16 +125,16 @@ export const Model3D: React.FC<{ id: string; w: number; h: number; frame: number
       <div style={{ position: "absolute", inset: 0, perspective: 1400 }}>
         <div style={{ position: "absolute", inset: 0, transformStyle: "preserve-3d", transform: `rotateX(${pitch}deg) rotateY(${yaw}deg)` }}>
           {Array.from({ length: DEPTH }, (_, i) => (
-            <Layer key={i} m={m} z={-(DEPTH - i) * STEP} fill={`hsl(158, 12%, ${8 + i * 1.6}%)`} />
+            <Layer key={i} m={m} z={-(DEPTH - i) * STEP} fill={`hsl(${m.hue ?? 158}, ${m.hue == null ? 12 : 22}%, ${8 + i * 1.6}%)`} />
           ))}
           {/* the face: gunmetal under the lamp, brass details */}
           <svg viewBox="0 0 400 180" width="100%" height="100%" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
             <defs>
               <linearGradient id={`${k}-metal`} x1="0" y1="0" x2="0.25" y2="1">
-                <stop offset="0" stopColor="#c8cdc4" />
-                <stop offset="0.18" stopColor="#8f9a92" />
-                <stop offset="0.55" stopColor="#4d5a53" />
-                <stop offset="1" stopColor="#26302c" />
+                <stop offset="0" stopColor={m.metal?.[0] ?? "#c8cdc4"} />
+                <stop offset="0.18" stopColor={m.metal?.[1] ?? "#8f9a92"} />
+                <stop offset="0.55" stopColor={m.metal?.[2] ?? "#4d5a53"} />
+                <stop offset="1" stopColor={m.metal?.[3] ?? "#26302c"} />
               </linearGradient>
               <linearGradient id={`${k}-sheen`} x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0" stopColor="#fff" stopOpacity="0" />
@@ -152,6 +155,9 @@ export const Model3D: React.FC<{ id: string; w: number; h: number; frame: number
             ))}
             {m.body.map((d, i) => (
               <path key={`s${i}`} d={d} fill={`url(#${k}-sheen)`} />
+            ))}
+            {(m.brass ?? []).map((d, i) => (
+              <path key={`b${i}`} d={d} fill="#d9b869" stroke="#7c5f2a" strokeWidth="1.2" />
             ))}
             {(m.lines ?? []).map((d, i) => (
               <path key={`l${i}`} d={d} fill="none" stroke="#10171a" strokeOpacity="0.55" strokeWidth="1.6" />

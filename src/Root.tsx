@@ -154,12 +154,12 @@ const versusMeta = async ({ props }: { props: VersusProps & Switches }) => {
 };
 const SetVersus: React.FC<VersusProps & Switches & { music?: string }> = (p) => (p.plan ? <Table plan={p.plan} music={p.music} /> : null);
 /** The tile: a set format's tile is one object and its three or four big words, measured to fit. */
-const CoverAny: React.FC<CoverProps & { fitted?: import("./set/space.ts").Line[]; style?: string }> = (c) => (c.fitted ? <CoverSet format={c.format} fitted={c.fitted} pair={c.pair} mark={c.mark} /> : <Cover {...c} />);
+const CoverAny: React.FC<CoverProps & { fitted?: import("./set/space.ts").Line[]; style?: string }> = (c) => (c.fitted ? <CoverSet format={c.format} fitted={c.fitted} pair={c.pair} mark={c.mark} title={c.title} object={c.object} /> : <Cover {...c} />);
 const coverMeta = async ({ props }: { props: CoverProps & { style?: string } }) => {
   // «ایران در برابر …» has only the set style's tile
   if (!isSetFormat(props.format) || (props.style === "classic" && props.format !== "versus") || !props.big) return { props };
   await ready([VAZIR, NASKH]);
-  const fitted = fit({ text: props.big, width: 880, maxLines: 2, size: 150, min: 96, weight: 700, family: NASKH, color: "ink" }).lines;
+  const fitted = fit({ text: props.big, width: 900, maxLines: 2, size: 120, min: 88, weight: 700, family: NASKH, color: "ink" }).lines;
   return { props: { ...props, fitted } };
 };
 

@@ -129,6 +129,8 @@ export function planChecks(plan, cover) {
   const out = [];
   const add = (id, ok, detail, faText) => out.push({ id, ok: Boolean(ok), detail, fa: faText });
   const CLOSE_MAX = 3.8;
+  /** the formats that must show a real thing through the film; «دوراهی امروز» joins them when it is redrawn (round 3) */
+  const OBJECT_FORMATS = ["figure", "versus", "war"];
   const total = plan.total;
   const frames = [];
   for (let f = 0; f < total; f += 2) frames.push(f);
@@ -261,6 +263,22 @@ export function planChecks(plan, cover) {
     if (!picture) bareAt = f;
   }
   add("close", closeLen <= CLOSE_MAX * FPS && bareAt < 0, `the close runs ${sec(closeLen)} s (${CLOSE_MAX} s or less)${bareAt < 0 ? ", the picture on the table throughout" : `; only words on the table at ${sec(bareAt)} s`}`, bareAt < 0 ? `پایان ویدیو ${fa(Math.round(closeLen / FPS))} ثانیه است (باید حدود ۳ ثانیه باشد)` : "در پایان ویدیو فقط نوشته روی میز است و تصویری نیست");
+  // a picture, not only words (the owner's review of 2026-11-16: «عدد روز» was plates on cloth): through most of the film a real
+  // thing is on the screen: a model, a flag, the war map with its pins
+  const THING = ["model", "flag", "pin", "side"];
+  if (OBJECT_FORMATS.includes(plan.format)) {
+    let withThing = 0;
+    let looked = 0;
+    for (let f = 0; f < total; f += 3) {
+      const pose = poseAt(plan.shots, plan.punches, f);
+      if (plan.shots.some((x) => x.at > 0 && f >= x.at && f <= x.at + MOVE[x.move])) continue;
+      looked += 1;
+      const onScreen = (b) => b.x + b.w > 60 && b.y + b.h > 60 && b.x < W - 60 && b.y < H - 60;
+      if (plan.pieces.some((p) => THING.includes(p.kind) && seen(p.show, f) >= 0.5 && onScreen(boxOf(p, pose))) || (plan.map && onScreen(boxOf({ at: plan.map.at, w: plan.map.w, h: plan.map.h, lift: 0 }, pose)))) withThing += 1;
+    }
+    const share = looked ? withThing / looked : 0;
+    add("object", share >= 0.85, `a real thing on the screen in ${Math.round(share * 100)} % of the resting frames (85 % needed)`, "بیشتر ویدیو فقط نوشته است و چیزی واقعی روی میز نیست");
+  }
   // balanced lines: no block of text with one short line beside long ones («تولید نفت / خام. یعنی چه؟» is two even lines; a line of one word beside a full one is not)
   const uneven = [];
   for (const p of plan.pieces) {

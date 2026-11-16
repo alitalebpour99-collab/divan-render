@@ -114,7 +114,7 @@ for (const [format, name] of [["figure", "set-figure"], ["war", "set-war"], ["di
 
 test("a close on a bare table, and a close of six seconds, fail «close»", () => {
   const plan = planFor("figure", "set-figure");
-  for (const p of plan.pieces.filter((x) => x.kind === "figure")) p.show = p.show.filter(([a]) => a === 0);
+  for (const p of plan.pieces.filter((x) => x.kind === "figure" || x.kind === "model")) p.show = p.show.filter(([a]) => a === 0);
   assert.ok(failedIds(plan, "set-figure").includes("close"));
   const long = planFor("figure", "set-figure");
   long.close -= 90;
@@ -130,4 +130,30 @@ test("lines are balanced: a sentence keeps its line, no word stands alone beside
   const plan = planFor("figure", "set-figure");
   plan.pieces.find((p) => p.id === "explain-1").lines = [{ text: "ایران در ژوئیه روزی حدود", size: 64, weight: 500 }, { text: "۲٫۵", size: 64, weight: 500 }, { text: "میلیون بشکه نفت تولید کرد.", size: 64, weight: 500 }];
   assert.ok(failedIds(plan, "set-figure").includes("balanced"));
+});
+
+// round 2 (2026-11-16): one real object a figure, on the table through the film
+test("«عدد روز» puts the thing its figure is about on the table, from the hook to the close", async () => {
+  const { objectFor, OBJECTS } = await import("../src/set/props/objects.ts");
+  assert.equal(objectFor({ label: "تولید نفت خام", unit: "میلیون بشکه در روز" }), "barrel");
+  assert.equal(objectFor({ label: "بارگیری نفت از پایانه‌ها", unit: "میلیون بشکه در روز" }), "tanker");
+  assert.equal(objectFor({ label: "تورم نقطه‌به‌نقطه", unit: "درصد" }), "banknotes");
+  assert.equal(objectFor({ label: "ناترازی بنزین", unit: "میلیون لیتر در روز" }), "pump");
+  assert.equal(objectFor({ label: "کمبود برق در اوج مصرف", unit: "مگاوات" }), "pylon");
+  assert.equal(objectFor({ label: "ذخیرهٔ اورانیوم با غنای ۶۰ درصد", unit: "کیلوگرم" }), "centrifuge");
+  assert.equal(objectFor({ label: "چیزی دیگر", unit: "" }), "abacus");
+  assert.equal(objectFor({ label: "تولید نفت خام", object: "crate" }), "crate", "the site's own choice comes first");
+  assert.equal(objectFor({ label: "تولید نفت خام", object: "nothing" }), "barrel");
+  for (const [id, m] of Object.entries(OBJECTS)) assert.ok(m.body.length && m.ground > 100 && m.metal?.length === 4, id);
+  const plan = planFor("figure", "set-figure");
+  const things = plan.pieces.filter((p) => p.kind === "model");
+  assert.ok(things.length >= 3 && things.every((p) => p.model === "barrel"), "the oil figure's object is the drum, in every scene");
+  assert.ok(things.find((p) => p.id === "hook-object").show.some(([a]) => a === 0), "there from the first frame");
+  assert.ok(!failedIds(plan, "set-figure").includes("object"));
+});
+
+test("a figure with nothing but plates fails «object»", () => {
+  const plan = planFor("figure", "set-figure");
+  plan.pieces = plan.pieces.filter((p) => p.kind !== "model");
+  assert.ok(failedIds(plan, "set-figure").includes("object"));
 });

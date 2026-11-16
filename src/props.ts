@@ -313,6 +313,8 @@ export type FigureProps = Base & {
   format: "figure";
   /** the section the figure belongs to: «اقتصاد» */
   section: string;
+  /** the thing the figure is about, a model of video/src/set/props/objects.ts («barrel», «banknotes», …); read from the label when left out */
+  object?: string;
   /** «عدد روز», or «عدد {its date}» for a figure older than six weeks (formats.ts figureKicker); «عدد روز» when left out */
   kicker?: string;
   label: string;
@@ -562,6 +564,8 @@ export type CoverProps = {
   big?: string;
   /** «ایران در برابر …»: the two states whose flags the tile shows (ISO 3166 alpha-3) */
   pair?: string[];
+  /** «عدد روز»: the thing the figure is about (set/props/objects.ts); read from the title when left out */
+  object?: string;
 };
 
 // ---------- the content system's templates (Templates.tsx; built by lib/social/templates.ts, not planned) ----------

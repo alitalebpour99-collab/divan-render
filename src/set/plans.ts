@@ -5,13 +5,14 @@
 // real one). Every word on screen comes from the props; nothing is written here
 // except the fixed labels of the page (the legend of the war map, «منبع»).
 import { fit, linesHeight, type Measure } from "./fit.ts";
+import { objectFor } from "./props/objects.ts";
 import { COL_W, COL_X, FPS, H, MIN_MARK, MIN_TEXT, ZONES, type Box, type Cue, type Hud, type Line, type MapLayer, type Piece, type Plan, type Pose, type Punch, type Shot, type Window } from "./space.ts";
 
 export const SET_FORMATS = ["figure", "war", "dilemma", "versus"] as const;
 export type SetFormat = (typeof SET_FORMATS)[number];
 export const isSetFormat = (f: unknown): f is SetFormat => typeof f === "string" && (SET_FORMATS as readonly string[]).includes(f);
 /** The range of lengths each format may run, in seconds (the social audit of 2026-11-13: one idea, 15 to 22 s; a dilemma has three roads to show). */
-export const LENGTH: Record<SetFormat, [number, number]> = { figure: [12, 26], war: [15, 25], dilemma: [16, 36], versus: [15, 25] };
+export const LENGTH: Record<SetFormat, [number, number]> = { figure: [11, 26], war: [15, 25], dilemma: [16, 36], versus: [15, 25] };
 
 export type Fonts = { vazir: string; naskh: string };
 export type VoiceLine = { file: string; cue: string; frames: number };
@@ -196,7 +197,7 @@ function close(b: Board, _at: [number, number], ask: string, _foot: string, hook
 }
 
 // ---------- «عدد روز» ----------
-type FigureIn = { kicker?: string; label: string; valueText: string; value: number; decimals: number; unit: string; percent: number | null; explain: string; when: string; source: string; section: string; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
+type FigureIn = { object?: string | null; kicker?: string; label: string; valueText: string; value: number; decimals: number; unit: string; percent: number | null; explain: string; when: string; source: string; section: string; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
 
 function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const b = new Board(ctx, "figure");
@@ -214,6 +215,9 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const qLines = b.text(hookText, COL_W - 160, 100, { family: "naskh", maxLines: 2, color: "ink" });
   const q = b.plate("hook", [s0[0], s0[1] - 300], COL_W - 90, qLines, hookWin, { kind: "plate" });
   const fig = b.piece({ id: "hook-figure", kind: "figure", at: [s0[0], s0[1] + 120], w: 560, h: 280, lift: 0.08, show: [...hookWin], lines: b.text(figureText, 520, 200, { weight: 800, maxLines: 1, min: 120, color: "acc" }), num: true, emblem: p.percent != null ? "ring" : "figure" });
+  // the thing the figure is about (props/objects.ts): a model on the table under the figure, from the first frame to the last scene
+  const object = objectFor(p);
+  const thing = b.piece({ id: "hook-object", kind: "model", at: [s0[0], s0[1] + 366], w: 422, h: 190, lift: 0.1, show: [...hookWin], model: object });
   if (s0len > 2.8 * FPS) b.punch(Math.round(s0len * 0.62), 0.025, "a beat while the question is said");
   b.t = s0len;
 
@@ -223,10 +227,28 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const a1 = b.t + 8;
   const s1len = Math.round(3.0 * FPS);
   const w1: Window[] = [[a1, b.t + s1len]];
-  b.plate("section", [s1[0], s1[1] - 535], COL_W - 160, b.text(plainFa(`${p.kicker ?? "عدد روز"}: ${p.section}`), COL_W - 220, 54, { weight: 700, maxLines: 1, color: "acc" }), w1, { lift: 0.02 });
-  b.plate("label", [s1[0], s1[1] - 285], COL_W - 90, b.text(plainFa(p.label), COL_W - 160, 76, { family: "naskh", maxLines: 2, color: "ink" }), w1);
-  b.piece({ id: "count", kind: "counter", at: [s1[0], s1[1] + 10], w: 560, h: 240, lift: 0.08, show: w1, lines: b.text(plainFa(p.valueText), 520, 180, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.value, decimals: (plainFa(p.valueText).split(/[٫.]/)[1] ?? "").replace(/[^0-9۰-۹]/g, "").length, text: plainFa(p.valueText), from: a1, frames: 26 }, num: true });
-  if (p.unit) b.plate("unit", [s1[0], s1[1] + 285], COL_W - 170, b.text(plainFa(p.unit), COL_W - 180, 62, { maxLines: 2, color: "ink" }), w1, { lift: 0.03 });
+  // the scene's stack, top to bottom: the section, the thing itself, its label, the count, its unit. Everything stays above
+  // the source line at the bottom; when the words are long the object gives way (never under 120 px)
+  const secLines = b.text(plainFa(`${p.kicker ?? "عدد روز"}: ${p.section}`), COL_W - 220, 54, { weight: 700, maxLines: 1, color: "acc" });
+  const labLines = b.text(plainFa(p.label), COL_W - 160, 70, { family: "naskh", maxLines: 2, color: "ink" });
+  const unitLines = p.unit ? b.text(plainFa(p.unit), COL_W - 180, 58, { maxLines: 2, color: "ink" }) : [];
+  const hOf = (l: Line[]) => Math.round(linesHeight(l, 1.42) + 2 * 34);
+  const GAP = 34;
+  const COUNT_H = 220;
+  const STACK = { top: -600, bottom: 462 };
+  const fixed = hOf(secLines) + hOf(labLines) + COUNT_H + (unitLines.length ? hOf(unitLines) + GAP : 0) + 3 * GAP;
+  const objH = Math.max(120, Math.min(216, STACK.bottom - STACK.top - fixed));
+  let y = s1[1] + STACK.top;
+  const put = (h: number) => {
+    const c = y + h / 2;
+    y += h + GAP;
+    return c;
+  };
+  b.plate("section", [s1[0], put(hOf(secLines))], COL_W - 160, secLines, w1, { lift: 0.02 });
+  b.piece({ id: "object-1", kind: "model", at: [s1[0], put(objH)], w: Math.round((objH * 400) / 180), h: objH, lift: 0.1, show: w1, model: object });
+  b.plate("label", [s1[0], put(hOf(labLines))], COL_W - 90, labLines, w1);
+  b.piece({ id: "count", kind: "counter", at: [s1[0], put(COUNT_H)], w: 560, h: COUNT_H, lift: 0.08, show: w1, lines: b.text(plainFa(p.valueText), 520, 180, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.value, decimals: (plainFa(p.valueText).split(/[٫.]/)[1] ?? "").replace(/[^0-9۰-۹]/g, "").length, text: plainFa(p.valueText), from: a1, frames: 26 }, num: true });
+  if (unitLines.length) b.plate("unit", [s1[0], put(hOf(unitLines))], COL_W - 170, unitLines, w1, { lift: 0.03 });
   b.cue(a1 + 2, "tick", "the count starts");
   b.cue(a1 + 28, "pop", "the figure lands");
   b.punch(a1 + 28, 0.03, "the figure lands");
@@ -242,11 +264,13 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const a2 = b.t + 8;
   const cut = halves.length > 1 ? b.t + Math.round(s2len * 0.5) : b.t + s2len;
   b.plate("explain-1", [s2[0], s2[1] - 120], COL_W - 90, b.text(halves[0], COL_W - 160, 64, { maxLines: 5, color: "ink", weight: 500 }), [[a2, cut]]);
+  b.piece({ id: "object-2", kind: "model", at: [s2[0], s2[1] + 336], w: 480, h: 216, lift: 0.1, show: [[a2, cut]], model: object });
   b.cue(a2 + 4, "pop", "the explanation lands");
   if (halves.length > 1) {
     const s2b: [number, number] = [s2[0] + 40, s2[1] + 820];
     b.shot(cut, POSE(s2b, 1.0, 0.8), "glide", "down to the second half");
     b.plate("explain-2", [s2b[0], s2b[1] - 120], COL_W - 90, b.text(halves[1], COL_W - 160, 64, { maxLines: 5, color: "ink", weight: 500 }), [[cut + 18, b.t + s2len]]);
+    b.piece({ id: "object-3", kind: "model", at: [s2b[0], s2b[1] + 346], w: 480, h: 216, lift: 0.1, show: [[cut + 18, b.t + s2len]], model: object });
     b.cue(cut + 20, "pop", "the second half lands");
   } else b.punch(b.t + Math.round(s2len * 0.55), 0.025, "a beat while it is read");
   b.t += s2len;
@@ -256,7 +280,7 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   b.hudLine("source", "source", source, [[0, FOREVER]], "bottom");
 
   const ask = plainFa(p.ask ?? "این عدد را می‌دانستی؟");
-  const total = close(b, ST(3), ask, plainFa(p.foot), { pieces: [q, fig], pose: pose0 });
+  const total = close(b, ST(3), ask, plainFa(p.foot), { pieces: [q, fig, thing], pose: pose0 });
   return finishPlan(b, total, { text: hookText, figure: figureText, from: 0 }, null);
 }
 
@@ -501,7 +525,7 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
     const h = Math.round(2 * 20 + Math.max(MEDAL, linesHeight(title, 1.42)) + (sub.length ? 8 + linesHeight(sub, 1.42) : 0));
     return { title, sub, h };
   });
-  const GAP = 16;
+  const GAP = 34;
   const column = made.reduce((s, m) => s + m.h, 0) + GAP * (made.length - 1);
   let y = s2[1] - column / 2;
   roads.forEach((o, k) => {

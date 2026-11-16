@@ -60,9 +60,10 @@ test("a card seen before its words, and a stretch with nothing on the screen, fa
   const road = plan.pieces.find((p) => p.id === "road-1");
   road.reveal = road.show[0][0] + 30;
   assert.ok(failedIds(plan, "set-dilemma").includes("empty-card"));
+  // nothing on the table for a second in the middle of the film
   const gap = planFor("dilemma", "set-dilemma");
-  const ask = gap.pieces.find((p) => p.id === "ask");
-  for (const p of gap.pieces.filter((x) => x.id === "ask" || x.id === "foot")) p.show = [[ask.show[0][0] + 20, p.show[0][1]]];
+  const from = gap.shots[2].at;
+  for (const p of gap.pieces) p.show = p.show.map(([a, c]) => (a < from + 40 && c > from ? [from + 40, Math.max(c, from + 41)] : [a, c]));
   assert.ok(failedIds(gap, "set-dilemma").includes("empty-card"));
 });
 
@@ -95,4 +96,38 @@ test("the war's tally does not count the events a second time; every road has it
   const roads = dilemma.pieces.filter((p) => /^road-/.test(p.id));
   assert.equal(roads.length, 3);
   for (const r of roads) assert.match(r.sub?.[0]?.text ?? "", /^چرا: /);
+});
+
+// the owner's review of 2026-11-16: the close, the lines
+for (const [format, name] of [["figure", "set-figure"], ["war", "set-war"], ["dilemma", "set-dilemma"], ["versus", "set-versus-sau"]]) {
+  test(`${name}: the close is about three seconds, at home, with the first picture on the table`, () => {
+    const plan = planFor(format, name);
+    const closeS = (plan.total - plan.close) / 30;
+    assert.ok(closeS >= 2.5 && closeS <= 3.8, `${closeS} s`);
+    const closeShot = plan.shots.find((x) => x.why === "to the close");
+    assert.deepEqual([closeShot.pose.x, closeShot.pose.y], [plan.shots[0].pose.x, plan.shots[0].pose.y], "the camera goes home, not to a station of its own");
+    assert.ok(!plan.pieces.some((p) => p.id === "foot"), "no card of its own for the address");
+    const ask = plan.pieces.find((p) => p.id === "ask");
+    assert.equal(ask.lines.at(-1).text, "divan.ahura.cloud");
+  });
+}
+
+test("a close on a bare table, and a close of six seconds, fail «close»", () => {
+  const plan = planFor("figure", "set-figure");
+  for (const p of plan.pieces.filter((x) => x.kind === "figure")) p.show = p.show.filter(([a]) => a === 0);
+  assert.ok(failedIds(plan, "set-figure").includes("close"));
+  const long = planFor("figure", "set-figure");
+  long.close -= 90;
+  assert.ok(failedIds(long, "set-figure").includes("close"));
+});
+
+test("lines are balanced: a sentence keeps its line, no word stands alone beside full lines", async () => {
+  const { breakLines } = await import("../src/set/fit.ts");
+  const w = (t) => t.length * 40;
+  assert.deepEqual(breakLines("تولید نفت خام. یعنی چه؟".split(" "), 600, w), ["تولید نفت خام.", "یعنی چه؟"]);
+  assert.deepEqual(breakLines("ایران در ژوئیه روزی حدود ۲٫۵ میلیون بشکه نفت تولید کرد.".split(" "), 760, w).map((l) => l.split(" ").length).filter((n) => n < 2), []);
+  for (const line of breakLines("این فهرست همهٔ حمله‌ها نیست و هر روز کامل‌تر می‌شود".split(" "), 700, w)) assert.ok(w(line) <= 700);
+  const plan = planFor("figure", "set-figure");
+  plan.pieces.find((p) => p.id === "explain-1").lines = [{ text: "ایران در ژوئیه روزی حدود", size: 64, weight: 500 }, { text: "۲٫۵", size: 64, weight: 500 }, { text: "میلیون بشکه نفت تولید کرد.", size: 64, weight: 500 }];
+  assert.ok(failedIds(plan, "set-figure").includes("balanced"));
 });

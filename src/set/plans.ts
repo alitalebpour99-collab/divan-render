@@ -148,42 +148,55 @@ const POSE = (at: [number, number], zoom = 1, turn = 0): Pose => ({ x: at[0], y:
 /** a scene of at least `min` frames, longer while its narrator's line lasts */
 const span = (min: number, voice: number) => Math.max(min, voice ? voice + 10 : 0);
 
+/** The close: its question holds at least this long (the narrator's last line may hold it longer), then 24 frames settle on the first frame. */
+export const CLOSE_MIN = Math.round(2.2 * FPS);
+export const CLOSE_SETTLE = 24;
+
 /**
- * The close of every set Reel: the question to the viewer and the channel
- * badge at a station of their own, then the camera glides home to the first
- * picture. Returns the frame the Reel ends on.
+ * The close of every set Reel (the owner's review of 2026-11-16: a quarter of
+ * each Reel was a still card on an empty table). The camera goes straight home
+ * to the first picture, which stays on the table to the end; the question to
+ * the viewer takes the place of the hook's own question for about two seconds,
+ * with the site's address as its last line and the channel badge under it,
+ * then the hook's question is back for the loop. About three seconds in all.
+ * `foot` is no longer a card of its own: what it said is in the caption.
+ * Returns the frame the Reel ends on.
  */
-function close(b: Board, at: [number, number], ask: string, foot: string, hook: { pieces: Piece[]; pose: Pose }): number {
+function close(b: Board, _at: [number, number], ask: string, _foot: string, hook: { pieces: Piece[]; pose: Pose }): number {
   const start = b.t;
-  b.shot(start, POSE(at, 1, -1.2), "whip", "to the close");
+  // it lands with the turn the last scene had (what rides out does not swing across the frame) and straightens as it settles
+  const turn = b.shots[b.shots.length - 1]?.pose.turn ?? 0;
+  b.shot(start, { ...hook.pose, turn }, "whip", "to the close", 0.02, 0.5);
   const end = b.say("end", start + 8);
-  const len = span(Math.round(3.4 * FPS), end + 8);
-  const shown: Window[] = [[start + 8, start + len]];
-  const askLines = b.text(ask, COL_W - 170, 78, { family: "naskh", maxLines: 3, color: "ink" });
-  b.plate("ask", [at[0], at[1] - 280], COL_W - 110, askLines, shown, { kind: "ask", emblem: "council" });
-  const footLines = b.text(foot, COL_W - 140, 54, { maxLines: 3, min: MIN_TEXT, color: "ink2", weight: 500 });
-  b.plate("foot", [at[0], at[1] + 200], COL_W - 100, [...footLines, { text: "divan.ahura.cloud", size: 56, weight: 800, color: "acc" }], shown, { lift: 0.02 });
-  b.cue(start + 12, "pop", "the question lands");
-  b.punch(start + Math.round(len * 0.55), 0.035, "a beat under the question");
+  const len = span(CLOSE_MIN, end + 8);
+  const q = hook.pieces.find((p) => p.id === "hook") ?? hook.pieces[0];
+  // the first picture is back as the camera lands, all but its question
+  for (const p of hook.pieces) if (p !== q) p.show.push([start + 2, FOREVER]);
+  const shown: Window[] = [[start + 4, start + len - 5]];
+  // small enough to be about as tall as the question it stands in for; it hangs from the same top edge
+  const askLines = [...b.text(ask, q.w - 70, 60, { family: "naskh", maxLines: 3, min: MIN_TEXT, color: "ink" }), { text: "divan.ahura.cloud", size: 48, weight: 800, color: "acc" } as Line];
+  const askH = Math.round(linesHeight(askLines, 1.42) + 2 * 34);
+  b.plate("ask", [q.at[0], q.at[1] - q.h / 2 + askH / 2], q.w, askLines, shown, { kind: "ask" });
+  b.cue(start + 10, "pop", "the question lands");
+  b.punch(start + Math.round(len * 0.5), 0.035, "a beat under the question");
   if (b.ctx.badge) {
-    // the channel badge: small, in the bottom safe area, after the question has come, gone before the loop
-    const from = start + Math.round(0.8 * FPS);
-    const to = Math.min(from + Math.round(2.2 * FPS), start + len - 6);
+    // the channel badge: small, in the bottom safe area, while the question is up, gone before the loop
+    const from = start + 8;
+    const to = Math.min(from + Math.round(2.2 * FPS), start + len + CLOSE_SETTLE - 16);
     const box: Box = { x: ZONES.left + 30, y: ZONES.bottom - 236, w: 330, h: 80 };
     b.hud.push({ id: "badge", kind: "badge", box, show: [[from, to]], lines: [{ text: "دیوان", size: 46, weight: 700 }] });
   }
   b.t = start + len;
-  // home: the camera glides back to the first frame's place and stays there, the first picture comes back
+  // home: the camera is already there; it settles, and the hook's own question comes back for the loop
   const home = b.t;
   b.shots.push({ at: home, pose: hook.pose, move: "glide", push: 0, sway: 0, why: "home, for the loop" });
   b.cue(home, "swish", "home");
-  for (const p of hook.pieces) p.show.push([home + 17, FOREVER]);
-  // the first picture stands whole for the last third of a second before the film starts again
-  return home + 30;
+  q.show.push([home + 5, FOREVER]);
+  return home + CLOSE_SETTLE;
 }
 
 // ---------- «عدد روز» ----------
-type FigureIn = { label: string; valueText: string; value: number; decimals: number; unit: string; percent: number | null; explain: string; when: string; source: string; section: string; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
+type FigureIn = { kicker?: string; label: string; valueText: string; value: number; decimals: number; unit: string; percent: number | null; explain: string; when: string; source: string; section: string; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
 
 function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const b = new Board(ctx, "figure");
@@ -210,7 +223,7 @@ function planFigure(p: FigureIn, ctx: Ctx): Plan {
   const a1 = b.t + 8;
   const s1len = Math.round(3.0 * FPS);
   const w1: Window[] = [[a1, b.t + s1len]];
-  b.plate("section", [s1[0], s1[1] - 535], COL_W - 160, b.text(plainFa(`عدد روز: ${p.section}`), COL_W - 220, 54, { weight: 700, maxLines: 1, color: "acc" }), w1, { lift: 0.02 });
+  b.plate("section", [s1[0], s1[1] - 535], COL_W - 160, b.text(plainFa(`${p.kicker ?? "عدد روز"}: ${p.section}`), COL_W - 220, 54, { weight: 700, maxLines: 1, color: "acc" }), w1, { lift: 0.02 });
   b.plate("label", [s1[0], s1[1] - 285], COL_W - 90, b.text(plainFa(p.label), COL_W - 160, 76, { family: "naskh", maxLines: 2, color: "ink" }), w1);
   b.piece({ id: "count", kind: "counter", at: [s1[0], s1[1] + 10], w: 560, h: 240, lift: 0.08, show: w1, lines: b.text(plainFa(p.valueText), 520, 180, { weight: 800, maxLines: 1, min: 110, color: "acc" }), count: { to: p.value, decimals: (plainFa(p.valueText).split(/[٫.]/)[1] ?? "").replace(/[^0-9۰-۹]/g, "").length, text: plainFa(p.valueText), from: a1, frames: 26 }, num: true });
   if (p.unit) b.plate("unit", [s1[0], s1[1] + 285], COL_W - 170, b.text(plainFa(p.unit), COL_W - 180, 62, { maxLines: 2, color: "ink" }), w1, { lift: 0.03 });

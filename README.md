@@ -166,3 +166,33 @@ Tests: `node --test tests/set.test.mjs` (Node 23.6 or later). Samples:
 the Samples workflow with `figure:set-figure war:set-war dilemma:set-dilemma`
 renders them and keeps an artifact «small» (a 360 px copy, sheets of two
 frames a second, the loudness, the gate's report).
+
+### Round 1 of «میز اتاق وضعیت» (16 November 2026)
+
+After the owner's template review:
+
+- **The close** (`plans.ts` `close`, `CLOSE_MIN`, `CLOSE_SETTLE`): the camera
+  goes straight home; the first picture stays on the table; the question
+  takes the hook's place for about two seconds with `divan.ahura.cloud` as its
+  last line; then the hook's question is back for the loop. About three
+  seconds. There is no card for the address any more, and the narrator's last
+  line for the set formats is one short sentence (the site's
+  `lib/social/voice.ts` `SET_CLOSE_LINE`).
+- **Lines** (`fit.ts` `breakLines`): the fewest lines that fit, and of every
+  way to cut them: no lone word, a sentence kept whole on its line, then the
+  lines nearest in width. «تولید نفت خام. / یعنی چه؟», not «تولید نفت / خام. یعنی چه؟».
+- **The table's near edge** (`props/TableRail.tsx`): a walnut rail with a
+  brass inlay, a brass rule and the series' ribbon fill the bottom 300 px, under
+  the platforms' caption rows. It carries no word.
+- **A colour a series** (`signal.ts`): crimson for the war, amber for the
+  figure, steel blue for the decision, ivory for the comparison. The tile
+  (`CoverSet.tsx`) wears it as a ribbon on its upper left (the upper right is
+  where Instagram draws its Reel mark on the grid), as the seal's ring and in
+  the light, and shows the episode's `mark` (its figure, its day, its score)
+  in it. The site gives a tile that would repeat a recent one the day as its
+  mark (`lib/social/covers.ts`).
+- **Gate**: `close` (3.8 s at most from the close to the end, and never only
+  words on the table) and `balanced` (no line of one word beside full lines).
+- **Assets**: every new set piece is a file of its own with an entry in
+  `src/set/props/manifest.json` (name in English and Persian, what it shows,
+  tags, how it was made, licence, origin) for Ahura's shared asset library.

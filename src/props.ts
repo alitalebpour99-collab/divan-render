@@ -313,6 +313,8 @@ export type FigureProps = Base & {
   format: "figure";
   /** the section the figure belongs to: «اقتصاد» */
   section: string;
+  /** «عدد روز», or «عدد {its date}» for a figure older than six weeks (formats.ts figureKicker); «عدد روز» when left out */
+  kicker?: string;
   label: string;
   /** the figure itself, for the count, and as the site writes it */
   value: number;

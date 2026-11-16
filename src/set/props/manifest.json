@@ -1,0 +1,31 @@
+{
+  "library": "ahura-shared-assets",
+  "origin_project": "divan",
+  "items": [
+    {
+      "id": "divan.table-rail",
+      "file": "video/src/set/props/TableRail.tsx",
+      "export": "TableRail",
+      "kind": "set-piece",
+      "name_en": "War-room table rail",
+      "name_fa": "لبهٔ میز اتاق وضعیت",
+      "depicts": "The near wooden edge of a map table: dark walnut, a brass inlay, a brass rule with tick marks lying on it, and a ribbon in the series' colour over one corner.",
+      "tags": ["table", "wood", "brass", "ruler", "ribbon", "foreground", "war-room"],
+      "made": "Drawn in code as SVG (React component), 16 November 2026; no outside image or model.",
+      "licence": "Ahura, own work",
+      "params": ["width", "frame", "signal.main", "signal.deep", "drift"]
+    },
+    {
+      "id": "divan.series-signal",
+      "file": "video/src/set/signal.ts",
+      "export": "SIGNAL",
+      "kind": "palette",
+      "name_en": "Divan series signal colours",
+      "name_fa": "رنگ نشانهٔ مجموعه‌های دیوان",
+      "depicts": "One colour a series on Divan's ink green and brass: crimson (war), amber (economy figure), steel blue (decision and diplomacy), ivory (comparison).",
+      "tags": ["palette", "cover", "series"],
+      "made": "Chosen by hand for contrast on #123a31; 16 November 2026.",
+      "licence": "Ahura, own work"
+    }
+  ]
+}

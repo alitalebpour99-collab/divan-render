@@ -4,6 +4,8 @@
 // the war, and the episode's dossier plates, brass seals and pins lying on it.
 // The camera (space.ts) moves the whole table; nothing here decides where or
 // when, it only draws what the plan says at the frame it is asked for.
+import { TableRail } from "./props/TableRail";
+import { signalOf } from "./signal.ts";
 import React, { useMemo } from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { Emblem } from "../emblems";
@@ -415,6 +417,8 @@ export const Table: React.FC<{ plan: Plan; music?: string }> = ({ plan, music })
       {/* the lamp over the table, and the room's shadow at the edges */}
       <AbsoluteFill style={{ background: "radial-gradient(70% 46% at 50% 44%, rgba(255,231,176,.13), rgba(255,231,176,0) 70%)", pointerEvents: "none" }} />
       <AbsoluteFill style={{ background: "radial-gradient(120% 80% at 50% 46%, rgba(0,0,0,0) 55%, rgba(0,0,0,.42) 100%)", pointerEvents: "none" }} />
+      {/* the table's near edge, under the caption rows: the bottom of the frame is never bare cloth */}
+      <TableRail width={W} frame={frame} signal={signalOf(plan.format)} drift={-pose.x * 0.25} />
       {plan.hud.map((h) => (
         <HudView key={h.id} h={h} frame={frame} />
       ))}

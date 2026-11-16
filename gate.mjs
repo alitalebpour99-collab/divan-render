@@ -128,6 +128,7 @@ const hasDigits = (p) => (p.lines ?? []).some((l) => DIGIT.test(l.text)) || Bool
 export function planChecks(plan, cover) {
   const out = [];
   const add = (id, ok, detail, faText) => out.push({ id, ok: Boolean(ok), detail, fa: faText });
+  const CLOSE_MAX = 3.8;
   const total = plan.total;
   const frames = [];
   for (let f = 0; f < total; f += 2) frames.push(f);
@@ -183,7 +184,7 @@ export function planChecks(plan, cover) {
       }
       for (const h of huds) if (!inMove(f) && meets(h.box, x.b)) covered.add(`${h.id} over ${x.p.id}@${sec(f)}s`);
       // two pieces with words never lie on each other (the tally's note once lay on its last row)
-      for (const y of live) if (y !== x && (y.p.lines ?? []).length && x.p.id < y.p.id && meets(shrink(x.b), shrink(y.b))) covered.add(`${x.p.id} on ${y.p.id}@${sec(f)}s`);
+      for (const y of live) if (!inMove(f) && y !== x && (y.p.lines ?? []).length && x.p.id < y.p.id && meets(shrink(x.b), shrink(y.b))) covered.add(`${x.p.id} on ${y.p.id}@${sec(f)}s`);
     }
     const figures = live.filter((x) => hasDigits(x.p));
     if (figures.length && !huds.some((h) => h.kind === "source") && !live.some((x) => x.p.mark === "src")) for (const x of figures) unsourced.add(`${x.p.id}@${sec(f)}s`);
@@ -249,6 +250,31 @@ export function planChecks(plan, cover) {
   add("hook-number", !twice && !bare && !lost, twice ? `the figure ${hookFig} is in the sentence and again apart from it` : bare ? `«${firstWord}» opens the hook while its figure ${hookFig} stands apart` : lost ? `the hook's figure ${hookFig} is not on screen` : hookFig ? `the figure ${hookFig} stands ${apart ? "apart from a sentence that reads without it" : "inside its sentence"}` : "no figure in the hook", "عدد هوک از جمله‌اش جدا افتاده است");
   add("halves", emptyAt < 0, emptyAt < 0 ? "both halves hold something at every resting moment" : `half the frame is empty at ${sec(emptyAt)} s`, `در ثانیهٔ ${fa(Math.round(emptyAt / FPS))} نیمی از قاب خالی است`);
   add("source", !unsourced.size, unsourced.size ? `a figure without its source on screen: ${list(unsourced)}` : "every figure has its source on screen", "عددی بدون منبعش روی تصویر آمده است");
+  // the close (the owner's review of 2026-11-16): about three seconds, and never a card alone on an empty table
+  const closeLen = total - plan.close;
+  const PICTURE = ["model", "flag", "figure", "counter", "seal", "pin", "side", "road", "legend"];
+  let bareAt = -1;
+  for (let f = plan.close + 12; f < total && bareAt < 0; f += 2) {
+    const pose = poseAt(plan.shots, plan.punches, f);
+    const onScreen = (b) => b.x + b.w > 0 && b.y + b.h > 0 && b.x < W && b.y < H;
+    const picture = plan.pieces.some((p) => PICTURE.includes(p.kind) && seen(p.show, f) >= 0.5 && onScreen(boxOf(p, pose))) || (plan.map && onScreen(boxOf({ at: plan.map.at, w: plan.map.w, h: plan.map.h, lift: 0 }, pose)));
+    if (!picture) bareAt = f;
+  }
+  add("close", closeLen <= CLOSE_MAX * FPS && bareAt < 0, `the close runs ${sec(closeLen)} s (${CLOSE_MAX} s or less)${bareAt < 0 ? ", the picture on the table throughout" : `; only words on the table at ${sec(bareAt)} s`}`, bareAt < 0 ? `پایان ویدیو ${fa(Math.round(closeLen / FPS))} ثانیه است (باید حدود ۳ ثانیه باشد)` : "در پایان ویدیو فقط نوشته روی میز است و تصویری نیست");
+  // balanced lines: no block of text with one short line beside long ones («تولید نفت / خام. یعنی چه؟» is two even lines; a line of one word beside a full one is not)
+  const uneven = [];
+  for (const p of plan.pieces) {
+    const lines = (p.lines ?? []).filter((l) => !/^[a-z0-9.]+$/i.test(l.text));
+    for (let i = 0; i < lines.length; ) {
+      let j = i + 1;
+      while (j < lines.length && lines[j].size === lines[i].size && lines[j].weight === lines[i].weight && lines[j].color === lines[i].color) j += 1;
+      const block = lines.slice(i, j);
+      const words = block.map((l) => l.text.trim().split(/\s+/).length);
+      if (block.length >= 2 && words.reduce((a, b) => a + b, 0) >= 3 * block.length && words.some((n) => n === 1)) uneven.push(`${p.id}: «${block.map((l) => l.text).join(" / ")}»`);
+      i = j;
+    }
+  }
+  add("balanced", !uneven.length, uneven.length ? `a line of one word beside full lines: ${uneven.slice(0, 3).join("; ")}` : "no line of one word beside full lines", "خطِ تک‌واژه‌ای کنار خط‌های پر آمده است");
   const dots = textsOf(plan).filter(dotBeside);
   add("persian", !dots.length, dots.length ? `«·» or «|» beside Persian: ${dots.slice(0, 3).join(" / ")}` : "no «·» or «|» beside Persian", "کنار متن فارسی «·» یا «|» آمده است");
 

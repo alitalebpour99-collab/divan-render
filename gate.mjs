@@ -32,6 +32,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { TARGET, loudness } from "./finish.mjs";
+import { badgeCueCheck } from "./src/set/badge-sound.js";
 
 const FPS = 30;
 const W = 1080;
@@ -304,6 +305,9 @@ export function planChecks(plan, cover) {
     const ok = badge && inZones(badge.box) && !middle && len >= 1.5 * FPS && len <= 2.5 * FPS && from >= plan.close && to <= total - 15;
     add("badge", ok, badge ? `${sec(len)} s from ${sec(from)} s at y ${badge.box.y}–${badge.box.y + badge.box.h}` : "no badge", "نشان کانال سر جایش نیست");
   } else add("badge", !badge, "switched off (DIVAN_BADGE=off)", "نشان کانال خاموش است ولی آمده");
+  // the badge's brass tick (owner 2026-11-16, src/set/badge-sound.js): once where the plan put it, off the narrator, at its level
+  const tick = badgeCueCheck({ hud: plan.hud.map((h) => (h.kind === "badge" ? { ...h, from: h.show?.[0]?.[0] ?? h.from } : h)), sfx: plan.sfx });
+  add("badge-sound", tick.ok, tick.detail, "صدای نشان کانال جای درستی ندارد");
 
   let dense = 0;
   for (const a of plan.sfx) dense = Math.max(dense, plan.sfx.filter((b) => b.at >= a.at && b.at < a.at + FPS).length);

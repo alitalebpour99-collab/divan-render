@@ -430,7 +430,7 @@ export const Table: React.FC<{ plan: Plan; music?: string }> = ({ plan, music })
       ))}
       {plan.sfx.map((c, i) => (
         <Sequence key={`s${i}`} from={c.at} durationInFrames={Math.round(2 * FPS)} layout="none">
-          <Audio src={staticFile(`sfx/${c.name}.wav`)} volume={SFX_VOLUME[c.name] ?? 0.25} />
+          <Audio src={staticFile(`sfx/${c.name}.wav`)} volume={c.volume ?? SFX_VOLUME[c.name] ?? 0.25} />
         </Sequence>
       ))}
     </AbsoluteFill>

@@ -6,6 +6,7 @@
 // except the fixed labels of the page (the legend of the war map, «منبع»).
 import { fit, linesHeight, type Measure } from "./fit.ts";
 import { objectFor } from "./props/objects.ts";
+import { badgeCue } from "./badge-sound.js";
 import { COL_W, COL_X, FPS, H, MIN_MARK, MIN_TEXT, ZONES, type Box, type Cue, type Hud, type Line, type MapLayer, type Piece, type Plan, type Pose, type Punch, type Shot, type Window } from "./space.ts";
 
 export const SET_FORMATS = ["figure", "war", "dilemma", "versus"] as const;
@@ -178,14 +179,23 @@ function close(b: Board, _at: [number, number], ask: string, _foot: string, hook
   const askLines = [...b.text(ask, q.w - 70, 60, { family: "naskh", maxLines: 3, min: MIN_TEXT, color: "ink" }), { text: "divan.ahura.cloud", size: 48, weight: 800, color: "acc" } as Line];
   const askH = Math.round(linesHeight(askLines, 1.42) + 2 * 34);
   b.plate("ask", [q.at[0], q.at[1] - q.h / 2 + askH / 2], q.w, askLines, shown, { kind: "ask" });
-  b.cue(start + 10, "pop", "the question lands");
+  // the badge's brass tick (owner 2026-11-16, badge-sound.js): on its first frame, off the narrator, at its level; when it
+  // plays, it is the close's landing sound (the pop 2 frames later would crowd it)
+  const tick = b.ctx.badge ? badgeCue(start + 8, b.voice.map((v) => ({ from: v.from, to: v.from + v.frames }))) : null;
+  if (tick?.sfx) {
+    const n = b.sfx.length;
+    b.cue(tick.sfx.at, "badge", tick.sfx.why);
+    if (b.sfx.length > n) b.sfx[n]!.volume = tick.sfx.volume;
+    else tick.cue = { at: tick.cue.at, frame: null, why: "no room beside the close's other sounds (6 frames apart, two a second)", speech: tick.cue.speech };
+  }
+  if (!tick?.cue || tick.cue.frame === null || Math.abs(tick.cue.frame - (start + 10)) >= 6) b.cue(start + 10, "pop", "the question lands");
   b.punch(start + Math.round(len * 0.5), 0.035, "a beat under the question");
   if (b.ctx.badge) {
     // the channel badge: small, in the bottom safe area, while the question is up, gone before the loop
     const from = start + 8;
     const to = Math.min(from + Math.round(2.2 * FPS), start + len + CLOSE_SETTLE - 16);
     const box: Box = { x: ZONES.left + 30, y: ZONES.bottom - 236, w: 330, h: 80 };
-    b.hud.push({ id: "badge", kind: "badge", box, show: [[from, to]], lines: [{ text: "دیوان", size: 46, weight: 700 }] });
+    b.hud.push({ id: "badge", kind: "badge", box, show: [[from, to]], lines: [{ text: "دیوان", size: 46, weight: 700 }], ...(tick ? { cue: tick.cue } : {}) });
   }
   b.t = start + len;
   // home: the camera is already there; it settles, and the hook's own question comes back for the loop

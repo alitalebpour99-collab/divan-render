@@ -195,9 +195,10 @@ export type Piece = {
   doubt?: boolean;
 };
 /** A screen-fixed piece: the source chip, the AI chip, the channel badge, the day counter. */
-export type Hud = { id: string; kind: "source" | "badge" | "ai" | "day"; box: Box; show: Window[]; lines: Line[]; /** a figure that counts in the line (the day of the war during the replay), written as the line says when it lands */ count?: { to: number; from: number; frames: number; prefix?: string; linear?: boolean } };
-export type SfxName = "whoosh" | "hit" | "tick" | "pop" | "rise" | "swish";
-export type Cue = { at: number; name: SfxName; why: string };
+export type Hud = { id: string; kind: "source" | "badge" | "ai" | "day"; box: Box; show: Window[]; lines: Line[]; /** a figure that counts in the line (the day of the war during the replay), written as the line says when it lands */ count?: { to: number; from: number; frames: number; prefix?: string; linear?: boolean }; /** the badge's tick (badge-sound.js) */ cue?: { at: number; frame: number | null; why?: string; level?: number; shift?: number; speech: [number, number][] } };
+export type SfxName = "whoosh" | "hit" | "tick" | "pop" | "rise" | "swish" | "badge";
+/** volume: its own level (the badge's tick, badge-sound.js), else Table.tsx SFX_VOLUME */
+export type Cue = { at: number; name: SfxName; why: string; volume?: number };
 /** The map on the table (war): its window and where it lies on the table. */
 export type MapLayer = { at: [number, number]; w: number; h: number; pins: { x: number; y: number; t: "confirmed" | "claim" | "unverified"; from: number; /** one of the last seven days' events */ w?: boolean }[]; /** the frame the last seven days' pins begin to pulse */ pulse?: number };
 

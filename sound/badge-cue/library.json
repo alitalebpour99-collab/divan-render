@@ -1,0 +1,62 @@
+{
+  "about": "The like/follow badge cue (badge-cue.mjs VERSION 1, owner 2026-11-16): Setavaz-owned SFX for the hub library to import (ahura-library register() shape). The master is the wav beside this file, made by cueSamples() with its default step.",
+  "entries": [
+    {
+      "kind": "sfx",
+      "id": "setavaz-badge-cue-divan",
+      "names": {
+        "en": "Divan badge cue: restrained brass tick",
+        "fa": "صدای نشان دیوان: تیکِ برنجیِ آرام"
+      },
+      "description": "a restrained muted-brass blip with a dry tick on its front, low and short, as the badge appears",
+      "depicts": "a restrained muted-brass blip with a dry tick on its front, low and short, as the badge appears",
+      "tags": [
+        "badge",
+        "like",
+        "follow",
+        "subscribe",
+        "ui",
+        "brass",
+        "tick",
+        "restrained",
+        "short"
+      ],
+      "style": "badge-cue-divan",
+      "facts": {
+        "seconds": 0.45,
+        "step": null,
+        "body": 0.3,
+        "levelUnderVoiceDb": -9,
+        "family": "badge-cue",
+        "version": 1
+      },
+      "made": {
+        "tool": "code",
+        "model": null,
+        "prompt": null,
+        "source": "badge-cue.mjs",
+        "detail": "synthesised in code (tick, brass): sine partials and shaped noise, no samples"
+      },
+      "licence": {
+        "kind": "own",
+        "name": "Setavaz",
+        "credit": null,
+        "url": null
+      },
+      "owner": "setavaz",
+      "origin": {
+        "project": "divan",
+        "made": "2026-11-16",
+        "by": "badge-cue.mjs VERSION 1"
+      },
+      "use": "on the like/follow channel badge of every video, ducked under the narrator",
+      "files": [
+        {
+          "path": "sound/badge-cue/divan.wav",
+          "role": "master",
+          "label": "wav 48 kHz mono"
+        }
+      ]
+    }
+  ]
+}

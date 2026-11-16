@@ -3,6 +3,7 @@
 //   node sfx.mjs        writes public/sfx/{whoosh,hit,tick,pop,rise,swish}.wav and src/sound-code.json
 import fs from "node:fs";
 import path from "node:path";
+import { cueSamples } from "./src/badge-cue.mjs";
 
 /**
  * The sound code (the owner, 6 November 2026): what a moment of a Reel does
@@ -157,7 +158,13 @@ const out = path.join(here, "public", "sfx");
 fs.mkdirSync(out, { recursive: true });
 fs.writeFileSync(path.join(here, "src", "sound-code.json"), `${JSON.stringify(CODE, null, 1)}\n`);
 console.log("src/sound-code.json", JSON.stringify(CODE));
-const all = { whoosh: whoosh(), hit: hit(), tick: tick(), pop: pop(), rise: rise(), swish: swish() };
+/** The badge's sound (owner 2026-11-16): Divan's flavour of the shared badge cue (src/badge-cue.mjs), a restrained brass tick. */
+function badge() {
+  const pcm = cueSamples("divan", { sr: RATE });
+  return wav(pcm, pcm);
+}
+
+const all = { whoosh: whoosh(), hit: hit(), tick: tick(), pop: pop(), rise: rise(), swish: swish(), badge: badge() };
 for (const [name, bytes] of Object.entries(all)) {
   fs.writeFileSync(path.join(out, `${name}.wav`), bytes);
   console.log(`${name}.wav`, `${Math.round(bytes.length / 1024)} KB`);

@@ -203,3 +203,62 @@ test("closeMoment: a pause between two words of the close's line first, else a b
   // a pause too late to keep the badge 1.5 s before the loop is not taken
   assert.equal(closeMoment({ at: 108, line: { frames: 72, words }, before: [], hi: () => 120 }).room, "breath");
 });
+
+// Reel 198 (17 Nov 2026, «دولت با طرح حمله به سدهای ایران چه کند؟»): the gate refused it three times, for text outside the
+// safe area (road-0, road-2), text that did not fit its card (a fact and all three «چرا»), one fact over the other, and a
+// close of 5.2 s. Its texts are rebuilt from the gate's log (the first 40 characters of each, the rest at the lengths the
+// dilemma agent allows: a fact up to 64 characters, a reason up to 18 words); the close's line as the narrator says it.
+const REASONS_198 = [
+  "حمله به سدها در سند رسمی سازمان ملل ثبت می‌شود و هزینهٔ حقوقی آن برای حمله‌کننده بالا می‌رود",
+  "حمله‌کننده بداند هزینه دارد و مردم پشت دولت می‌مانند و دفاع از سدها جدی‌تر می‌شود",
+  "خطر حمله به غیرنظامیان کم می‌شود و راه گفت‌وگو با میانجی‌های منطقه باز می‌ماند",
+];
+const reel198 = (facts = 2) => {
+  const base = read("set-dilemma");
+  const q = "دولت با طرح حمله به سدهای ایران چه کند؟";
+  return {
+    ...base,
+    question: q,
+    hook: { text: q, figure: null, short: "دولت با حمله به سدها چه کند؟" },
+    facts: [
+      { k: "چه گفتند", v: "به گفتهٔ معاون وزیر خارجه: عادی‌سازی آن با تهدید سدها ممکن نیست", s: "منشور، ۹ رسانه" },
+      { k: "چه شد", v: "رسانه‌های آمریکا از طرح حمله به سدهای بزرگ ایران خبر دادند", s: "منشور، ۹ رسانه" },
+      { k: "واکنش", v: "سازمان ملل حمله به سدها را خلاف قوانین جنگ دانست", s: "منشور، ۴ رسانه" },
+    ].slice(0, facts),
+    options: base.options.map((o, i) => ({ ...o, title: ["شکایت رسمی", "هشدار بازدارنده", "میانجی‌گری"][i], gained: REASONS_198[i] })),
+  };
+};
+// the narrator's lines: the question as it opens, the close's line (3.6 s for the ten words said until 17 Nov)
+const voice198 = (end) => [{ file: "v0.mp3", cue: "start", frames: 102 }, { file: "v1.mp3", cue: "end", frames: Math.ceil(end * 30) }];
+const plan198 = (facts = 2, end = 1.6) => planOf("dilemma", reel198(facts), { fonts, badge: true, measure, voiceIn: voice198(end) });
+
+for (const n of [2, 3]) {
+  test(`Reel 198 with ${n} facts: long facts and reasons stay in their cards, inside the safe area, never one over another`, () => {
+    const plan = plan198(n);
+    const failed = planChecks(plan, "دولت چه کند؟").filter((c) => !c.ok).map((c) => `${c.id}: ${c.detail}`);
+    assert.deepEqual(failed, []);
+    // the facts are whole: «ممکن نیست» keeps its «نیست»
+    const said = (id) => plan.pieces.find((p) => p.id === id).lines.slice(1, -1).map((l) => l.text).join(" ");
+    reel198(n).facts.forEach((f, k) => assert.equal(said(`fact-${k}`), f.v));
+    // every road keeps its «چرا»; a reason too long for the column is cut after a whole clause (on its verb, before «و»)
+    plan.pieces.filter((p) => /^road-/.test(p.id)).forEach((r, k) => {
+      const text = r.sub.map((l) => l.text).join(" ");
+      const whole = `چرا: ${REASONS_198[k]}`;
+      assert.match(text, /^چرا: /);
+      assert.ok(text === whole || (whole.startsWith(`${text} و `) && /(د|ند|است|ست)$/.test(text)), `«${text}» is «${whole}» or a clause of it`);
+    });
+  });
+}
+
+test("Reel 198: its facts stacked by their own heights (the fixed step of 390 px put a fact of four lines over the next)", () => {
+  const plan = plan198(2);
+  const [a, b] = ["fact-0", "fact-1"].map((id) => plan.pieces.find((p) => p.id === id));
+  assert.ok(a.h > 390 && b.at[1] - a.at[1] >= (a.h + b.h) / 2, `fact-0 (${a.h} px) above fact-1, not over it`);
+});
+
+test("the close of Reel 198: the narrator's ten-word line (3.6 s) cannot close in 3.8 s; a line of 2.4 s or less does", () => {
+  const close = (end) => planChecks(plan198(2, end), "دولت چه کند؟").find((c) => c.id === "close");
+  assert.equal(close(3.6).ok, false, close(3.6).detail);
+  assert.match(close(3.6).detail, /5\.0 s/);
+  for (const end of [1.2, 1.6, 2.0, 2.4]) assert.ok(close(end).ok, `${end} s: ${close(end).detail}`);
+});

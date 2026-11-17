@@ -7,7 +7,7 @@
 import { fit, linesHeight, type Measure } from "./fit.ts";
 import { objectFor } from "./props/objects.ts";
 import { badgeCue, closeMoment, speechOf } from "./badge-sound.js";
-import { COL_W, COL_X, FPS, H, MIN_MARK, MIN_TEXT, ZONES, type Box, type Cue, type Hud, type Line, type MapLayer, type Piece, type Plan, type Pose, type Punch, type Shot, type Window } from "./space.ts";
+import { COL_W, COL_X, EYE_Y, FPS, H, MIN_MARK, MIN_TEXT, ZONES, type Box, type Cue, type Hud, type Line, type MapLayer, type Piece, type Plan, type Pose, type Punch, type Shot, type Window } from "./space.ts";
 
 export const SET_FORMATS = ["figure", "war", "dilemma", "versus"] as const;
 export type SetFormat = (typeof SET_FORMATS)[number];
@@ -16,11 +16,14 @@ export const isSetFormat = (f: unknown): f is SetFormat => typeof f === "string"
 export const LENGTH: Record<SetFormat, [number, number]> = { figure: [11, 26], war: [15, 25], dilemma: [16, 36], versus: [15, 25] };
 
 export type Fonts = { vazir: string; naskh: string };
+type TextOpts = { weight?: number; family?: "vazir" | "naskh"; maxLines?: number; min?: number; color?: string };
 /** words: as video/voice.mjs makes them, in frames from the line's own start (for the badge's pause) */
 export type VoiceLine = { file: string; cue: string; frames: number; words?: { text: string; from: number; frames: number }[] };
 export type Ctx = { fonts: Fonts; voiceIn?: VoiceLine[]; badge: boolean; measure?: Measure };
 
 const FOREVER = 1e9;
+/** How a Persian clause usually ends: on its verb (دارد، می‌شود، است، نیست، کنند …); a «و» after it joins two clauses. */
+const VERB_END = /(د|ند|است|ست)$/;
 /** the whole width the apps leave free: a screen line (the source) may use it when the column is too narrow for a Latin name */
 const SAFE_W = ZONES.right - ZONES.left;
 const fa = (n: number | string) => String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -117,13 +120,43 @@ class Board {
     this.sfx.push({ at: Math.max(0, Math.round(at)), name, why });
   }
   /** Lines of text that fit a width. */
-  text(text: string, width: number, size: number, opts: { weight?: number; family?: "vazir" | "naskh"; maxLines?: number; min?: number; color?: string } = {}): Line[] {
+  text(text: string, width: number, size: number, opts: TextOpts = {}): Line[] {
+    const r = this.lay(text, width, size, opts);
+    if (r.overflow) this.overflow.push(text.slice(0, 40));
+    return r.lines;
+  }
+  /** The lines a text would take, nothing recorded: for choosing between layouts. */
+  lay(text: string, width: number, size: number, opts: TextOpts = {}): { lines: Line[]; overflow: boolean } {
     const family = this.ctx.fonts[opts.family ?? "vazir"];
     const r = fit({ text, width, size, maxLines: opts.maxLines ?? 3, min: Math.min(size, opts.min ?? MIN_TEXT + 4), weight: opts.weight ?? 700, family, color: opts.color }, this.m);
-    if (r.overflow) this.overflow.push(text.slice(0, 40));
-    return r.lines.map((l) => ({ ...l, family: opts.family ?? "vazir" }) as Line);
+    return { lines: r.lines.map((l) => ({ ...l, family: opts.family ?? "vazir" }) as Line), overflow: r.overflow };
   }
   overflow: string[] = [];
+  /**
+   * The text, or the longest run of its whole clauses, that fits; null when not even its first clause does (Reel 198,
+   * 17 Nov 2026: the dilemma's AI reasons are written up to 18 words and its facts up to 64 characters; laid out past
+   * their lines they overflowed their cards, one card ran over the next and the column of roads under the app's bar).
+   * A clause ends at a «،» or «؛», or before a «و» that follows a verb («… هزینه دارد و …»). Never a cut inside a
+   * clause: a Persian clause ends on its verb, and «ممکن نیست» cut to «ممکن…» says the opposite. The whole text is on
+   * the site's Decision Table.
+   */
+  clause(text: string, width: number, size: number, opts: TextOpts = {}): string | null {
+    if (!this.lay(text, width, size, opts).overflow) return text;
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    for (let n = words.length - 1; n >= 3; n--) {
+      const end = words[n - 1];
+      if (!(/[،؛,]$/.test(end) || (words[n] === "و" && VERB_END.test(end)))) continue;
+      const head = words.slice(0, n).join(" ").replace(/[،؛,]$/, "");
+      if (!this.lay(head, width, size, opts).overflow) return head;
+    }
+    return null;
+  }
+  /** Lines in the fewest of from…maxLines that hold the whole text, else cut at a clause (clause()), else laid out and reported as overflow. */
+  fewest(text: string, width: number, size: number, opts: TextOpts = {}, from = 1): Line[] {
+    const most = opts.maxLines ?? 3;
+    for (let n = Math.min(from, most); n <= most; n++) if (!this.lay(text, width, size, { ...opts, maxLines: n }).overflow) return this.text(text, width, size, { ...opts, maxLines: n });
+    return this.text(this.clause(text, width, size, opts) ?? text, width, size, opts);
+  }
   /** A dossier plate: lines stacked, padded; its height follows its lines. */
   plate(id: string, at: [number, number], w: number, lines: Line[], show: Window[], more: Partial<Piece> = {}): Piece {
     const h = Math.round(linesHeight(lines, 1.42) + 2 * 34);
@@ -519,18 +552,22 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   const facts = p.facts.slice(0, 3);
   const factsLen = Math.round((1.4 + 1.05 * facts.length) * FPS);
   const a1 = b.t + 8;
-  const STEP = 390;
+  const GAP_FACT = 34;
   // the first two rows come with their words, a breath apart (a plate never waits empty for its text: the review of 2026-11-14); the third when the camera steps down to it
   const fromOf = (k: number) => (k < 2 ? a1 + k * 6 : a1 + 6 + k * Math.round(1.05 * FPS));
+  // the row's label, its words (two lines as before, up to four at the reading floor when it needs them: the facts are written up to 64 characters), and its source as the plate's last line (a mark, smaller)
+  const rows = facts.map((f) => [...b.text(plainFa(f.k), COL_W - 170, 50, { weight: 800, maxLines: 1, color: "acc" }), ...b.fewest(plainFa(f.v), COL_W - 170, 62, { family: "naskh", maxLines: 4, min: MIN_TEXT, color: "ink" }, 2), ...b.text(plainFa(`منبع: ${f.s}`), COL_W - 170, 42, { weight: 500, maxLines: 1, min: MIN_MARK, color: "ink2" })]);
+  // the rows stacked by their own heights, GAP_FACT apart, the first two centred on the station (Reel 198: a fixed step of
+  // 390 px put a fact of three lines over the one below it)
+  const hs = rows.map((lines) => Math.round(linesHeight(lines, 1.42) + 2 * 34));
+  const ys: number[] = [];
+  hs.forEach((h, k) => ys.push(k ? ys[k - 1] + hs[k - 1] / 2 + GAP_FACT + h / 2 : hs.length > 1 ? s1[1] - (hs[0] + GAP_FACT + hs[1]) / 2 + h / 2 : s1[1]));
   facts.forEach((f, k) => {
     const from = fromOf(k);
     // two rows on screen at a time; for the third the camera steps down and the first leaves
     const until = k + 2 < facts.length ? fromOf(k + 2) - 4 : b.t + factsLen;
-    const y = s1[1] - STEP / 2 + k * STEP;
-    // the row's label, its words, and its source as the plate's last line (a mark, smaller)
-    const lines = [...b.text(plainFa(f.k), COL_W - 170, 50, { weight: 800, maxLines: 1, color: "acc" }), ...b.text(plainFa(f.v), COL_W - 170, 62, { family: "naskh", maxLines: 2, color: "ink" }), ...b.text(plainFa(`منبع: ${f.s}`), COL_W - 170, 42, { weight: 500, maxLines: 1, min: MIN_MARK, color: "ink2" })];
-    b.plate(`fact-${k}`, [s1[0], y], COL_W - 90, lines, [[from, until]], { num: /[0-9۰-۹]/.test(f.v), lit: null, mark: "src" });
-    if (k >= 2) b.shot(from - 6, POSE([s1[0], s1[1] + (k - 1) * STEP], 1, k % 2 ? 1 : -1), "glide", `down to fact ${k + 1}`);
+    b.plate(`fact-${k}`, [s1[0], ys[k]], COL_W - 90, rows[k], [[from, until]], { num: /[0-9۰-۹]/.test(f.v), lit: null, mark: "src" });
+    if (k >= 2) b.shot(from - 6, POSE([s1[0], (ys[k - 1] - hs[k - 1] / 2 + ys[k] + hs[k] / 2) / 2], 1, k % 2 ? 1 : -1), "glide", `down to fact ${k + 1}`);
     b.cue(from + 2, "pop", `fact ${k + 1}`);
     if (k === 1) b.punch(from, 0.018, `fact ${k + 1}`);
   });
@@ -544,14 +581,52 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   const a2 = b.t;
   const W_ROAD = COL_W - 90;
   const MEDAL = 88;
-  const made = roads.map((o) => {
-    const title = b.text(plainFa(o.title), W_ROAD - 2 * 26 - MEDAL - 22, 60, { family: "naskh", maxLines: roads.length > 3 ? 1 : 2, color: "ink" });
-    const reason = plainFa(o.gained || o.line || "");
-    const sub = reason ? b.text(`چرا: ${reason}`, W_ROAD - 2 * 26, 48, { weight: 500, maxLines: roads.length > 3 ? 1 : 2, min: MIN_TEXT, color: "ink2" }) : [];
-    const h = Math.round(2 * 20 + Math.max(MEDAL, linesHeight(title, 1.42)) + (sub.length ? 8 + linesHeight(sub, 1.42) : 0));
-    return { title, sub, h };
-  });
   const GAP = 34;
+  // the column of roads stays inside the safe area, under the AI note's row at the top, with room for the cards' lift and the
+  // camera's lean (Reel 198: three reasons of 15 to 18 words, laid out past their two lines, made a column of about 1,300 px
+  // that ran under the app's bar). Every reason is whole, in two lines as before or three when it needs them (one line with
+  // four roads); while the column is too tall, the reason with the most lines gives one up, cut at a clause (Board.clause).
+  const COLUMN_MAX = Math.floor(((EYE_Y - (ZONES.top + 130)) * 2) / 1.1) - 40;
+  const SUB_W = W_ROAD - 2 * 26;
+  const subOpts = (maxLines: number): TextOpts => ({ weight: 500, maxLines, min: MIN_TEXT, color: "ink2" });
+  const titles = roads.map((o) => b.text(plainFa(o.title), W_ROAD - 2 * 26 - MEDAL - 22, 60, { family: "naskh", maxLines: roads.length > 3 ? 1 : 2, min: MIN_TEXT, color: "ink" }));
+  const reasons = roads.map((o) => {
+    const r = plainFa(o.gained || o.line || "");
+    return r ? `چرا: ${r}` : "";
+  });
+  const most = roads.length > 3 ? 1 : 3;
+  // per road: the reason as said (whole, or cut at a clause) and the lines it takes, for a budget of n lines
+  const subAt = (k: number, n: number): { text: string; lines: Line[]; overflow: boolean } | null => {
+    if (!reasons[k]) return { text: "", lines: [], overflow: false };
+    for (let m = Math.min(n, roads.length > 3 ? 1 : 2); m <= n; m++) {
+      const r = b.lay(reasons[k], SUB_W, 48, subOpts(m));
+      if (!r.overflow) return { text: reasons[k], lines: r.lines, overflow: false };
+    }
+    const t = b.clause(reasons[k], SUB_W, 48, subOpts(n));
+    return t ? { text: t, lines: b.lay(t, SUB_W, 48, subOpts(n)).lines, overflow: false } : null;
+  };
+  const hOf = (k: number, sub: Line[]) => Math.round(2 * 20 + Math.max(MEDAL, linesHeight(titles[k], 1.42)) + (sub.length ? 8 + linesHeight(sub, 1.42) : 0));
+  const budget = roads.map(() => most);
+  const subs = roads.map((_, k) => subAt(k, most) ?? { text: reasons[k], lines: b.lay(reasons[k], SUB_W, 48, subOpts(most)).lines, overflow: true });
+  const columnOf = () => subs.reduce((s, sub, k) => s + hOf(k, sub.lines), 0) + GAP * (roads.length - 1);
+  for (let guard = 0; columnOf() > COLUMN_MAX && guard < 12; guard++) {
+    const order = roads.map((_, k) => k).filter((k) => budget[k] > 1).sort((x, y) => subs[y].lines.length - subs[x].lines.length);
+    let shrunk = false;
+    for (const k of order) {
+      const less = subAt(k, Math.min(budget[k], subs[k].lines.length) - 1);
+      if (!less || less.lines.length >= subs[k].lines.length) continue;
+      budget[k] = less.lines.length;
+      subs[k] = less;
+      shrunk = true;
+      break;
+    }
+    if (!shrunk) break;
+  }
+  // what is shown is what was chosen; a reason that does not fit even cut is laid out and reported (the gate refuses it)
+  const made = roads.map((_, k) => {
+    const sub = subs[k].text ? b.text(subs[k].text, SUB_W, 48, subOpts(Math.max(1, subs[k].overflow ? most : subs[k].lines.length))) : [];
+    return { title: titles[k], sub, h: hOf(k, sub) };
+  });
   const column = made.reduce((s, m) => s + m.h, 0) + GAP * (made.length - 1);
   let y = s2[1] - column / 2;
   roads.forEach((o, k) => {

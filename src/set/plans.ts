@@ -6,7 +6,7 @@
 // except the fixed labels of the page (the legend of the war map, «منبع»).
 import { fit, linesHeight, type Measure } from "./fit.ts";
 import { objectFor } from "./props/objects.ts";
-import { badgeCue } from "./badge-sound.js";
+import { badgeCue, closeMoment, speechOf } from "./badge-sound.js";
 import { COL_W, COL_X, FPS, H, MIN_MARK, MIN_TEXT, ZONES, type Box, type Cue, type Hud, type Line, type MapLayer, type Piece, type Plan, type Pose, type Punch, type Shot, type Window } from "./space.ts";
 
 export const SET_FORMATS = ["figure", "war", "dilemma", "versus"] as const;
@@ -16,7 +16,8 @@ export const isSetFormat = (f: unknown): f is SetFormat => typeof f === "string"
 export const LENGTH: Record<SetFormat, [number, number]> = { figure: [11, 26], war: [15, 25], dilemma: [16, 36], versus: [15, 25] };
 
 export type Fonts = { vazir: string; naskh: string };
-export type VoiceLine = { file: string; cue: string; frames: number };
+/** words: as video/voice.mjs makes them, in frames from the line's own start (for the badge's pause) */
+export type VoiceLine = { file: string; cue: string; frames: number; words?: { text: string; from: number; frames: number }[] };
 export type Ctx = { fonts: Fonts; voiceIn?: VoiceLine[]; badge: boolean; measure?: Measure };
 
 const FOREVER = 1e9;
@@ -83,6 +84,14 @@ class Board {
     if (!line) return 0;
     this.voice.push({ file: line.file, from: at, frames: line.frames });
     return line.frames;
+  }
+  /** The narrator's line for a moment, if there is one. */
+  line(cue: string): VoiceLine | undefined {
+    return this.lines.find((l) => l.cue === cue);
+  }
+  /** What the narrator says so far, as [from, to] frames of the film (by the words when known). */
+  speech(): [number, number][] {
+    return speechOf(this.voice, this.lines);
   }
   /** How long the narrator's line for a moment runs, in frames (0 without one): for fitting the scenes into a length. */
   lineFrames(cue: string): number {
@@ -169,8 +178,15 @@ function close(b: Board, _at: [number, number], ask: string, _foot: string, hook
   // it lands with the turn the last scene had (what rides out does not swing across the frame) and straightens as it settles
   const turn = b.shots[b.shots.length - 1]?.pose.turn ?? 0;
   b.shot(start, { ...hook.pose, turn }, "whip", "to the close", 0.02, 0.5);
-  const end = b.say("end", start + 8);
-  const len = span(CLOSE_MIN, end + 8);
+  // the badge in a pause of the narration (owner 2026-11-17, badge-sound.js): a pause between two words of the close's line,
+  // else a breath of about 0.4 s before the line, the badge (and its tick) in it; without the badge the line comes as before
+  const endLine = b.line("end");
+  // the close keeps its length; it grows only when the line, a breath later, would not end 12 frames before the loop
+  const closeLen = (lineAt: number, frames: number) => Math.max(span(CLOSE_MIN, frames + 8), lineAt - start + frames + 12 - CLOSE_SETTLE);
+  const loopRoom = (lineAt: number) => start + closeLen(lineAt, endLine?.frames ?? 0) + CLOSE_SETTLE - 16 - Math.round(1.5 * FPS);
+  const moment = b.ctx.badge ? closeMoment({ at: start + 8, line: endLine, before: b.speech(), hi: loopRoom }) : { badge: start + 8, lineAt: start + 8, room: "off" };
+  const end = b.say("end", moment.lineAt);
+  const len = closeLen(moment.lineAt, end);
   const q = hook.pieces.find((p) => p.id === "hook") ?? hook.pieces[0];
   // the first picture is back as the camera lands, all but its question
   for (const p of hook.pieces) if (p !== q) p.show.push([start + 2, FOREVER]);
@@ -181,7 +197,7 @@ function close(b: Board, _at: [number, number], ask: string, _foot: string, hook
   b.plate("ask", [q.at[0], q.at[1] - q.h / 2 + askH / 2], q.w, askLines, shown, { kind: "ask" });
   // the badge's brass tick (owner 2026-11-16, badge-sound.js): on its first frame, off the narrator, at its level; when it
   // plays, it is the close's landing sound (the pop 2 frames later would crowd it)
-  const tick = b.ctx.badge ? badgeCue(start + 8, b.voice.map((v) => ({ from: v.from, to: v.from + v.frames }))) : null;
+  const tick = b.ctx.badge ? badgeCue(moment.badge, b.speech().map(([from, to]) => ({ from, to }))) : null;
   if (tick?.sfx) {
     const n = b.sfx.length;
     b.cue(tick.sfx.at, "badge", tick.sfx.why);
@@ -192,7 +208,7 @@ function close(b: Board, _at: [number, number], ask: string, _foot: string, hook
   b.punch(start + Math.round(len * 0.5), 0.035, "a beat under the question");
   if (b.ctx.badge) {
     // the channel badge: small, in the bottom safe area, while the question is up, gone before the loop
-    const from = start + 8;
+    const from = moment.badge;
     const to = Math.min(from + Math.round(2.2 * FPS), start + len + CLOSE_SETTLE - 16);
     const box: Box = { x: ZONES.left + 30, y: ZONES.bottom - 236, w: 330, h: 80 };
     b.hud.push({ id: "badge", kind: "badge", box, show: [[from, to]], lines: [{ text: "دیوان", size: 46, weight: 700 }], ...(tick ? { cue: tick.cue } : {}) });

@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { planOf } from "../src/set/plans.ts";
 import { hookWeight, planChecks, verdict, wordsOf } from "../gate.mjs";
+import { BREATH, MIN_PAUSE, badgeCueCheck, closeMoment, needFrames, speechOf } from "../src/set/badge-sound.js";
 
 const fonts = { vazir: "Vazirmatn", naskh: "Noto Naskh Arabic" };
 // a rough Persian measure: a letter is about half its size wide (the browser measures the real font)
@@ -156,4 +157,49 @@ test("a figure with nothing but plates fails «object»", () => {
   const plan = planFor("figure", "set-figure");
   plan.pieces = plan.pieces.filter((p) => p.kind !== "model");
   assert.ok(failedIds(plan, "set-figure").includes("object"));
+});
+
+// the badge in a pause (owner, 2026-11-17: «بج رو ببر توی یه مکث»): the badge, and its tick on its first frame, come in a
+// pause of the narration; the close's line waits a breath of about 0.4 s when it has no pause of its own; no word is cut
+
+for (const [format, name] of [["figure", "set-figure"], ["war", "set-war"], ["dilemma", "set-dilemma"], ["versus", "set-versus-sau"], ["versus", "set-versus-tur"]]) {
+  test(`${name}: the badge and its tick in a pause of the narration, the close as long as before`, () => {
+    const plan = planFor(format, name);
+    const off = planOf(format, read(name), { fonts, badge: false, measure, voiceIn: voiceOf(name) });
+    const badge = plan.hud.find((h) => h.kind === "badge");
+    const from = badge.show[0][0];
+    const tick = plan.sfx.filter((s) => s.name === "badge");
+    assert.equal(tick.length, 1, `the tick is played: ${badge.cue?.why ?? ""}`);
+    assert.equal(tick[0].at, from, "on the badge's first frame");
+    // the silence around it: from the last word before to the next word after
+    const speech = speechOf(plan.voice);
+    const before = Math.max(...speech.filter(([, z]) => z <= from).map(([, z]) => z));
+    const after = Math.min(...speech.filter(([a]) => a > from).map(([a]) => a));
+    assert.ok(!speech.some(([a, z]) => a < from + needFrames() - 2 && z > from), "over no word");
+    assert.ok((after - before) / 30 >= MIN_PAUSE, `a pause of ${((after - before) / 30).toFixed(2)} s`);
+    assert.ok(after - from >= Math.round(BREATH * 30), "the close's line waits a breath after the badge");
+    // every line plays whole, the close keeps its length; without the badge the line comes as before
+    assert.deepEqual(plan.voice.map((v) => v.frames), off.voice.map((v) => v.frames));
+    assert.equal(plan.total, off.total);
+    assert.equal(off.voice.at(-1).from, off.close + 8);
+    assert.ok(badgeCueCheck({ hud: plan.hud.map((h) => (h.kind === "badge" ? { ...h, from } : h)), sfx: plan.sfx }).ok);
+  });
+}
+
+test("closeMoment: a pause between two words of the close's line first, else a breath before it", () => {
+  const need = needFrames();
+  // «... بفرست،» then a pause of 0.6 s, then «و دیوان را دنبال کن»: the badge in that pause, the line where it was
+  const words = [{ text: "این", from: 0, frames: 8 }, { text: "بفرست،", from: 10, frames: 20 }, { text: "و", from: 48, frames: 5 }, { text: "دیوان", from: 55, frames: 15 }];
+  const inner = closeMoment({ at: 108, line: { frames: 72, words }, before: [[40, 96]] });
+  assert.deepEqual(inner, { badge: 108 + 30 + 2, lineAt: 108, room: "pause" });
+  // no pause in the line: it waits; the badge on its frame; no word cut, the pause long enough
+  const breath = closeMoment({ at: 108, line: { frames: 72 }, before: [[40, 96]] });
+  assert.equal(breath.room, "breath");
+  assert.equal(breath.badge, 108);
+  assert.ok(breath.lineAt - breath.badge >= Math.round(BREATH * 30) && breath.lineAt - 96 >= need);
+  // the line before still being said at the close: the badge after its last word
+  const late = closeMoment({ at: 108, line: { frames: 72 }, before: [[40, 112]] });
+  assert.ok(late.badge >= 113 && late.lineAt - 112 >= need);
+  // a pause too late to keep the badge 1.5 s before the loop is not taken
+  assert.equal(closeMoment({ at: 108, line: { frames: 72, words }, before: [], hi: () => 120 }).room, "breath");
 });

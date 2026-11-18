@@ -6,9 +6,12 @@
 // colours, the bands and the words are each state's own.
 import React from "react";
 import { NASKH } from "../kit";
+import { IRAN_FLAG, flagAspect, takbirXs } from "./iran-flag";
 
 const W = 300;
 const H = 200;
+/** The width of a state's sheet when it is 200 high: 350 for Iran (4 : 7), 300 for the others (2 : 3). */
+const sheetWidth = (iso3: string) => Math.round(H * flagAspect(iso3));
 
 /** A five-pointed star round (cx, cy) with outer radius r, one point up (turned by `turn` degrees). */
 const star = (cx: number, cy: number, r: number, turn = 0) => {
@@ -21,37 +24,42 @@ const star = (cx: number, cy: number, r: number, turn = 0) => {
   return `M${pts.join("L")}Z`;
 };
 
-/** Iran's emblem, simplified: the four crescents and the upright sword in red. */
-const IranEmblem: React.FC<{ x: number; y: number; s: number }> = ({ x, y, s }) => (
-  <g transform={`translate(${x} ${y}) scale(${s})`} fill="#da0000">
-    <path d="M-2 -26 L2 -26 L2 22 L-2 22 Z" />
-    <path d="M-6 -30 L0 -36 L6 -30 Z" />
-    <path d="M-10 -20 Q-26 -2 -12 20 Q-20 0 -8 -16 Z" />
-    <path d="M10 -20 Q26 -2 12 20 Q20 0 8 -16 Z" />
-    <path d="M-16 -16 Q-36 4 -18 26 Q-30 4 -14 -12 Z" />
-    <path d="M16 -16 Q36 4 18 26 Q30 4 14 -12 Z" />
-  </g>
-);
+/**
+ * Iran's flag on its own 630 × 360 sheet (iran-flag.ts): the three bands, the
+ * 22 takbir in white along the edges of the green and the red, the emblem in
+ * red. Until 18 Nov this was a 3 : 2 sketch with plain white bars for the
+ * takbir and a made-up emblem; Ali: «پرچم ایران غلطه».
+ */
+const IranFlag: React.FC = () => {
+  const F = IRAN_FLAG;
+  const t = F.takbir;
+  return (
+    <g transform={`scale(${H / F.height})`}>
+      <rect width={F.width} height={F.height} fill={F.red} />
+      <rect width={F.width} height={(2 * F.height) / 3} fill={F.white} />
+      <rect width={F.width} height={F.height / 3} fill={F.green} />
+      <g transform={`translate(${t.origin[0]} ${t.origin[1]})`} fill="none" stroke={F.white} strokeWidth={t.stroke}>
+        {takbirXs().map((x) => (
+          <g key={x} transform={`translate(${x - t.origin[0]} 0)`}>
+            {t.wordsAt.map((y) => <path key={`w${y}`} d={t.words} transform={`translate(0 ${y}) scale(${t.wordsScale})`} />)}
+            {t.lineAt.map((y) => <path key={`l${y}`} d={t.line} transform={`translate(0 ${y}) scale(${t.lineScale})`} />)}
+          </g>
+        ))}
+      </g>
+      <g fill={F.red} transform={`translate(${F.emblem.centre[0]} ${F.emblem.centre[1]}) scale(${F.emblem.scale})`}>
+        {F.emblem.half.map((d, i) => <path key={`r${i}`} d={d} />)}
+        <g transform="scale(-1 1)">{F.emblem.half.map((d, i) => <path key={`l${i}`} d={d} />)}</g>
+      </g>
+    </g>
+  );
+};
 
 /** The flat art of a flag on its 300 × 200 sheet. */
 function Art({ iso3 }: { iso3: string }) {
   switch (iso3) {
     case "IRN":
-      return (
-        <>
-          <rect width={W} height={H / 3} fill="#239f40" />
-          <rect y={H / 3} width={W} height={H / 3} fill="#ffffff" />
-          <rect y={(2 * H) / 3} width={W} height={H / 3} fill="#da0000" />
-          {/* the bands of the takbir along the white, eleven a side, as small white marks */}
-          {Array.from({ length: 11 }, (_, i) => (
-            <g key={i} fill="#ffffff" opacity="0.9">
-              <rect x={10 + i * 26.4} y={H / 3 - 9} width={16} height={4} />
-              <rect x={10 + i * 26.4} y={(2 * H) / 3 + 5} width={16} height={4} />
-            </g>
-          ))}
-          <IranEmblem x={W / 2} y={H / 2} s={0.82} />
-        </>
-      );
+      // always today's flag; a historical one only by its own key on an explicitly historical episode (iran-flag.ts)
+      return <IranFlag />;
     case "SAU":
       return (
         <>
@@ -153,13 +161,17 @@ export const Flag: React.FC<{ iso3: string; width: number; height: number; frame
   const t = still ? 0 : frame / 9;
   // the sheet inside the piece: room for the pole and the wave
   const POLE = 18;
-  const sheetW = width - POLE - 10;
-  const sheetH = Math.min(height - 28, (sheetW * H) / W);
-  const sx = sheetW / W;
+  // the sheet keeps its state's own proportion (Iran 4 : 7, the others 2 : 3): when the box is too low for the width,
+  // the sheet gets narrower instead of being squashed (until 18 Nov a wide, low box stretched it: sx ≠ sy)
+  const AW = sheetWidth(iso3);
+  const room = width - POLE - 10;
+  const sheetH = Math.min(height - 28, (room * H) / AW);
+  const sheetW = (sheetH * AW) / H;
+  const sx = sheetW / AW;
   const sy = sheetH / H;
-  const x0 = pole === "left" ? POLE : 10;
+  const x0 = pole === "left" ? POLE : 10 + room - sheetW;
   const y0 = (height - sheetH) / 2 - 6;
-  const slice = W / SLICES;
+  const slice = AW / SLICES;
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
       <defs>

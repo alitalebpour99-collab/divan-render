@@ -262,3 +262,27 @@ test("the close of Reel 198: the narrator's ten-word line (3.6 s) cannot close i
   assert.match(close(3.6).detail, /5\.0 s/);
   for (const end of [1.2, 1.6, 2.0, 2.4]) assert.ok(close(end).ok, `${end} s: ${close(end).detail}`);
 });
+
+// Ali, 18 Nov: «پرچم ایران غلطه». Iran's flag is the one its law sets: 4 : 7, three equal bands, the red emblem, 22 takbir.
+test("Iran's flag: 4 : 7, its colours, 11 + 11 takbir, the emblem, no historical flag by default", async () => {
+  const { IRAN_FLAG, IRAN_ASPECT, HISTORICAL_FLAGS, flagAspect, takbirXs } = await import("../src/set/iran-flag.ts");
+  assert.equal(IRAN_FLAG.height / IRAN_FLAG.width, 4 / 7);
+  assert.equal(flagAspect("IRN"), IRAN_ASPECT);
+  assert.equal(flagAspect("SAU"), 1.5);
+  assert.deepEqual([IRAN_FLAG.green, IRAN_FLAG.white, IRAN_FLAG.red], ["#239f40", "#ffffff", "#da0000"]);
+  const xs = takbirXs();
+  // eleven along the green band's lower edge and eleven along the red band's upper edge, all on the sheet
+  assert.equal(xs.length * IRAN_FLAG.takbir.wordsAt.length, 22);
+  assert.ok(xs.every((x) => x > 0 && x + 37 * IRAN_FLAG.takbir.wordsScale < IRAN_FLAG.width));
+  const third = IRAN_FLAG.height / 3;
+  const [oy] = [IRAN_FLAG.takbir.origin[1]];
+  // the words sit in the green just above its edge, and in the red just below the white
+  assert.ok(oy + IRAN_FLAG.takbir.wordsAt[0] < third && oy + IRAN_FLAG.takbir.wordsAt[0] + 10 * IRAN_FLAG.takbir.wordsScale <= third + 1);
+  assert.ok(oy + IRAN_FLAG.takbir.wordsAt[1] >= 2 * third - 1 && oy + IRAN_FLAG.takbir.wordsAt[1] < 2 * third + 20);
+  assert.equal(IRAN_FLAG.emblem.half.length, 4);
+  assert.deepEqual([...IRAN_FLAG.emblem.centre], [IRAN_FLAG.width / 2, IRAN_FLAG.height / 2]);
+  assert.deepEqual(Object.keys(HISTORICAL_FLAGS), []);
+  // every flag the samples ask for is a current state's key, never a historical one
+  const keys = fs.readdirSync(new URL("../samples/", import.meta.url)).filter((f) => f.endsWith(".json")).flatMap((f) => [...fs.readFileSync(new URL(`../samples/${f}`, import.meta.url), "utf8").matchAll(/"iso3"\s*:\s*"([^"]+)"/g)].map((m) => m[1]));
+  assert.ok(keys.every((k) => /^[A-Z]{3}$/.test(k)), keys.join(","));
+});

@@ -66,7 +66,7 @@ export type DecisionProps = {
 
 const ORDER = ["start", "fact", "a", "b", "c", "ask"] as const;
 const MIN: Record<string, number> = { start: 105, fact: 110, a: 110, b: 110, c: 110, ask: 120 };
-const PAD = 12;
+const PAD = 6;
 const LOOP = 12;
 
 /** Each scene lasts as long as its line takes to be said, never less than its own minimum. */
@@ -225,7 +225,7 @@ const MapScene: React.FC<{ p: DecisionProps; dim: number }> = ({ p, dim }) => {
         </g>
         <rect x={MAP_BOX.x0} y={MAP_BOX.y0} width={MAP_BOX.x1 - MAP_BOX.x0} height={MAP_BOX.y1 - MAP_BOX.y0} rx={28} fill="none" stroke={C.line} strokeWidth={2} />
       </svg>
-      <div style={{ position: "absolute", top: MAP_BOX.y1 + 18, left: L, width: W, direction: "rtl", fontFamily: VAZIR, fontSize: 34, fontWeight: 500, color: C.mute }}>{p.map.source}</div>
+      <div style={{ position: "absolute", top: MAP_BOX.y1 + 18, left: L, width: W, direction: "rtl", fontFamily: VAZIR, fontSize: 34, fontWeight: 500, color: C.mute, opacity: Math.max(0, 1 - dim * 3) }}>{p.map.source}</div>
     </AbsoluteFill>
   );
 };
@@ -253,10 +253,10 @@ const Hud: React.FC<{ p: DecisionProps; active: number }> = ({ p, active }) => {
 const Hook: React.FC<{ p: DecisionProps; still?: boolean }> = ({ p, still }) => (
   <div style={{ position: "absolute", top: 330, left: L, width: W, direction: "rtl", textAlign: "right" }}>
     <div>
-      <Words text={p.hook.l1} at={0} size={74} still={still} stagger={2} />
+      <Words text={p.hook.l1} at={0} size={64} still={still} stagger={2} />
     </div>
     <div>
-      <Words text={p.hook.l2} at={8} size={86} color={C.amber} still={still} />
+      <Words text={p.hook.l2} at={8} size={92} color={C.amber} still={still} />
     </div>
   </div>
 );
@@ -270,7 +270,7 @@ const FactScene: React.FC<{ p: DecisionProps; len: number }> = ({ p, len }) => {
         {fact.cards.map((c, i) => {
           const k = rise(f, 4 + i * 22, 14);
           return (
-            <div key={i} style={{ background: C.panel, border: `2px solid ${C.line}`, borderRight: `10px solid ${C.amber}`, borderRadius: 26, padding: "28px 34px", transform: `translateX(${(1 - k) * -120}px)`, opacity: k, boxShadow: "0 30px 80px rgba(0,0,0,0.5)" }}>
+            <div key={i} style={{ background: C.panel, border: `2px solid ${C.line}`, borderRight: `10px solid ${C.amber}`, borderRadius: 26, padding: "28px 34px", transform: `translateX(${(1 - k) * -120}px) scale(${1 + 0.03 * (f / len)})`, opacity: k, boxShadow: "0 30px 80px rgba(0,0,0,0.5)" }}>
               <div style={{ fontFamily: VAZIR, fontWeight: 800, fontSize: 64, color: C.amber, lineHeight: 1.2 }}>{c.big}</div>
               <div style={{ fontFamily: VAZIR, fontWeight: 600, fontSize: 44, color: C.paper, lineHeight: 1.45, marginTop: 8 }}>{c.text}</div>
               <div style={{ fontFamily: VAZIR, fontWeight: 500, fontSize: 34, color: C.mute, marginTop: 14 }}>{`منبع: ${c.source}`}</div>
@@ -356,8 +356,8 @@ const Row: React.FC<{ icon: string; label: string; text: string; sub?: string; c
       {ICON[icon](color)}
     </svg>
     <div style={{ flex: 1 }}>
-      <div style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 34, color }}>{label}</div>
-      <div style={{ fontFamily: VAZIR, fontWeight: 600, fontSize: 40, color: C.paper, lineHeight: 1.4 }}>{text}</div>
+      <div style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 36, color }}>{label}</div>
+      <div style={{ fontFamily: VAZIR, fontWeight: 600, fontSize: 44, color: C.paper, lineHeight: 1.38 }}>{text}</div>
       {sub ? <div style={{ fontFamily: VAZIR, fontWeight: 500, fontSize: 34, color: C.mute, marginTop: 4 }}>{sub}</div> : null}
     </div>
   </div>
@@ -413,11 +413,11 @@ const OptionScene: React.FC<{ p: DecisionProps; i: number; len: number }> = ({ p
   const leave = interpolate(f, [len - 8, len], [0, 1], clamp);
   return (
     <AbsoluteFill>
-      <div style={{ position: "absolute", top: 380, left: L, width: W, direction: "rtl", transform: `translateX(${(1 - enter) * -260 + leave * 260}px)`, opacity: enter * (1 - leave), filter: `blur(${(1 - enter) * 10 + leave * 10}px)` }}>
+      <div style={{ position: "absolute", top: 380, left: L, width: W, direction: "rtl", transform: `translateX(${(1 - enter) * -260 + leave * 260}px) scale(${1 + 0.035 * (f / len)}) translateY(${Math.sin(f / 18) * 4}px)`, transformOrigin: "50% 40%", opacity: enter * (1 - leave), filter: `blur(${(1 - enter) * 10 + leave * 10}px)` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           <div style={{ width: 120, height: 120, borderRadius: 30, background: o.color, color: C.ink, fontFamily: VAZIR, fontWeight: 800, fontSize: 64, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 60px ${o.color}66` }}>{o.key}</div>
           <div style={{ flex: 1 }}>
-            <Words text={o.title} at={4} size={66} />
+            <Words text={o.title} at={4} size={70} />
           </div>
         </div>
         <div style={{ marginTop: 36, background: C.panel, border: `2px solid ${C.line}`, borderTop: `8px solid ${o.color}`, borderRadius: 28, padding: "26px 30px", display: "flex", flexDirection: "column", gap: 22, boxShadow: "0 40px 90px rgba(0,0,0,0.55)" }}>
@@ -493,8 +493,8 @@ export const Decision: React.FC<DecisionProps> = (p) => {
         <MapScene p={p} dim={p.fact.kind === "chart" && f >= fact.from && f < optStart ? 1.6 * dim : dim} />
       </AbsoluteFill>
       {/* the hook: the event in words, from frame 0 */}
-      <Sequence from={0} durationInFrames={fact.from + 8} layout="none">
-        <div style={{ opacity: interpolate(f, [fact.from, fact.from + 8], [1, 0], clamp) }}>
+      <Sequence from={0} durationInFrames={fact.from + 2} layout="none">
+        <div style={{ opacity: interpolate(f, [fact.from - 7, fact.from], [1, 0], clamp), transform: `translateY(${interpolate(f, [fact.from - 7, fact.from], [0, -40], clamp)}px)` }}>
           <Hook p={p} />
         </div>
       </Sequence>

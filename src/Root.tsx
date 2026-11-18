@@ -21,6 +21,8 @@ import decadeSample from "../samples/decade.json";
 import fiveSample from "../samples/five.json";
 import trueFalseSample from "../samples/truefalse.json";
 import versusSample from "../samples/set-versus-sau.json";
+import decisionSample from "../samples/decision-qeshm.json";
+import { Decision, decisionMeta, type DecisionProps } from "./decision/Decision";
 import { Arsenal, arsenalDuration, arsenalCues } from "./Arsenal";
 import { Borders, bordersLength } from "./Borders";
 import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
@@ -189,6 +191,8 @@ export const Root: React.FC = () => (
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />
     {/* the Story that follows a Reel onto the page */}
     <Composition id="story" component={Story} {...frame} durationInFrames={storyDuration()} defaultProps={as<StoryProps>(storySample)} />
+    {/* «تصمیم امروز», the v2 look (sample only, not a format of the page yet) */}
+    <Composition id="decision" component={Decision} {...frame} durationInFrames={900} defaultProps={as<DecisionProps>(decisionSample)} calculateMetadata={decisionMeta as never} />
     <Templates />
   </>
 );

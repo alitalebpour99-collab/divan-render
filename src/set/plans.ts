@@ -597,7 +597,8 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
     if (gain && cost && roads.length <= 2) return `پیامد: ${gain}؛ هزینه: ${cost}`;
     return gain ? `چرا: ${gain}` : "";
   });
-  const most = roads.length > 3 ? 1 : 3;
+  // two roads have room for four lines each: their gain and their cost, whole (18 Nov: three cut the cost off)
+  const most = roads.length > 3 ? 1 : roads.length <= 2 ? 4 : 3;
   // per road: the reason as said (whole, or cut at a clause) and the lines it takes, for a budget of n lines
   const subAt = (k: number, n: number): { text: string; lines: Line[]; overflow: boolean } | null => {
     if (!reasons[k]) return { text: "", lines: [], overflow: false };

@@ -15,7 +15,8 @@ function plan(p: DilemmaProps) {
   const hook = Math.min(120, Math.max(96, readFrames(p.question, 80)));
   const facts = Math.min(200, Math.max(150, 40 + p.facts.length * 38));
   const each = p.options.map((o) => Math.min(206, Math.max(170, Math.round(readFrames(`${o.line} ${o.gained} ${o.lost}`) * 0.55))));
-  const conclude = Math.min(190, Math.max(150, readFrames(p.why) + (p.advisors.length ? 40 : 0)));
+  // no conclusion when the draft has no verdict (since 18 Nov Divan does not pick a road)
+  const conclude = p.why ? Math.min(190, Math.max(150, readFrames(p.why) + (p.advisors.length ? 40 : 0))) : 0;
   const ask = 126;
   const lengths = [hook, facts, ...each, conclude, ask];
   return { lengths, at: starts(lengths), total: lengths.reduce((a, b) => a + b, 0) };
@@ -146,13 +147,13 @@ export const Dilemma: React.FC<DilemmaProps> = (p) => {
               </div>
             </div>
             {/* what this road does to the three goals */}
-            <GoalCard goals={o.goals} from={from + 34} style={{ position: "absolute", bottom: SAFE_BOTTOM + 14, right: SIDE_RAIL - 12, left: 34, opacity: fade(frame, from + 24, 14) }} />
+            {o.goals.length ? <GoalCard goals={o.goals} from={from + 34} style={{ position: "absolute", bottom: SAFE_BOTTOM + 14, right: SIDE_RAIL - 12, left: 34, opacity: fade(frame, from + 24, 14) }} /> : null}
           </div>
         );
       })}
 
       {/* 4 · Divan's conclusion */}
-      {frame >= T_CONCLUDE - 2 && frame < T_ASK + 12 ? (
+      {p.why && frame >= T_CONCLUDE - 2 && frame < T_ASK + 12 ? (
         <div style={{ ...body, top: 232, opacity: during(frame, T_CONCLUDE, T_ASK, 12) }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontFamily: VAZIR, fontWeight: 700, fontSize: 40, color: C.acc }}>جمع‌بندی دیوان</span>

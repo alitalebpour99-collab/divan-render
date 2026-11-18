@@ -522,7 +522,7 @@ function faDateShort(iso: string): string {
 }
 
 // ---------- «دوراهی امروز» ----------
-type DilemmaIn = { question: string; facts: { k: string; v: string; s: string }[]; options: { title: string; line: string; gained?: string }[]; pick: number; why: string; advisors: { name: string; stance: "for" | "cond" | "against" }[]; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
+type DilemmaIn = { question: string; facts: { k: string; v: string; s: string }[]; options: { title: string; line: string; gained?: string; lost?: string }[]; pick: number; why: string; advisors: { name: string; stance: "for" | "cond" | "against" }[]; foot: string; hook: { text: string; figure: string | null; short?: string | null } | null; ask?: string; src?: string };
 const ADVISER_EMBLEM: [RegExp, string][] = [
   [/اقتصاد/, "treasury"],
   [/دیپلماسی/, "chancery"],
@@ -590,11 +590,15 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   const SUB_W = W_ROAD - 2 * 26;
   const subOpts = (maxLines: number): TextOpts => ({ weight: 500, maxLines, min: MIN_TEXT, color: "ink2" });
   const titles = roads.map((o) => b.text(plainFa(o.title), W_ROAD - 2 * 26 - MEDAL - 22, 60, { family: "naskh", maxLines: roads.length > 3 ? 1 : 2, min: MIN_TEXT, color: "ink" }));
+  // since 18 Nov a road of a two-road dilemma says what it likely brings and what it costs (no verdict); three-road drafts keep the old «چرا»
   const reasons = roads.map((o) => {
-    const r = plainFa(o.gained || o.line || "");
-    return r ? `چرا: ${r}` : "";
+    const gain = plainFa((o.gained || o.line || "").replace(/[.]$/, ""));
+    const cost = plainFa((o.lost || "").replace(/[.]$/, ""));
+    if (gain && cost && roads.length <= 2) return `پیامد: ${gain}؛ هزینه: ${cost}`;
+    return gain ? `چرا: ${gain}` : "";
   });
-  const most = roads.length > 3 ? 1 : 3;
+  // two roads have room for four lines each: their gain and their cost, whole (18 Nov: three cut the cost off)
+  const most = roads.length > 3 ? 1 : roads.length <= 2 ? 4 : 3;
   // per road: the reason as said (whole, or cut at a clause) and the lines it takes, for a budget of n lines
   const subAt = (k: number, n: number): { text: string; lines: Line[]; overflow: boolean } | null => {
     if (!reasons[k]) return { text: "", lines: [], overflow: false };
@@ -648,7 +652,8 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   b.hudLine("ai-roads", "ai", "تحلیل هوش مصنوعی، نه خبر", [[a2 + 6, a2 + roadsLen]], "top", "claim", 48);
   b.t += roadsLen;
 
-  // the road Divan would take, and why
+  // the road Divan would take, and why: only an older draft has one (since 18 Nov Divan does not pick; «why» is empty)
+  if (plainFa(p.why ?? "").trim()) {
   const s3 = ST(3);
   const pick = Math.max(0, Math.min(roads.length - 1, p.pick));
   b.cue(b.t - 22, "rise", "before the pick");
@@ -662,6 +667,7 @@ function planDilemma(p: DilemmaIn, ctx: Ctx): Plan {
   b.punch(a3 + Math.round(2.0 * FPS), 0.02, "a beat while the reason is read");
   b.hudLine("ai-pick", "ai", "تحلیل هوش مصنوعی، نه خبر", [[a3, b.t + pickLen]], "top", "claim", 48);
   b.t += pickLen;
+  }
 
   // the five advisers, when the dossier has them: emblems, never faces
   if (p.advisors.length) {

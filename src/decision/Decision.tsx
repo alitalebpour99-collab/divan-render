@@ -8,7 +8,7 @@ import React from "react";
 import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { VAZIR } from "../kit";
 import { makeMap } from "../geo";
-import { CARD_IN, CARD_OUT, FACT_AT, LOOP, PEN, ROW_AT, ROW_IN, checksOf, scenesOf } from "./timeline";
+import { CARD_IN, CARD_OUT, FACT_AT, LOOP, PEN, ROW_AT, ROW_IN, chartX, checksOf, scenesOf } from "./timeline";
 import type { Card, ChartSpec, DecisionCoverProps, DecisionProps, MapSpec, Row, WireSpec } from "./types";
 
 // the room: deep navy, never near-black (the gate counts near-black pixels), brass-amber for Divan's own marks
@@ -211,8 +211,9 @@ const WireStage: React.FC<{ wire: WireSpec; zoom: number; dim: number }> = ({ wi
 };
 
 /**
- * A line of the last days. The pen draws it from the oldest point (right: time runs right to left, as Persian is
- * read) to today's; the counter reads the value under the pen, so it ends exactly on today's figure as the pen does.
+ * A line of the last days. Time runs left to right whatever the page's direction (chartX): the pen draws from the
+ * oldest point on the left to today's on the right, where the red mark stands; the counter reads the value under
+ * the pen, so it ends exactly on today's figure as the pen does.
  */
 const Chart: React.FC<{ chart: ChartSpec; len: number; top: number; local: number; start?: number }> = ({ chart, len, top, local, start = 0 }) => {
   const f = local;
@@ -223,14 +224,14 @@ const Chart: React.FC<{ chart: ChartSpec; len: number; top: number; local: numbe
   const lo = lo0 - pad;
   const hi = hi0 + pad;
   const box = { x0: L + 30, x1: R - 30, y0: top + 260, y1: top + 600 };
-  const X = (i: number) => box.x1 - (i / (pts.length - 1)) * (box.x1 - box.x0);
+  const X = (i: number) => chartX(i, pts.length, box.x0, box.x1);
   const Y = (v: number) => box.y1 - ((v - lo) / (hi - lo)) * (box.y1 - box.y0);
   const k = start + (1 - start) * interpolate(f, [len * PEN[0], len * PEN[1]], [0, 1], { ...clamp, easing: Easing.inOut(Easing.cubic) });
   const head = k * (pts.length - 1);
   const i0 = Math.floor(head);
   const t = head - i0;
   const under = i0 >= pts.length - 1 ? pts[pts.length - 1] : pts[i0] + (pts[i0 + 1] - pts[i0]) * t;
-  const headX = box.x1 - k * (box.x1 - box.x0);
+  const headX = box.x0 + k * (box.x1 - box.x0);
   const line = pts.map((v, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(" ");
   const area = `${line} L${X(pts.length - 1).toFixed(1)} ${box.y1} L${X(0).toFixed(1)} ${box.y1} Z`;
   const digits = chart.digits ?? 2;
@@ -249,7 +250,7 @@ const Chart: React.FC<{ chart: ChartSpec; len: number; top: number; local: numbe
       <svg width={1080} height={1920} style={{ position: "absolute", inset: 0 }}>
         <defs>
           <clipPath id="pen">
-            <rect x={headX} y={box.y0 - 40} width={box.x1 - headX + 40} height={box.y1 - box.y0 + 80} />
+            <rect x={box.x0 - 40} y={box.y0 - 40} width={headX - box.x0 + 40} height={box.y1 - box.y0 + 80} />
           </clipPath>
           <linearGradient id="under" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor={C.amber} stopOpacity={0.35} />
@@ -274,10 +275,11 @@ const Chart: React.FC<{ chart: ChartSpec; len: number; top: number; local: numbe
             <circle cx={X(pts.length - 1)} cy={Y(pts[pts.length - 1])} r={16 + pulse * 30} fill="none" stroke={C.hit} strokeWidth={3} opacity={1 - pulse} />
           </g>
         ) : null}
-        <text x={box.x1} y={box.y1 + 58} textAnchor="end" fill={C.mute} fontFamily={VAZIR} fontSize={34} fontWeight={600}>
+        {/* the oldest date under the left end, today's under the right */}
+        <text x={box.x0} y={box.y1 + 58} textAnchor="start" fill={C.mute} fontFamily={VAZIR} fontSize={34} fontWeight={600}>
           {chart.first}
         </text>
-        <text x={box.x0} y={box.y1 + 58} textAnchor="start" fill={C.mute} fontFamily={VAZIR} fontSize={34} fontWeight={600}>
+        <text x={box.x1} y={box.y1 + 58} textAnchor="end" fill={C.paper} fontFamily={VAZIR} fontSize={34} fontWeight={700}>
           {chart.last}
         </text>
       </svg>

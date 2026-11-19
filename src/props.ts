@@ -1,3 +1,4 @@
+import type { DecisionProps } from "./decision/types";
 import type { Hold, VoiceIn, VoiceOut } from "./voice";
 // What the site hands the renderer for one Reel. Types only: the site builds
 // these objects from its own data (lib/social/formats.ts) and every composition
@@ -550,7 +551,7 @@ export type TrueFalseProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | VersusProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps | T1Props | T2Props | T5Props | T6Props;
+export type ReelProps = DecisionProps | DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | VersusProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps | T1Props | T2Props | T5Props | T6Props;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

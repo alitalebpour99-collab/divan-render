@@ -28,7 +28,7 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { makeCancelSignal, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
-import { GateRefusal, enforce, planChecks, verdict } from "./gate.mjs";
+import { GateRefusal, enforce, enforceDecision, planChecks, verdict } from "./gate.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 import { score } from "./music.mjs";
 
@@ -258,7 +258,13 @@ async function render(job) {
       }
     }
     if (plan) step(`set style: ${plan.shots.length} shots, ${plan.sfx.length} effects`);
-    fs.writeFileSync(path.join(serve, "public", music), await scoreOf(job, seconds, duckOf(first), Boolean(plan)));
+    // a decision Reel's own checks, made with its timeline: one that cannot pass is not drawn
+    const qc = first.props.qc;
+    if (Array.isArray(qc) && (process.env.DIVAN_GATE || "on") === "on" && qc.some((c) => !c.ok)) {
+      for (const c of qc.filter((x) => !x.ok)) console.log(`gate FAIL ${c.id}: ${c.detail}`);
+      throw new GateRefusal(verdict({ checks: qc }));
+    }
+    fs.writeFileSync(path.join(serve, "public", music), await scoreOf(job, seconds, duckOf(first), Boolean(plan) || first.props.drone === true));
     const inputProps = { ...job.props, ...sw, voiceIn, music };
     const composition = await selectComposition({ serveUrl: serve, id: job.format, inputProps, chromiumOptions, timeoutInMilliseconds });
     step(`${composition.durationInFrames} frames, ${(composition.props.voice ?? []).length} lines of the narrator`);
@@ -273,6 +279,10 @@ async function render(job) {
     await renderMedia({ composition, serveUrl: serve, codec: "h264", crf: 20, pixelFormat: "yuv420p", audioCodec: "aac", audioBitrate: "160k", inputProps, outputLocation: video, concurrency: CONCURRENCY, chromiumOptions, cancelSignal, timeoutInMilliseconds, onProgress });
     console.log(`Reel ${job.id}: ${finish(video, seconds)}`);
     // the set style's gate on the finished file: a Reel that fails is not handed back, the owner reads why in plain Persian
+    if (Array.isArray(composition.props.qc)) {
+      const result = enforceDecision({ qc: composition.props.qc, file: video });
+      step(result?.ok ? "gate passed" : "gate reported");
+    }
     if (composition.props.plan) {
       const result = enforce({ plan: composition.props.plan, file: video, cover: String(job.cover?.big ?? "") });
       step(result?.ok ? "gate passed" : "gate reported");

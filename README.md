@@ -98,6 +98,32 @@ own repository (`--check` only compares).
 The type is Vazirmatn and Noto Naskh Arabic (SIL Open Font License), loaded
 from Google Fonts at render time.
 
+## «تصمیم امروز»: the decision room (19 November 2026)
+
+The owner's word on the first samples: «خوب و قشنگ بود»; the voice must be the ElevenLabs narrator, the
+animation checked frame by frame, and a gate. One composition, `decision` (`src/decision/`), draws «تصمیم
+امروز» and the formats made from the same day's analysis (props.variant: `today`, `advisor`, `scenarios`,
+`number`, `council`, `week`); the site's writer is `lib/agents/decision.ts`.
+
+- The stage holds the event from frame 0: a live map (targets that pulse, burning tankers, a transfer at sea,
+  paths whose dashes flow), the chart of the last days (`number`), or the news wire with its headline typed in.
+- Then what weighs on the decision (one or two fact cards, or a chart in the fact scene), two or three cards
+  (roads, scenarios, advisors with a seal and «هوش مصنوعی», last week's decisions), Divan's estimate on a gauge
+  when there is one, and a poll-style close with the badge; the last 14 frames bring the first picture back.
+- The chart is drawn by a pen that runs from the oldest point to today's (a clip, not a dashed stroke: the
+  dashes of the first sample showed the line's far end before its start); the counter reads the value under
+  the pen, so it lands on today's figure with it.
+- The room is deep navy, never near-black (the gate counts near-black pixels), with a slow breath of the camera
+  over the whole Reel that ends where it began.
+- `src/decision/timeline.ts`: the scenes follow the narrator's lines (each as long as its line, never less than its
+  minimum), and the checks made before anything is drawn (`props.qc`): 15 to 35 s, a hook of at most 7 words,
+  the event on the stage, at most three big texts, the narrator from frame 0, every card's text inside its room,
+  every piece of evidence with its source, no «·» or «|» beside Persian, the AI advisors labelled, every card's
+  rows in before it leaves, the chart's pen done with time to read. `gate.mjs` `enforceDecision` adds the file
+  checks (a frozen stretch, the loop, the loudness, the darkness); the worker hands back nothing that fails.
+- Music: the dark drone of the set style (`props.drone`). Sample: `samples/decision-oil.json` with its ElevenLabs
+  take `decision-oil.voice.json` and tile `decision-oil.cover.json` (Samples workflow: `decision:decision-oil`).
+
 ## The set style
 
 The owner approved the new video style on 13 November 2026 (lit sets, a

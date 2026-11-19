@@ -21,6 +21,9 @@ import decadeSample from "../samples/decade.json";
 import fiveSample from "../samples/five.json";
 import trueFalseSample from "../samples/truefalse.json";
 import versusSample from "../samples/set-versus-sau.json";
+import decisionSample from "../samples/decision-oil.json";
+import { Decision, DecisionCover, decisionMeta } from "./decision/Decision";
+import type { DecisionCoverProps, DecisionProps } from "./decision/types";
 import { Arsenal, arsenalDuration, arsenalCues } from "./Arsenal";
 import { Borders, bordersLength } from "./Borders";
 import { CARD_H, CARD_W, Cards, cardsLength } from "./Cards";
@@ -154,7 +157,7 @@ const versusMeta = async ({ props }: { props: VersusProps & Switches }) => {
 };
 const SetVersus: React.FC<VersusProps & Switches & { music?: string }> = (p) => (p.plan ? <Table plan={p.plan} music={p.music} /> : null);
 /** The tile: a set format's tile is one object and its three or four big words, measured to fit. */
-const CoverAny: React.FC<CoverProps & { fitted?: import("./set/space.ts").Line[]; style?: string }> = (c) => (c.fitted ? <CoverSet format={c.format} fitted={c.fitted} pair={c.pair} mark={c.mark} title={c.title} object={c.object} /> : <Cover {...c} />);
+const CoverAny: React.FC<CoverProps & { fitted?: import("./set/space.ts").Line[]; style?: string }> = (c) => ((c.format as string) === "decision" ? <DecisionCover {...(c as unknown as DecisionCoverProps)} /> : c.fitted ? <CoverSet format={c.format} fitted={c.fitted} pair={c.pair} mark={c.mark} title={c.title} object={c.object} /> : <Cover {...c} />);
 const coverMeta = async ({ props }: { props: CoverProps & { style?: string } }) => {
   // «ایران در برابر …» has only the set style's tile
   if (!isSetFormat(props.format) || (props.style === "classic" && props.format !== "versus") || !props.big) return { props };
@@ -189,6 +192,8 @@ export const Root: React.FC = () => (
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />
     {/* the Story that follows a Reel onto the page */}
     <Composition id="story" component={Story} {...frame} durationInFrames={storyDuration()} defaultProps={as<StoryProps>(storySample)} />
+    {/* «تصمیم امروز» and the formats of the same day's analysis (owner, 19 Nov 2026) */}
+    <Composition id="decision" component={Decision} {...frame} durationInFrames={900} defaultProps={as<DecisionProps>(decisionSample)} calculateMetadata={decisionMeta as never} />
     <Templates />
   </>
 );

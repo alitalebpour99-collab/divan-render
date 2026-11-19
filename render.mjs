@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
-import { enforce } from "./gate.mjs";
+import { enforce, enforceDecision } from "./gate.mjs";
 import { score } from "./music.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 
@@ -50,7 +50,7 @@ if (stills) {
   const first = await selectComposition({ serveUrl, id, inputProps: { ...props, voiceIn }, timeoutInMilliseconds });
   const seconds = first.durationInFrames / first.fps;
   const music = `music-${name}.wav`;
-  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) }));
+  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) || first.props.drone === true }));
   if (first.props.plan) console.log("set style:", first.props.plan.shots.length, "shots,", first.props.plan.sfx.length, "effects,", first.props.plan.pieces.length, "pieces");
   for (const v of first.props.voice ?? []) console.log("voice", v.file, "at", (v.from / first.fps).toFixed(2), "s for", (v.frames / first.fps).toFixed(2), "s");
   if (first.props.holds?.length) console.log("holds", JSON.stringify(first.props.holds));
@@ -70,6 +70,15 @@ if (stills) {
   dropVoice(path.join(serveUrl, "public"), name);
   console.log(finish(outputLocation, seconds));
   // the gate of the set style: the plan the film was drawn from, the file, the tile's words (a sample reports and goes on with DIVAN_GATE=warn)
+  if (Array.isArray(composition.props.qc)) {
+    let result = null;
+    try {
+      result = enforceDecision({ qc: composition.props.qc, file: outputLocation });
+    } finally {
+      if (result) fs.writeFileSync(`out/${name}.gate.json`, JSON.stringify({ ok: result.ok, seconds, checks: result.checks }, null, 1));
+    }
+    console.log(result?.ok ? "gate: every check passed" : "gate: failed (see above)");
+  }
   const plan = composition.props.plan;
   if (plan) {
     let result = null;

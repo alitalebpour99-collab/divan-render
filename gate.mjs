@@ -391,3 +391,16 @@ export function enforce({ plan, file, cover, mode = process.env.DIVAN_GATE || "o
   if (!result.ok && mode !== "warn") throw new GateRefusal(verdict(result));
   return result;
 }
+
+/**
+ * The gate of a decision Reel (src/decision): the checks its timeline made before anything was drawn (props.qc),
+ * and the same file checks as the set style's (a frozen stretch, the loop, the loudness, the darkness).
+ */
+export function enforceDecision({ qc, file, mode = process.env.DIVAN_GATE || "on", log = console.log }) {
+  if (mode === "off" || !Array.isArray(qc)) return null;
+  const checks = [...qc, ...(file ? fileChecks(file) : [])];
+  const result = { ok: checks.every((c) => c.ok), checks };
+  for (const c of checks) log(`gate ${c.ok ? "pass" : "FAIL"} ${c.id}: ${c.detail}`);
+  if (!result.ok && mode !== "warn") throw new GateRefusal(verdict(result));
+  return result;
+}

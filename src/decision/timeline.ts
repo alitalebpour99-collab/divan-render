@@ -42,6 +42,12 @@ export const CARD_OUT = 8;
 /** the chart's pen: from its start to its end, as shares of the scene */
 export const PEN = [0.05, 0.62] as const;
 export const FACT_AT = (i: number) => 4 + i * 20;
+/**
+ * Where point i of n stands on a chart from x0 to x1. Time runs left to right, the oldest on the left and today on
+ * the right, even on an RTL page (owner, 19 Nov 2026, on the first oil chart drawn right to left: «نفت راست چین
+ * شده و برعکس میره»: a fall read as a rise). The chart, its pen and its dates all take their places from this.
+ */
+export const chartX = (i: number, n: number, x0: number, x1: number) => x0 + (n > 1 ? i / (n - 1) : 1) * (x1 - x0);
 
 const DOT = /[؀-ۿ]\s*[·|]|[·|]\s*[؀-ۿ]/;
 const NUMERAL = /^[0-9۰-۹٫٬.,/]+$/;
@@ -111,6 +117,8 @@ export function checksOf(p: DecisionProps, scenes: Scene[], voice: { from: numbe
     const pts = chart.points;
     const fine = pts.length >= 3 && pts.every((v) => Number.isFinite(v)) && Math.max(...pts) > Math.min(...pts);
     const s0 = scenes.find((s) => s.cue === (st.kind === "chart" ? "start" : "fact")) ?? scenes[0];
+    // today is drawn at the larger x: time runs left to right
+    add("chart-ltr", chartX(pts.length - 1, pts.length, 94, 854) > chartX(0, pts.length, 94, 854), "the last point stands right of the first", "نمودار زمان را برعکس نشان می‌دهد");
     add("chart", fine && s0.len * (1 - PEN[1]) >= 24, `${pts.length} points, the pen ends ${Math.round(s0.len * (1 - PEN[1]))} frames before the scene does`, "نمودار درست کشیده نمی‌شود");
   }
   return out;

@@ -49,6 +49,8 @@ const MOODS = {
   t2: { root: 44, bpm: 62 },
   t5: { root: 50, bpm: 72 },
   t6: { root: 43, bpm: 92, pulse: true },
+  // «یک دور»: the dollar's key, the drone's heartbeat a beat a second (a turn of 10 s is ten beats)
+  loop: { root: 44, bpm: 60 },
 };
 // i  VI  III  VII, as open voicings above the key note: root, fifth, tenth
 const CHORDS = [
@@ -203,7 +205,7 @@ export const DUCK = { classic: 0.68, deep: 0.86 };
  * on top. No melody, no beat to dance to, nothing that is not made in this file.
  * It does not fade out at the end: the Reel loops, so it comes back on itself.
  */
-export function drone({ id, seconds, duck = [] }) {
+export function drone({ id, seconds, duck = [], raw = false }) {
   const { root } = MOODS[id] ?? MOODS.dilemma;
   const f = hz(root - 12);
   const total = Math.ceil(seconds * RATE);
@@ -245,6 +247,8 @@ export function drone({ id, seconds, duck = [] }) {
       }
     }
   }
+  // raw: the bare drone with no fade at either end, for loopBed to fold into a seamless turn
+  if (raw) return { L, R };
   let peak = 0;
   for (let n = 0; n < total; n += 1) {
     const t = n / RATE;
@@ -257,11 +261,121 @@ export function drone({ id, seconds, duck = [] }) {
   return wav(L, R, peak ? 0.6 / peak : 1);
 }
 
+/** The tail of a seamless loop's bed laid over its head (s): the wrap point then has no click and no step in level. */
+export const SEAM_CROSS = 0.4;
+/** Where a library track is entered for a loop (s): past any intro, inside the steady body of the minute. */
+const LOOP_ENTRY = 4;
+
 /**
- * A Reel's score. `set`: the set style's bed: the drone above, or (with
+ * Folds a bed of `total + cross` samples into a seamless turn of `total`: the last `cross` samples are laid
+ * over the first with an equal-power crossfade (the head comes in as the tail goes out), so the turn's last
+ * sample runs straight into the sample that followed it in the bed, which is now the turn's first. Pure.
+ */
+export function seamless(L, R, total, cross) {
+  if (L.length < total + cross || R.length < total + cross) throw new Error("the bed is shorter than a turn and its crossfade");
+  const oL = new Float32Array(total);
+  const oR = new Float32Array(total);
+  for (let n = 0; n < total; n += 1) {
+    if (n < cross) {
+      const u = n / cross;
+      const a = Math.sin((Math.PI / 2) * u);
+      const b = Math.cos((Math.PI / 2) * u);
+      oL[n] = a * L[n] + b * L[total + n];
+      oR[n] = a * R[n] + b * R[total + n];
+    } else {
+      oL[n] = L[n];
+      oR[n] = R[n];
+    }
+  }
+  return { L: oL, R: oR };
+}
+
+/** How far the entry into a bed may be moved to find a calm wrap point (s), and the window the seam check compares (s). */
+const ENTRY_SEARCH = 2;
+const SEAM_WINDOW = 0.05;
+
+/**
+ * Where to enter a bed so that the turn's wrap point falls in a calm place: the 50 ms before the wrap (the turn's
+ * last) and the 50 ms after it (which become, under the crossfade, the turn's first) as alike in level as the bed
+ * allows, and neither of them on a beat. Searched in 5 ms steps from `from` over ENTRY_SEARCH. Pure.
+ */
+export function calmEntry(L, R, from, total, rate = RATE) {
+  const w = Math.round(SEAM_WINDOW * rate);
+  const cross = Math.round(SEAM_CROSS * rate);
+  const step = Math.round(0.005 * rate);
+  const db = (x, n) => 10 * Math.log10(x / (2 * Math.max(1, n)) + 1e-12);
+  let best = from;
+  let score = Infinity;
+  for (let e = from; e <= from + Math.round(ENTRY_SEARCH * rate) && e + total + cross < L.length; e += step) {
+    // the turn's last 50 ms, and its first 50 ms as seamless() will make them
+    let x = 0;
+    for (let i = e + total - w; i < e + total; i += 1) x += L[i] * L[i] + R[i] * R[i];
+    let y = 0;
+    for (let n = 0; n < w; n += 1) {
+      const u = n / cross;
+      const a = Math.sin((Math.PI / 2) * u);
+      const b = Math.cos((Math.PI / 2) * u);
+      const l = a * L[e + n] + b * L[e + total + n];
+      const q = a * R[e + n] + b * R[e + total + n];
+      y += l * l + q * q;
+    }
+    const before = db(x, w);
+    const after = db(y, w);
+    // alike on both sides first; of two alike, the quieter (off the beat)
+    const v = Math.abs(before - after) + 0.02 * Math.max(before, after);
+    if (v < score) {
+      score = v;
+      best = e;
+    }
+  }
+  return best;
+}
+
+/**
+ * The bed of «یک دور» (the seamless loop, Loop.tsx): the Reel's library track (the site's own music, entered a
+ * few seconds in), or the synthesized drone without it, folded into one seamless turn of `seconds` (seamless,
+ * SEAM_CROSS). No fade at either end and no ducking: the loop has no narrator, and the seam must carry only
+ * the bed. The level is the library's (TRACK_RMS), or the drone's own.
+ */
+export function loopBed({ id, seconds, track }) {
+  const total = Math.round(seconds * RATE);
+  const cross = Math.round(SEAM_CROSS * RATE);
+  let L;
+  let R;
+  if (track) {
+    const pcm = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", track, "-ac", "2", "-ar", String(RATE), "-f", "f32le", "-"], { maxBuffer: 1 << 30 });
+    const all = new Float32Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 4));
+    const frames = Math.floor(all.length / 2);
+    L = new Float32Array(frames);
+    R = new Float32Array(frames);
+    for (let n = 0; n < frames; n += 1) {
+      L[n] = all[n * 2];
+      R[n] = all[n * 2 + 1];
+    }
+  } else {
+    ({ L, R } = drone({ id, seconds: LOOP_ENTRY + ENTRY_SEARCH + seconds + SEAM_CROSS + 0.2, raw: true }));
+  }
+  const min = L.length >= Math.round((LOOP_ENTRY + ENTRY_SEARCH + seconds + SEAM_CROSS + 0.1) * RATE) ? Math.round(LOOP_ENTRY * RATE) : 0;
+  if (L.length - min < total + cross) throw new Error("the bed is too short for a turn");
+  const entry = calmEntry(L, R, min, total);
+  const out = seamless(L.subarray(entry), R.subarray(entry), total, cross);
+  let sum = 0;
+  let peak = 0;
+  for (let n = 0; n < total; n += 1) {
+    sum += out.L[n] * out.L[n] + out.R[n] * out.R[n];
+    peak = Math.max(peak, Math.abs(out.L[n]), Math.abs(out.R[n]));
+  }
+  const rms = 10 * Math.log10(sum / (2 * total) + 1e-12);
+  const gain = track ? Math.min(10 ** ((TRACK_RMS - rms) / 20), peak ? 0.9 / peak : 1) : peak ? 0.6 / peak : 1;
+  return wav(out.L, out.R, gain);
+}
+
+/**
+ * A Reel's score. `loop`: the seamless loop's bed (loopBed). `set`: the set style's bed: the drone above, or (with
  * DIVAN_SET_MUSIC=library) the site's library track, ducked deeper.
  */
-export function score({ id, seconds, duck = [], track, set = false }) {
+export function score({ id, seconds, duck = [], track, set = false, loop = false }) {
+  if (loop) return loopBed({ id, seconds, track });
   if (set && (!track || process.env.DIVAN_SET_MUSIC !== "library")) return drone({ id, seconds, duck });
   if (track) return fromTrack(track, seconds, duck, set);
   const { root, bpm, pulse } = MOODS[id] ?? MOODS.dilemma;

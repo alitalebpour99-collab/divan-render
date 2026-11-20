@@ -93,7 +93,7 @@ export const Compass: React.FC<{ size: number; color?: string; spin?: number; op
 );
 
 /** The baize, its grid, its contour lines, its brass rules and compass roses: drawn once, moved by the camera. */
-const Cloth: React.FC<{ frame: number }> = ({ frame }) => {
+export const Cloth: React.FC<{ frame: number }> = ({ frame }) => {
   const lines = useMemo(contours, []);
   const R = 4200;
   return (

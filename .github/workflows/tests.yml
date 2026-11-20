@@ -1,6 +1,6 @@
 name: Tests
 
-# The set style's plans and the gate's own checks (tests/), without a browser
+# The set style's plans, the gate's and the loop seam's own checks (tests/), without a browser
 # and without ffmpeg: a few seconds on every push and pull request.
 
 on:
@@ -22,4 +22,5 @@ jobs:
         with:
           node-version: 24
       # the plans are TypeScript, read by Node with its own type stripping; no package is needed
-      - run: node --test tests/set.test.mjs
+      # and the seam check of «یک دور» (seam.mjs) with small made-up signals
+      - run: node --test tests/set.test.mjs tests/seam.test.mjs

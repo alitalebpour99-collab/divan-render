@@ -22,6 +22,7 @@ import fiveSample from "../samples/five.json";
 import trueFalseSample from "../samples/truefalse.json";
 import versusSample from "../samples/set-versus-sau.json";
 import decisionSample from "../samples/decision-oil.json";
+import loopSample from "../samples/loop-dollar.json";
 import { Decision, DecisionCover, decisionMeta } from "./decision/Decision";
 import type { DecisionCoverProps, DecisionProps } from "./decision/types";
 import { Arsenal, arsenalDuration, arsenalCues } from "./Arsenal";
@@ -50,8 +51,9 @@ import { Race, raceDuration, raceCues } from "./Race";
 import { Decade, decadeDuration, decadeCues } from "./Decade";
 import { Five, fiveCues, fiveDuration, fiveLook } from "./Five";
 import { TrueFalse, trueFalseDuration, trueFalseCues } from "./TrueFalse";
+import { Loop, loopDuration } from "./Loop";
 import type { Base, DecadeProps, PowerProps, QuizProps, RaceProps, ThenNowProps, FiveProps, TrueFalseProps } from "./props";
-import type { VersusProps } from "./props";
+import type { LoopProps, VersusProps } from "./props";
 import type { ArsenalProps, BordersProps, CardsProps, CoverProps, DilemmaProps, DollarProps, FigureProps, NuclearProps, PrecedentProps, RegionProps, SeatProps, StoryProps, TalksProps, WarProps } from "./props";
 // the content system's templates (T1, T2, T5, T6): in the studio and for the renderer, not planned by the site yet
 import { Templates } from "./Templates";
@@ -187,6 +189,8 @@ export const Root: React.FC = () => (
     <Composition id="decade" component={H.decade} {...frame} durationInFrames={decadeDuration(plain<DecadeProps>(decadeSample))} defaultProps={plain<DecadeProps>(decadeSample)} calculateMetadata={timed<DecadeProps>(decadeDuration, decadeCues)} />
     <Composition id="five" component={H.five} {...frame} durationInFrames={fiveDuration(as<FiveProps>(fiveSample))} defaultProps={plain<FiveProps>(fiveSample)} calculateMetadata={timed<FiveProps>(fiveDuration, fiveCues)} />
     <Composition id="truefalse" component={H.truefalse} {...frame} durationInFrames={trueFalseDuration(plain<TrueFalseProps>(trueFalseSample))} defaultProps={plain<TrueFalseProps>(trueFalseSample)} calculateMetadata={timed(trueFalseDuration, trueFalseCues)} />
+    {/* «یک دور» (20 Nov 2026): a seamless loop, music only, its last frame flowing into its first (Loop.tsx, loop-time.ts) */}
+    <Composition id="loop" component={Loop} {...frame} durationInFrames={300} defaultProps={plain<LoopProps>(loopSample)} calculateMetadata={({ props }: { props: LoopProps }) => ({ durationInFrames: loopDuration(props) })} />
     <Composition id="cover" component={CoverAny} {...frame} durationInFrames={1} defaultProps={as<CoverProps>(coverSample)} calculateMetadata={coverMeta as never} />
     {/* a post of several pictures: one card per frame, each saved as a still (1080 by 1350, Instagram's 4:5) */}
     <Composition id="cards" component={Cards} width={CARD_W} height={CARD_H} fps={30} durationInFrames={4} defaultProps={plain<CardsProps>(cardsSample)} calculateMetadata={({ props }) => ({ durationInFrames: cardsLength(props) })} />

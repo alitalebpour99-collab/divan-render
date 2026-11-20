@@ -287,6 +287,31 @@ export type DollarProps = Base & {
   foot: string;
 };
 
+/**
+ * «یک دور» (seamless loop, 20 November 2026): one live line of the site drawn as
+ * a cycle that ends on its own first frame (Loop.tsx). Music only, no narrator;
+ * 8 to 15 seconds. The dollar is its first (and so far only) episode.
+ */
+export type LoopProps = Base & {
+  format: "loop";
+  /** what the line is, the kicker over the figure: «دلار در بازار آزاد» */
+  kicker: string;
+  /** the span in a few words: «از جنگ دوازده‌روزه تا امروز» */
+  span: string;
+  /** «تومان» */
+  unit: string;
+  /** every reading: x and y in percent of the plot (x from the first day, y from the top), v the value itself */
+  points: { x: number; y: number; v: number; dateText: string; approx: boolean; event: string | null }[];
+  /** the change from the first reading to the last, «۲٫۸ برابر» */
+  times: string;
+  /** «از ۹۲٬۰۰۰ تا ۱۱۴٬۵۰۰ تومان» */
+  fromTo: string;
+  /** the source line, on screen with every figure */
+  source: string;
+  /** the length of one turn, in frames (the site sends it; 300 = 10 s, a whole number of the bed's beats at 60 and 120 BPM) */
+  frames: number;
+};
+
 /** «پروندهٔ هسته‌ای»: the declared facilities on the map, or the enriched uranium on the ladder. */
 export type NuclearProps = Base & {
   format: "nuclear";
@@ -551,7 +576,7 @@ export type TrueFalseProps = Base & {
   foot: string;
 };
 
-export type ReelProps = DecisionProps | DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | VersusProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps | T1Props | T2Props | T5Props | T6Props;
+export type ReelProps = DecisionProps | LoopProps | DilemmaProps | SeatProps | RegionProps | PrecedentProps | TalksProps | WarProps | VersusProps | BordersProps | ArsenalProps | DollarProps | NuclearProps | FigureProps | QuizProps | PowerProps | ThenNowProps | RaceProps | DecadeProps | CardsProps | StoryProps | FiveProps | TrueFalseProps | T1Props | T2Props | T5Props | T6Props;
 
 /** The still picture a Reel shows on the profile grid. */
 export type CoverProps = {

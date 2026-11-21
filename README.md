@@ -8,15 +8,20 @@ This folder only draws. A composition draws exactly what the site hands it
 (`src/props.ts`) and nothing else: no text of a Reel is written here. The
 plan, the content, the owner's review and the posting live in the site.
 
+**One style since 21 Nov 2026** (owner, 20 Nov: «هر پروژه یک سبک»): the navy room of «تصمیم امروز». Every Reel is the
+composition `decision`, drawn from a storyboard; the bible's twelve templates are content, not compositions.
+
 | file | what |
 |---|---|
-| `src/kit.tsx` | the site's night palette and type, a colour per series, Instagram's safe zones, the seal, the motion pieces |
-| `src/Dilemma.tsx` `Seat.tsx` `Region.tsx` `Precedent.tsx` `Talks.tsx` `WarReplay.tsx` `Borders.tsx` | one composition per format; its id in `src/Root.tsx` is the format's id |
-| `src/Story.tsx` | the nine-second Story that follows a Reel |
-| `src/Cover.tsx` | the still tile for the profile grid |
-| `music.mjs` | the score, synthesized for each Reel's own length; one key per format |
-| `worker.mjs` | asks the site for work, renders, hands the files back |
-| `samples/` | one example of content per format, for looking at a layout |
+| `src/map-engine/` | the shared map engine (Natural Earth with Persian names, d3-geo, globe and dives, fills, hatching, lines, comets, pins, measures, labels, flag chips); see its README |
+| `src/storyboard/` | the content types, the twelve templates, the director (a shot every 1–2 s on the narrator's words), the checks, the novelty rules, the renderer (`Reel.tsx`), the Story and the tile |
+| `src/decision/` | the older card props (`types.ts`) and their checks (`timeline.ts`); such props are converted (`storyboard/fromDecision.ts`) |
+| `qa.mjs` | the quality gate on the file (no still over 2 s, legible, sync, loop) and the 1 fps contact sheet for the vision judge |
+| `music.mjs` | the score, synthesized for each Reel's own length |
+| `worker.mjs` | asks the site for work, renders, runs the gate, hands the files and the sheet back |
+| `samples/` | `divan-strait`, `divan-table3`, `divan-today` (21 Nov 2026) and `decision-oil` (the card layout, converted) |
+
+The sections below describe formats that were retired on 21 Nov 2026; they are kept for the history of the page.
 
 ## Where it runs
 

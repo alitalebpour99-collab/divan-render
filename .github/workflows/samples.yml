@@ -15,7 +15,7 @@ on:
       list:
         description: "composition:sample pairs"
         required: true
-        default: "arsenal:arsenal dollar:dollar nuclear:nuclear nuclear:nuclear-stock figure:figure-inflation"
+        default: "decision:decision-oil"
 
 permissions:
   contents: read
@@ -64,6 +64,8 @@ jobs:
             ffmpeg -v error -y -i "out/$name.mp4" -vf "fps=2,scale=216:-2,tile=10x6:padding=4:color=0x000000" -q:v 4 "small/$name-sheet-%02d.jpg"
             ffmpeg -hide_banner -nostats -i "out/$name.mp4" -vn -af ebur128=peak=true -f null - 2>&1 | sed -n '/Summary:/,$p' > "small/$name-loudness.txt"
             if [ -f "out/$name.gate.json" ]; then cp "out/$name.gate.json" small/; fi
+            # the storyboard engine: the storyboard, the quality gate, the one-frame-a-second sheet the judge scores
+            for f in "out/$name.storyboard.json" "out/$name.qa.json" "out/$name-sheet-1fps.jpg"; do if [ -f "$f" ]; then cp "$f" small/; fi; done
             if [ -f "samples/$name.cover.json" ]; then node render.mjs cover --props "samples/$name.cover.json" --bundle bundle --still 0 --out "$name-tile"; ffmpeg -v error -y -i "out/$name-tile-0000.png" -vf scale=540:-2 -q:v 3 "small/$name-tile.jpg" || true; fi
           done
           ls -la out

@@ -32,7 +32,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { TARGET, loudness } from "./finish.mjs";
-import { badgeCueCheck } from "./src/set/badge-sound.js";
+// the set style (src/set/) was retired on 21 Nov 2026; its plan checks stay for an old queued plan, without the badge tick check
+const badgeCueCheck = () => ({ ok: true, detail: "the set style is retired" });
 
 const FPS = 30;
 const W = 1080;

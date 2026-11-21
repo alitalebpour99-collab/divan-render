@@ -11,6 +11,7 @@ import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
 import { enforce, enforceDecision } from "./gate.mjs";
+import { contactSheet, qa } from "./qa.mjs";
 import { score } from "./music.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 
@@ -78,6 +79,15 @@ if (stills) {
       if (result) fs.writeFileSync(`out/${name}.gate.json`, JSON.stringify({ ok: result.ok, seconds, checks: result.checks }, null, 1));
     }
     console.log(result?.ok ? "gate: every check passed" : "gate: failed (see above)");
+  }
+  // the storyboard the film was drawn from, the quality gate on the file, and the contact sheet (one frame a second) for the judge
+  const sb = composition.props.storyboard;
+  if (sb) {
+    fs.writeFileSync(`out/${name}.storyboard.json`, JSON.stringify(sb, null, 1));
+    const result = qa(outputLocation, sb);
+    for (const c of result.checks) console.log(`qa ${c.ok ? "pass" : "FAIL"} ${c.id}: ${c.detail}`);
+    fs.writeFileSync(`out/${name}.qa.json`, JSON.stringify({ ...result, seconds, storyboard_checks: composition.props.qc }, null, 1));
+    console.log("sheet", contactSheet(outputLocation, `out/${name}-sheet-1fps.jpg`));
   }
   const plan = composition.props.plan;
   if (plan) {

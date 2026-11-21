@@ -42,6 +42,8 @@ export type Card = {
   /** an AI advisor's seal instead of a letter («دو مشاور، یک میز») */
   seal?: string | null;
   rows: Row[];
+  /** the effect in at most four words, for the storyboard's road shot beside its object */
+  cost?: string | null;
   /** Divan's own estimate on the gauge, 0 calm … 1 war; none when there is no gauge */
   risk?: number | null;
 };
@@ -50,6 +52,8 @@ export type DecisionVariant = "today" | "advisor" | "scenarios" | "number" | "co
 
 export type DecisionProps = {
   format: "decision";
+  /** the idea the concept writer chose for this video (lib/agents/concepts.ts); the storyboard follows it */
+  concept?: import("../storyboard/types").Concept | null;
   variant: DecisionVariant;
   kicker: string;
   date: string;

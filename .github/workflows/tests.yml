@@ -1,6 +1,6 @@
 name: Tests
 
-# The set style's plans and the gate's own checks (tests/), without a browser
+# The storyboard engine and the map engine's pure parts (tests/), without a browser
 # and without ffmpeg: a few seconds on every push and pull request.
 
 on:
@@ -21,5 +21,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      # the plans are TypeScript, read by Node with its own type stripping; no package is needed
-      - run: node --test tests/set.test.mjs
+      # TypeScript read by Node with its own type stripping; d3-geo and topojson-client are the only packages needed
+      - run: npm install --no-save --no-audit --no-fund d3-geo@3.1.1 topojson-client@3.1.0
+      - run: node --import ./tests/register.mjs --test tests/storyboard.test.mjs

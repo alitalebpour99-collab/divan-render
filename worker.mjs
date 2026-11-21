@@ -29,6 +29,7 @@ import { bundle } from "@remotion/bundler";
 import { makeCancelSignal, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
 import { GateRefusal, enforce, enforceDecision, planChecks, verdict } from "./gate.mjs";
+import { contactSheet, qa as qualityGate } from "./qa.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 import { score } from "./music.mjs";
 
@@ -283,6 +284,16 @@ async function render(job) {
       const result = enforceDecision({ qc: composition.props.qc, file: video });
       step(result?.ok ? "gate passed" : "gate reported");
     }
+    // the storyboard engine's quality gate on the file, and the contact sheet the site's vision judge scores (lib/social/judge.ts)
+    let quality = null;
+    const sheet = path.resolve("out", `${job.name}-sheet.jpg`);
+    if (composition.props.storyboard) {
+      quality = qualityGate(video, composition.props.storyboard);
+      for (const c of quality.checks) console.log(`qa ${c.ok ? "pass" : "FAIL"} ${c.id}: ${c.detail}`);
+      contactSheet(video, sheet);
+      if (fs.existsSync(sheet)) await call(`?id=${job.id}&file=sheet`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: fs.readFileSync(sheet) });
+      fs.rmSync(sheet, { force: true });
+    }
     if (composition.props.plan) {
       const result = enforce({ plan: composition.props.plan, file: video, cover: String(job.cover?.big ?? "") });
       step(result?.ok ? "gate passed" : "gate reported");
@@ -293,7 +304,7 @@ async function render(job) {
     ]) {
       await call(`?id=${job.id}&file=${kind}`, { method: "POST", headers: { "content-type": type }, body: fs.readFileSync(file) });
     }
-    await call(`?id=${job.id}&done=1`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seconds }) });
+    await call(`?id=${job.id}&done=1`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seconds, ...(quality ? { qa: quality } : {}) }) });
     state.rendered += 1;
     console.log(`Reel ${job.id} (${job.format}): ${seconds.toFixed(1)} s of video, ${(fs.statSync(video).size / 1e6).toFixed(1)} MB, rendered and handed back in ${Math.round((Date.now() - t0) / 1000)} s`);
   } catch (e) {
@@ -340,12 +351,12 @@ async function pass() {
   if (Date.now() < HOLD_UNTIL) return taken;
   for (;;) {
     // a look first: it costs the site nothing and claims nothing
-    const { waiting } = await call("?peek=1&can=story,cards");
+    const { waiting } = await call("?peek=1&can=story");
     state.lastLook = new Date().toISOString();
     if (!waiting) return taken;
     if (!(await waitForQuiet())) return taken;
     // this bundle holds the Story's composition and the carousel's, and says so: the site hands them only to a renderer that can draw them
-    const { jobs } = await call("?max=1&can=story,cards");
+    const { jobs } = await call("?max=1&can=story");
     if (!jobs?.length) return taken;
     state.busy = true;
     try {

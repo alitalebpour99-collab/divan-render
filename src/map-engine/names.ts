@@ -63,6 +63,13 @@ export const PLACES_FA: Readonly<Record<string, { t: string; lon: number; lat: n
   beijing: { t: "پکن", lon: 116.4, lat: 39.9 },
   washington: { t: "واشنگتن", lon: -77.04, lat: 38.9 },
   moscow: { t: "مسکو", lon: 37.62, lat: 55.75 },
+  berlin: { t: "برلین", lon: 13.4, lat: 52.52 },
+  doha: { t: "دوحه", lon: 51.53, lat: 25.29 },
+  muscat: { t: "مسقط", lon: 58.41, lat: 23.59 },
+  fujairah: { t: "فجیره", lon: 56.33, lat: 25.12 },
+  riyadh: { t: "ریاض", lon: 46.72, lat: 24.71 },
+  baghdad: { t: "بغداد", lon: 44.36, lat: 33.31 },
+  ankara: { t: "آنکارا", lon: 32.85, lat: 39.93 },
 };
 
 /** A state's Persian name: Divan's list first, then Natural Earth's column, then the code itself. */

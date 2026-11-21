@@ -57,15 +57,18 @@ export function makeView(look: Look, frame: Frame, theme: Theme, f: number, uid 
 
 const grat = geoGraticule().step([10, 10])();
 
-export const MapStage: React.FC<{ look: Look; frame: Frame; theme: Theme; f: number; uid?: string; dim?: number; children?: React.ReactNode }> = ({ look, frame, theme, f, uid = "me", dim = 0, children }) => {
+export const MapStage: React.FC<{ look: Look; frame: Frame; theme: Theme; f: number; uid?: string; dim?: number; /** a frame that fills the screen has square corners */ bleed?: boolean; children?: React.ReactNode }> = ({ look, frame, theme, f, uid = "me", dim = 0, bleed = false, children }) => {
   const view = makeView(look, frame, theme, f, uid);
   const world = worldFor(look.span);
   const globe = look.span > 60;
   const cx = frame.x + frame.w / 2;
   const cy = frame.y + frame.h / 2;
+  // the tilt: the map leans back like a table seen from a chair, scaled so its far edge still fills the frame
+  const tilt = Math.max(0, Math.min(30, look.tilt ?? 0));
+  const lean: React.CSSProperties = tilt > 0.05 ? { transform: `perspective(2200px) rotateX(${tilt}deg) scale(${1 + tilt * 0.014})`, transformOrigin: "50% 62%" } : {};
   return (
     <Ctx.Provider value={view}>
-      <svg width={1080} height={1920} viewBox="0 0 1080 1920" style={{ position: "absolute", inset: 0, opacity: 1 - dim }}>
+      <svg width={1080} height={1920} viewBox="0 0 1080 1920" style={{ position: "absolute", inset: 0, opacity: 1 - dim, ...lean }}>
         <defs>
           <radialGradient id={`${uid}-sea`} cx="50%" cy="45%" r="65%">
             <stop offset="0%" stopColor={theme.seaLight} />
@@ -83,7 +86,7 @@ export const MapStage: React.FC<{ look: Look; frame: Frame; theme: Theme; f: num
             <feGaussianBlur stdDeviation="2.5" />
           </filter>
           <clipPath id={`${uid}-frame`}>
-            <rect x={frame.x} y={frame.y} width={frame.w} height={frame.h} rx={globe ? 0 : 26} />
+            <rect x={frame.x} y={frame.y} width={frame.w} height={frame.h} rx={globe || bleed ? 0 : 26} />
           </clipPath>
         </defs>
         <g clipPath={`url(#${uid}-frame)`}>

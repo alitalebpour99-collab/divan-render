@@ -55,13 +55,13 @@ export type ChartSpec = { title: string; unit: string; points: number[]; first: 
 
 /** A mark on the map: what appears, where, in whose colour. Coordinates are [lon, lat]. */
 export type Mark =
-  | { kind: "fill"; a3: string; color: string }
+  | { kind: "fill"; a3: string; color: string; /** breathes while it is the beat's subject (the renderer sets it) */ pulse?: boolean }
   | { kind: "hatch"; a3?: string; polygon?: [number, number][]; color: string }
   | { kind: "claim"; coords: [number, number][]; color: string }
   | { kind: "dashed"; coords: [number, number][]; color: string }
   | { kind: "comet"; coords: [number, number][]; color: string; loop?: boolean }
   | { kind: "pins"; points: { lon: number; lat: number }[]; color: string; counter?: string }
-  | { kind: "callout"; lon: number; lat: number; bold: string; sub?: string; color?: string }
+  | { kind: "callout"; lon: number; lat: number; bold: string; sub?: string; color?: string; /** whose claim: its flag beside the words */ a3?: string }
   | { kind: "measure"; a: [number, number]; b: [number, number] }
   | { kind: "label"; t: string; lon: number; lat: number }
   | { kind: "flag"; a3: string; lon: number; lat: number };

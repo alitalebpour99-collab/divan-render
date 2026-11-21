@@ -384,12 +384,13 @@ const FIRE_AT: Partial<Record<MapObjectId, [number, number]>> = { tanker: [20, -
 
 /** A burst where a missile lands: a flash, a shock ring and sparks, `t` frames after the hit. */
 export const Burst: React.FC<{ x: number; y: number; t: number }> = ({ x, y, t }) => {
-  if (t < 0 || t > 26) return null;
-  const k = out3(t / 26);
+  // pass 3: 16 frames, the flash no wider than a ship's hull, so what it hits is seen at once (and the ship draws over it)
+  if (t < 0 || t > 16) return null;
+  const k = out3(t / 16);
   return (
     <g>
-      <circle cx={x} cy={y} r={30 + k * 120} fill="none" stroke="#ffe08a" strokeWidth={10 * (1 - k)} opacity={1 - k} />
-      <circle cx={x} cy={y} r={60 * (1 - k * 0.6)} fill={FLAME} opacity={(1 - k) * 0.85} />
+      <circle cx={x} cy={y} r={20 + k * 90} fill="none" stroke="#ffe08a" strokeWidth={8 * (1 - k)} opacity={1 - k} />
+      <circle cx={x} cy={y} r={40 * (1 - k * 0.6)} fill={FLAME} opacity={(1 - k) * 0.7} />
       <circle cx={x} cy={y} r={26 * (1 - k)} fill="#fffaf0" />
       {Array.from({ length: 8 }, (_, i) => {
         const a = (i * Math.PI) / 4 + 0.3;

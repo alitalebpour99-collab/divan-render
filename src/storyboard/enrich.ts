@@ -20,7 +20,7 @@ const inView = (look: Look, p: [number, number], share = 0.42) => deg([look.lon,
 /** what a mark brings that the eye counts as new (a fill is ground, not news) */
 const counts = (m: Mark) => m.kind !== "fill";
 const anchors = (m: Mark): [number, number][] =>
-  m.kind === "callout" || m.kind === "label" || m.kind === "flag" || m.kind === "object" ? [[m.lon, m.lat]] : m.kind === "pins" ? m.points.map((p) => [p.lon, p.lat] as [number, number]) : m.kind === "measure" ? [m.a, m.b] : m.kind === "comet" || m.kind === "dashed" || m.kind === "claim" ? [m.coords[0], m.coords[m.coords.length - 1]] : [];
+  m.kind === "object" ? [[m.lon, m.lat], ...(m.path ?? [])] : m.kind === "callout" || m.kind === "label" || m.kind === "flag" ? [[m.lon, m.lat]] : m.kind === "pins" ? m.points.map((p) => [p.lon, p.lat] as [number, number]) : m.kind === "measure" ? [m.a, m.b] : m.kind === "comet" || m.kind === "dashed" || m.kind === "claim" ? [m.coords[0], m.coords[m.coords.length - 1]] : [];
 
 /** How many marks a beat's line asks for: one per 1.5 s it is said (at least one). */
 export function marksWanted(b: Beat): number {

@@ -5,12 +5,12 @@
 // missile comes down onto it, a parliament stands on its state's capital. Nothing is invented: an object only stands
 // on a line, a pin, a callout or a named place the writer gave, or on Divan's own geography (the lanes, the capitals,
 // a few towns named in the line); a missile's launch site is never drawn. Pure and idempotent, like enrich.ts.
-import { geoDistance } from "d3-geo";
+import { geoContains, geoDistance } from "d3-geo";
 import type { Look } from "../map-engine/camera";
 import { CAPITALS } from "../map-engine/capitals";
 import { LANES } from "../map-engine/lanes";
 import { NAMES_FA, PLACES_FA } from "../map-engine/names";
-import { country } from "../map-engine/world";
+import { country, worldFor } from "../map-engine/world";
 import { isAircraft, isShip, type MapObjectId } from "../map-engine/object-ids";
 import type { Beat, Mark, ReelContent, TemplateId } from "./types";
 
@@ -389,16 +389,100 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
       if (at) push(-1, { kind: "object", id, lon: at[0], lat: at[1], move: "stand" });
     }
   }
-  // two objects that would stand on one point: the later one steps aside
-  for (let i = 1; i < out.length; i += 1) {
-    const a = out[i].m;
-    if (a.move !== "stand") continue;
-    for (let j = 0; j < i; j += 1) {
-      const z = out[j].m;
-      if (z.move === "stand" && z.id !== a.id && deg([a.lon, a.lat], [z.lon, z.lat]) < look.span * 0.04 && !(a.id === "mine" || z.id === "mine")) out[i] = { ...out[i], m: { ...a, lon: a.lon + look.span * 0.1 } };
+  return settle(out, look, marks);
+}
+
+/** Things that float: they must stand and sail on water, never on a coast. */
+const FLOATS = new Set<MapObjectId>(["tanker", "cargo", "lng", "warship", "boats", "mine", "rig"]);
+const isLand = (p: [number, number]) => geoContains(worldFor(0).land, p);
+/** the object's own footprint, in shares of the span: a ship seen from the side is wide and low */
+const FOOT: [number, number][] = [[0, 0], [-0.08, 0], [0.08, 0], [-0.05, -0.02], [0.05, -0.02], [-0.05, 0.015], [0.05, 0.015]];
+const wet = (p: [number, number], span: number, foot = FOOT) => foot.every(([dx, dy]) => !isLand([p[0] + dx * span, p[1] - dy * span]));
+/** the nearest point whose whole footprint is sea (rings outward), or null */
+export function toSea(p: [number, number], span: number): [number, number] | null {
+  if (wet(p, span)) return p;
+  for (let r = 0.02; r <= 0.3; r += 0.02) {
+    for (let k = 0; k < 24; k += 1) {
+      const a = (k * Math.PI) / 12;
+      const q: [number, number] = [p[0] + Math.cos(a) * r * span, p[1] + Math.sin(a) * r * span];
+      if (wet(q, span)) return q;
     }
   }
-  return out;
+  return null;
+}
+/** the longest run of a path's points that passes a test */
+const longestRun = (pts: [number, number][], ok: (p: [number, number]) => boolean) => {
+  let best: [number, number][] = [];
+  let cur: [number, number][] = [];
+  for (const p of pts) {
+    if (ok(p)) cur.push(p);
+    else cur = [];
+    if (cur.length > best.length) best = [...cur];
+  }
+  return best;
+};
+
+/**
+ * The permanent rules of where an object may be (pass 3 of the test render, 21 Nov 2026):
+ * - what floats stands on water with its whole footprint (the nearest such point), and sails only the part of its
+ *   path that is water;
+ * - no object stands on, or sails through, a place name the writer put on the map (it keeps 0.12 of the span away);
+ * - two objects that stand never overlap: the later one steps aside, onto water if it floats.
+ */
+export function settle(out: Placed[], look: Look, marks: Mark[]): Placed[] {
+  const span = look.span;
+  const labels = marks.filter((m): m is Extract<Mark, { kind: "label" }> => m.kind === "label").map((m) => [m.lon, m.lat] as [number, number]);
+  const clear = (p: [number, number]) => labels.every((l) => deg(p, l) > span * 0.12);
+  const res: Placed[] = [];
+  for (const x of out) {
+    let m = x.m;
+    const floats = FLOATS.has(m.id);
+    if (m.path && m.path.length >= 2 && (m.move === "sail" || m.move === "fly")) {
+      // the route cut into short steps, then the longest stretch that is water (with the hull's room) and clear of names
+      const fine: [number, number][] = [];
+      for (let i = 0; i < m.path.length - 1; i += 1) {
+        const [a, z] = [m.path[i], m.path[i + 1]];
+        const n = Math.max(1, Math.ceil(deg(a, z) / (span * 0.03)));
+        for (let k = 0; k < n; k += 1) fine.push([a[0] + ((z[0] - a[0]) * k) / n, a[1] + ((z[1] - a[1]) * k) / n]);
+      }
+      fine.push(m.path[m.path.length - 1]);
+      const tries: ((p: [number, number]) => boolean)[] = floats
+        ? [(p) => wet(p, span) && clear(p), (p) => wet(p, span, [[0, 0], [-0.05, 0], [0.05, 0]]) && clear(p), (p) => !isLand(p) && clear(p), (p) => !isLand(p)]
+        : [clear, () => true];
+      let run: [number, number][] = [];
+      for (const t of tries) {
+        run = longestRun(fine, t);
+        if (run.length >= 4) break;
+      }
+      if (run.length < 2) continue;
+      const mid = run[Math.floor(run.length / 2)];
+      m = { ...m, path: run, lon: mid[0], lat: mid[1] };
+    } else if (m.move !== "arc" && m.move !== "drop" && m.move !== "pipe") {
+      let p: [number, number] = [m.lon, m.lat];
+      // off a place name: straight away from it
+      for (const l of labels)
+        if (deg(p, l) <= span * 0.12) {
+          const d = Math.max(1e-6, Math.hypot(p[0] - l[0], p[1] - l[1]));
+          const dir: [number, number] = d < 1e-4 ? [0, -1] : [(p[0] - l[0]) / d, (p[1] - l[1]) / d];
+          p = [l[0] + dir[0] * span * 0.13, l[1] + dir[1] * span * 0.13];
+        }
+      // off the objects already standing: the side with room
+      for (const o of res) {
+        if (o.m.move === "drop" || o.m.move === "arc" || deg(p, [o.m.lon, o.m.lat]) > span * 0.09) continue;
+        const sides: [number, number][] = [[0.11, 0], [-0.11, 0], [0, -0.07], [0, 0.07], [0.09, -0.06], [-0.09, -0.06]];
+        const free = sides.map(([dx, dy]) => [o.m.lon + dx * span, o.m.lat + dy * span] as [number, number]).find((q) => (!floats || wet(q, span)) && res.every((r) => r === o || deg(q, [r.m.lon, r.m.lat]) > span * 0.09));
+        if (free) p = free;
+      }
+      if (floats) {
+        const sea = toSea(p, span);
+        if (!sea) continue;
+        p = sea;
+      }
+      m = { ...m, lon: p[0], lat: p[1] };
+    }
+    res.push({ ...x, m });
+  }
+  return res;
 }
 
 const nameOfA3 = (a3: string) => country(a3)?.fa ?? a3;
@@ -460,13 +544,14 @@ function roadObjects(b: Extract<Beat, { kind: "road" }>): Placed[] {
   const line = li >= 0 ? (marks[li] as { coords: [number, number][] }).coords : null;
   if (line && (isShip(id) || isAircraft(id)) && marks[li].kind === "comet") {
     const mid = line[Math.floor(line.length / 2)];
-    return [{ after: li, m: { kind: "object", id, lon: mid[0], lat: mid[1], move: isShip(id) ? "sail" : "fly", path: line, color: b.road.color } }];
+    return b.look ? settle([{ after: li, m: { kind: "object", id, lon: mid[0], lat: mid[1], move: isShip(id) ? "sail" : "fly", path: line, color: b.road.color } }], b.look, marks) : [];
   }
   let end: [number, number] | null = line ? line[line.length - 1] : null;
   if (!end) for (const m of marks) if (m.kind === "pins" && m.points.length) end = [m.points[m.points.length - 1].lon, m.points[m.points.length - 1].lat];
   if (!end) return [];
   // beside the end, not on it: the road's cost is written there
-  return [{ after: li >= 0 ? li : 0, m: { kind: "object", id, lon: end[0] - (b.look?.span ?? 10) * 0.05, lat: end[1] - (b.look?.span ?? 10) * 0.035, move: "stand", color: b.road.color } }];
+  const placed: Placed[] = [{ after: li >= 0 ? li : 0, m: { kind: "object", id, lon: end[0] - (b.look?.span ?? 10) * 0.05, lat: end[1] - (b.look?.span ?? 10) * 0.035, move: "stand", color: b.road.color } }];
+  return b.look ? settle(placed, b.look, marks) : placed;
 }
 
 /** Where talks are held: a place or a state the text says something happens «در» (in), else the first place it names. */

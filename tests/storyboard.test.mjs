@@ -84,6 +84,8 @@ test("round 3: enrichment adds only ground (lanes, names), never news, and is id
 import { topicsOf, objectsSaid, withObjects } from "../src/storyboard/topics.ts";
 import { enrich as enrichAll } from "../src/storyboard/enrich.ts";
 import { MAP_OBJECTS } from "../src/map-engine/object-ids.ts";
+import { worldFor } from "../src/map-engine/world.ts";
+import { geoContains } from "d3-geo";
 
 test("the classifier names the things a line is about, in fa and en, whole words only", () => {
   assert.deepEqual(objectsSaid("سپاه می‌گوید نفتکشی نزدیک خصب به مین خورد. ساعتی بعد، نفتکش دیگری با پرتابه آتش گرفت."), ["tanker", "mine", "missile"]);
@@ -107,7 +109,15 @@ test("strait: a tanker sails the strait from frame 0, the incidents stand on the
   assert.deepEqual(m2.map((m) => `${m.id}/${m.move}`), ["tanker/stand", "mine/stand", "missile/drop", "tanker/stand"]);
   const pins = c.beats[3].marks.filter((m) => m.kind === "pins").map((m) => [m.points[0].lon, m.points[0].lat]);
   // the burning tankers stand on the writer's two pins; nothing stands where the writer put nothing
-  assert.deepEqual([m2[0], m2[3]].map((m) => [m.lon, m.lat]), pins);
+  // pass 3: on water, at most a few km off the pin when the pin is on the coast
+  [m2[0], m2[3]].forEach((m, i) => assert.ok(Math.hypot(m.lon - pins[i][0], m.lat - pins[i][1]) < 0.3, `${m.id} near pin ${i}`));
+  for (const m of [...hook, ...m2].filter((x) => x.id !== "missile")) {
+    const pts = m.path ?? [[m.lon, m.lat]];
+    assert.ok(pts.every((p) => !geoContains(worldFor(0).land, p)), `${m.id} on water`);
+  }
+  // no object on or through a place name the writer put on its map
+  const label = c.beats[0].marks.find((m) => m.kind === "label");
+  assert.ok(hook[0].path.every((p) => Math.hypot(p[0] - label.lon, p[1] - label.lat) > 0.5), "the hook's tanker keeps off «تنگهٔ هرمز»");
   assert.ok(m2[0].fire !== undefined && m2[3].fire !== undefined);
   // the object comes in on the shot of its pin: it follows the pin in the marks
   const ks = c.beats[3].marks.map((m) => m.kind);

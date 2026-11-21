@@ -213,9 +213,13 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
       const tailShots = b.kind === "hook" ? cuts.filter((x) => x - at >= HOOK_MAX).length : 0;
       const later = marks.map((m, i) => (ground(m) ? -1 : i)).filter((i) => i >= 0);
       const ti = tail ? cuts.filter((x) => x - at >= HOOK_MAX).indexOf(s) : -1;
+      // pass 3: a beat's objects are there from its first shot (a missile still comes on its own shot, with its pin)
+      const early = (m: Mark) => m.kind === "object" && m.move !== "drop" && m.move !== "arc";
+      const firsts = marks.map((m, i) => (early(m) ? i : -1)).filter((i) => i >= 0);
+      const rest = marks.map((m, i) => (early(m) ? -1 : i)).filter((i) => i >= 0);
       const mine =
         b.kind !== "hook"
-          ? Array.from({ length: m1 - m0 }, (_, i) => m0 + i)
+          ? [...(k === 0 ? firsts : []), ...rest.slice(Math.floor((k * rest.length) / cuts.length), Math.floor(((k + 1) * rest.length) / cuts.length))]
           : !tailShots
             ? (k === 0 ? marks.map((_, i) => i) : [])
             : k === 0

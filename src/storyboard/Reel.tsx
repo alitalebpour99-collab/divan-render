@@ -100,7 +100,26 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
         // the hook's map and its comets run again (round 2, the judge: «end on the 0 s map with the three roads»)
         const gather = (c.beats[cur.beat].kind === "poll" || c.beats[cur.beat].kind === "gauge") && (m.kind === "comet" || m.kind === "dashed" || m.kind === "pins" || m.kind === "claim");
         if (passing && s.beat !== cur.beat && !gather) continue;
-        out.push({ m, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather, life: (ends[s.beat] ?? at) - at });
+        // a burning object came in early (pass 3): its fire waits for the pin it stands on, and for a missile's burst there
+        let mm: Mark = m;
+        if (m.kind === "object" && m.fire !== undefined && m.fire !== false) {
+          // the incident nearest the ship (its pin, or the missile coming down on it) sets when it starts to burn
+          const dist = (lon: number, lat: number) => Math.hypot(lon - m.lon, lat - m.lat);
+          let best = Infinity;
+          let land = at;
+          for (const z of sb.shots)
+            if (z.beat === s.beat)
+              for (const j of z.marks) {
+                const q = marks[j];
+                const d = q.kind === "pins" ? Math.min(...q.points.map((p) => dist(p.lon, p.lat))) : q.kind === "object" && (q.move === "drop" || q.move === "arc") ? dist(q.lon, q.lat) - 1e-3 : Infinity;
+                if (d <= best) {
+                  best = d;
+                  land = Math.round(z.start * sb.fps) + 3 + (q.kind === "object" ? 30 : 0);
+                }
+              }
+          mm = { ...m, fire: Math.max(0, land - at) + (m.fire === true ? 0 : m.fire) };
+        }
+        out.push({ m: mm, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather, life: (ends[s.beat] ?? at) - at });
       }
     }
   }
@@ -147,7 +166,8 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
   const callouts: CalloutSpec[] = [];
   const ts: number[] = [];
   const labels: { t: string; lon: number; lat: number }[] = [];
-  const objects: React.ReactNode[] = [];
+  // a missile and its burst draw under what stands: a ship it hits is never hidden by the flash (pass 3)
+  const objects: { drawFirst: boolean; node: React.ReactNode }[] = [];
   const measures: React.ReactNode[] = [];
   const body = list.map(({ m, t, own, life }, i) => {
     switch (m.kind) {
@@ -181,7 +201,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
         return null;
       case "object":
         // over the lines and pins they belong to, under the labels
-        objects.push(<MapObject key={`o${i}`} o={m} t={t} life={life ?? 90} />);
+        objects.push({ drawFirst: m.move === "drop" || m.move === "arc", node: <MapObject key={`o${i}`} o={m} t={t} life={life ?? 90} /> });
         return null;
       default:
         return null;
@@ -192,7 +212,8 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
   const avoid: [number, number][] = [];
   for (const { m, t } of list) {
     if (t < 0) continue;
-    if (m.kind === "callout" || m.kind === "label" || m.kind === "flag" || m.kind === "object") avoid.push([m.lon, m.lat]);
+    if (m.kind === "object") avoid.push([m.lon, m.lat], ...(m.path ?? []));
+    else if (m.kind === "callout" || m.kind === "label" || m.kind === "flag") avoid.push([m.lon, m.lat]);
     else if (m.kind === "pins") avoid.push(...m.points.map((p) => [p.lon, p.lat] as [number, number]));
     else if (m.kind === "measure") avoid.push(m.a, m.b, [(m.a[0] + m.b[0]) / 2, (m.a[1] + m.b[1]) / 2]);
   }
@@ -200,7 +221,8 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
     <>
       <ContextNames avoid={avoid} places={PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : 5} />
       {body}
-      {objects}
+      {objects.filter((o) => o.drawFirst).map((o) => o.node)}
+      {objects.filter((o) => !o.drawFirst).map((o) => o.node)}
       {measures}
       <PlaceLabels items={labels} />
       <LineBoxes ms={list.map((x) => x.m)}>{(boxes) => <Callouts items={callouts} ts={ts} safe={SAFE} taken={boxes} />}</LineBoxes>

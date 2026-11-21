@@ -252,3 +252,7 @@ real things the narrator talks about, never an abstract shape.
   object (a tanker sails its line, a barrel or a signed text stands under its cost).
 - Labels keep clear of the objects (`LineBoxes`), and an object of the first frame runs back to where it stood, so
   the loop still ends on the first picture.
+- Pass 3 rules (`topics.ts` `settle`, the director, `Reel.tsx`): what floats stands and sails only on water with its
+  whole hull (Natural Earth land, nearest sea point); no object stands on or sails through a place name the writer
+  put on the map; two standing objects never overlap; a beat's objects are there from its first shot, and a ship that
+  is hit catches fire only when its pin or the missile lands; a missile's burst is short and draws under the ship.

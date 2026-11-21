@@ -148,6 +148,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
   const ts: number[] = [];
   const labels: { t: string; lon: number; lat: number }[] = [];
   const objects: React.ReactNode[] = [];
+  const measures: React.ReactNode[] = [];
   const body = list.map(({ m, t, own, life }, i) => {
     switch (m.kind) {
       case "fill":
@@ -168,7 +169,9 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
       case "pins":
         return <PinCluster key={i} points={m.points} color={m.color} t={t} />;
       case "measure":
-        return <MeasureLine key={i} a={m.a} b={m.b} t={t} />;
+        // over the objects: a ship passing the narrowest point must not hide its length
+        measures.push(<MeasureLine key={i} a={m.a} b={m.b} t={t} />);
+        return null;
       case "callout":
         callouts.push({ id: `c${i}`, lon: m.lon, lat: m.lat, bold: m.bold, sub: m.sub, color: m.color, a3: m.a3 });
         ts.push(t);
@@ -198,6 +201,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
       <ContextNames avoid={avoid} places={PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : 5} />
       {body}
       {objects}
+      {measures}
       <PlaceLabels items={labels} />
       <LineBoxes ms={list.map((x) => x.m)}>{(boxes) => <Callouts items={callouts} ts={ts} safe={SAFE} taken={boxes} />}</LineBoxes>
     </>

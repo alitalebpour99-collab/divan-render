@@ -214,7 +214,18 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
   const used = new Set<number>();
   const usedLanes = new Set<string>();
   const centre: [number, number] = [look.lon, look.lat];
-  const seaIn = (coords: [number, number][]) => coords.filter((p) => inView(look, p, 0.62));
+  // the part of a lane well inside the frame (round 2 of the test render: a ship that starts at the lane's far end is
+  // off the screen for its first seconds), the lane cut into short steps first so a long leg still gives points
+  const seaIn = (coords: [number, number][]) => {
+    const pts: [number, number][] = [];
+    for (let i = 0; i < coords.length - 1; i += 1) {
+      const [a, z] = [coords[i], coords[i + 1]];
+      const n = Math.max(1, Math.ceil(deg(a, z) / (look.span * 0.05)));
+      for (let k = 0; k < n; k += 1) pts.push([a[0] + ((z[0] - a[0]) * k) / n, a[1] + ((z[1] - a[1]) * k) / n]);
+    }
+    if (coords.length) pts.push(coords[coords.length - 1]);
+    return pts.filter((p) => inView(look, p, 0.4));
+  };
   /** a path's point nearest the centre: where a moving object is counted as standing (in view, for the labels) */
   const mid = (path: [number, number][]) => path.reduce((a, p) => (deg(p, centre) < deg(a, centre) ? p : a), path[0]);
   /** on a regional map the centre of the frame is a place; on a globe it is nowhere */

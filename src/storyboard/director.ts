@@ -208,7 +208,8 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
       // a long first line: the hook is its first shots (under 2.5 s, the title on screen, the ground marks whole from
       // frame 0); the rest of the line follows on the same map as the event in detail, its other marks coming in one by one
       const tail = b.kind === "hook" && s - at >= HOOK_MAX;
-      const ground = (m: Mark) => m.kind === "fill" || m.kind === "hatch" || m.kind === "label" || m.kind === "pins";
+      // the hook's objects too: the thing of the story is on the first frame, and so on the loop's last
+      const ground = (m: Mark) => m.kind === "fill" || m.kind === "hatch" || m.kind === "label" || m.kind === "pins" || m.kind === "object";
       const tailShots = b.kind === "hook" ? cuts.filter((x) => x - at >= HOOK_MAX).length : 0;
       const later = marks.map((m, i) => (ground(m) ? -1 : i)).filter((i) => i >= 0);
       const ti = tail ? cuts.filter((x) => x - at >= HOOK_MAX).indexOf(s) : -1;

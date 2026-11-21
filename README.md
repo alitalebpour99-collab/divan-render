@@ -256,3 +256,5 @@ real things the narrator talks about, never an abstract shape.
   whole hull (Natural Earth land, nearest sea point); no object stands on or sails through a place name the writer
   put on the map; two standing objects never overlap; a beat's objects are there from its first shot, and a ship that
   is hit catches fire only when its pin or the missile lands; a missile's burst is short and draws under the ship.
+  Pass 4: a name keeps its room on the widest frame a beat is seen in (the opening dive too), and objects shrink with
+  the map when the camera is wider than their beat (to 0.55 of their size).

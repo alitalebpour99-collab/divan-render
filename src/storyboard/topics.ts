@@ -389,7 +389,8 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
       if (at) push(-1, { kind: "object", id, lon: at[0], lat: at[1], move: "stand" });
     }
   }
-  return settle(out, look, marks);
+  // the hook is first seen from its opening (wider): a name must stay clear there too
+  return settle(out, look, marks, b.kind === "hook" ? (b.from?.span ?? look.span * 2.4) : look.span);
 }
 
 /** Things that float: they must stand and sail on water, never on a coast. */
@@ -429,10 +430,12 @@ const longestRun = (pts: [number, number][], ok: (p: [number, number]) => boolea
  * - no object stands on, or sails through, a place name the writer put on the map (it keeps 0.12 of the span away);
  * - two objects that stand never overlap: the later one steps aside, onto water if it floats.
  */
-export function settle(out: Placed[], look: Look, marks: Mark[]): Placed[] {
+export function settle(out: Placed[], look: Look, marks: Mark[], wide = look.span): Placed[] {
   const span = look.span;
   const labels = marks.filter((m): m is Extract<Mark, { kind: "label" }> => m.kind === "label").map((m) => [m.lon, m.lat] as [number, number]);
-  const clear = (p: [number, number]) => labels.every((l) => deg(p, l) > span * 0.12);
+  // in degrees: 0.12 of the beat's span, and about 120 px on the widest frame (a 200 px object at 0.55 of its size)
+  const gap = Math.max(span * 0.12, wide * 0.05);
+  const clear = (p: [number, number]) => labels.every((l) => deg(p, l) > gap);
   const res: Placed[] = [];
   for (const x of out) {
     let m = x.m;
@@ -461,10 +464,10 @@ export function settle(out: Placed[], look: Look, marks: Mark[]): Placed[] {
       let p: [number, number] = [m.lon, m.lat];
       // off a place name: straight away from it
       for (const l of labels)
-        if (deg(p, l) <= span * 0.12) {
+        if (deg(p, l) <= gap) {
           const d = Math.max(1e-6, Math.hypot(p[0] - l[0], p[1] - l[1]));
           const dir: [number, number] = d < 1e-4 ? [0, -1] : [(p[0] - l[0]) / d, (p[1] - l[1]) / d];
-          p = [l[0] + dir[0] * span * 0.13, l[1] + dir[1] * span * 0.13];
+          p = [l[0] + dir[0] * gap * 1.08, l[1] + dir[1] * gap * 1.08];
         }
       // off the objects already standing: the side with room
       for (const o of res) {

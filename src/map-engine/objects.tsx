@@ -461,7 +461,7 @@ function along(pts: [number, number][], p: number): { x: number; y: number; dx: 
  * lands, then moves the way its spec says. A ship sails its path once over its beat; an aircraft flies it; a missile
  * arcs over it and bursts where it lands, again every 2.5 s while its beat lasts.
  */
-export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number }> = ({ o, t, life }) => {
+export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** the span its beat looks at: wider than that, the object shrinks with the map (to 0.55), so an opening dive never shows a ship as big as a coast */ base?: number }> = ({ o, t, life, base }) => {
   const v = useView();
   const route = React.useMemo(() => (o.path && o.path.length >= 2 ? densify(o.path, 0.03) : null), [o.path]);
   if (t < 0) return null;
@@ -469,7 +469,8 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number }> = (
   const move = o.move ?? "stand";
   const pts = route ? (route.map(([a, b]) => v.at(a, b)).filter(Boolean) as [number, number][]) : [];
   const at = v.at(o.lon, o.lat);
-  const k = pop(t / 10);
+  const zoom = base ? Math.max(0.55, Math.min(1, base / v.look.span)) : 1;
+  const k = pop(t / 10) * zoom;
   if ((move === "sail" || move === "fly") && pts.length >= 2) {
     const span = Math.max(60, life);
     const p = 0.06 + 0.86 * clamp01(t / span);
@@ -489,7 +490,7 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number }> = (
         {trail.slice(1).map((q, i) => (
           <line key={i} x1={trail[i][0]} y1={trail[i][1]} x2={q[0]} y2={q[1]} stroke={top ? "#e9edf2" : "#ffffff"} strokeWidth={top ? 3 + i * 0.3 : 4 + i * 0.9} strokeOpacity={((i + 1) / trail.length) * (top ? 0.35 : 0.5)} strokeLinecap="round" />
         ))}
-        <Art o={o} x={h.x} y={h.y + bob} angle={ang + (top ? 0 : Math.sin(f / 13) * 1.2)} flip={flip} k={1} f={f} t={t} topView={top} />
+        <Art o={o} x={h.x} y={h.y + bob} angle={ang + (top ? 0 : Math.sin(f / 13) * 1.2)} flip={flip} k={zoom} f={f} t={t} topView={top} />
       </g>
     );
   }
@@ -526,7 +527,7 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number }> = (
         {u < 1
           ? smoke.slice(1).map((q, i) => <circle key={i} cx={q[0]} cy={q[1]} r={5 + i * 1.2} fill="#e9edf2" opacity={(1 - i / 16) * 0.45} />)
           : null}
-        {u < 1 ? <Art o={o} x={x} y={y} angle={ang} flip={false} k={1} f={f} t={t} topView={false} /> : null}
+        {u < 1 ? <Art o={o} x={x} y={y} angle={ang} flip={false} k={zoom} f={f} t={t} topView={false} /> : null}
         <Burst x={B[0]} y={B[1]} t={phase - 45} />
       </g>
     );
@@ -544,7 +545,7 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number }> = (
           const w = Math.max(0, u - i * 0.04);
           return <circle key={i} cx={S0[0] + (at[0] - S0[0]) * w} cy={S0[1] + (at[1] - S0[1]) * w} r={5 + i * 1.4} fill="#e9edf2" opacity={(1 - i / 12) * 0.45} />;
         }) : null}
-        {u < 1 ? <Art o={o} x={x} y={y} angle={ang} flip={false} k={1} f={f} t={t} topView={false} /> : null}
+        {u < 1 ? <Art o={o} x={x} y={y} angle={ang} flip={false} k={zoom} f={f} t={t} topView={false} /> : null}
         <Burst x={at[0]} y={at[1]} t={t - 30} />
       </g>
     );
@@ -558,7 +559,7 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number }> = (
     return (
       <g opacity={out3(t / 10)}>
         <ellipse cx={at[0]} cy={at[1]} rx={R} ry={R * 0.62} fill="none" stroke="#e9edf2" strokeWidth={2.5} strokeDasharray="6 14" opacity={0.35} />
-        <Art o={o} x={x} y={y} angle={ang} flip={false} k={1} f={f} t={t} topView />
+        <Art o={o} x={x} y={y} angle={ang} flip={false} k={zoom} f={f} t={t} topView />
       </g>
     );
   }

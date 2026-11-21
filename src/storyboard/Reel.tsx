@@ -71,7 +71,11 @@ function cameraKeys(sb: Storyboard): Key[] {
 
 /** The marks on the map at frame f, each with its clock: the hook's are whole from frame 0 (the event is already there). */
 function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
-  const out: { m: Mark; t: number; beat: number; own: boolean; life?: number }[] = [];
+  const out: { m: Mark; t: number; beat: number; own: boolean; life?: number; base?: number }[] = [];
+  const baseOf = (i: number) => {
+    const b = c.beats[i];
+    return b.kind === "hook" || b.kind === "map" || b.kind === "demand" ? b.look.span : b.kind === "road" ? b.look?.span : undefined;
+  };
   // where each beat ends: an object that moves (a ship, an aircraft) spends its beat on its way
   const ends: Record<number, number> = {};
   for (const s of sb.shots) ends[s.beat] = Math.max(ends[s.beat] ?? 0, Math.round((s.start + s.dur) * sb.fps));
@@ -89,7 +93,7 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
       const at = s.beat === 0 && s.n === 1 ? -60 : Math.round(s.start * sb.fps) + 3;
       if (inLoop) {
         // an object of the first frame runs back to where it stood then, so the last frame meets the first
-        if (s.beat === 0 && s.n === 1) out.push({ m, t: m.kind === "object" ? -at - (sb.total - f) : f - at, beat: 0, own: true, life: (ends[0] ?? 0) - at });
+        if (s.beat === 0 && s.n === 1) out.push({ m, t: m.kind === "object" ? -at - (sb.total - f) : f - at, beat: 0, own: true, life: (ends[0] ?? 0) - at, base: baseOf(0) });
         continue;
       }
       if (f < at) continue;
@@ -119,7 +123,7 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
               }
           mm = { ...m, fire: Math.max(0, land - at) + (m.fire === true ? 0 : m.fire) };
         }
-        out.push({ m: mm, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather, life: (ends[s.beat] ?? at) - at });
+        out.push({ m: mm, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather, life: (ends[s.beat] ?? at) - at, base: baseOf(s.beat) });
       }
     }
   }
@@ -162,14 +166,14 @@ const LineBoxes: React.FC<{ ms: Mark[]; children: (boxes: { x: number; y: number
   return <>{children(boxes)}</>;
 };
 
-const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: number }[]; f: number; span: number }> = ({ list, f, span }) => {
+const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: number; base?: number }[]; f: number; span: number }> = ({ list, f, span }) => {
   const callouts: CalloutSpec[] = [];
   const ts: number[] = [];
   const labels: { t: string; lon: number; lat: number }[] = [];
   // a missile and its burst draw under what stands: a ship it hits is never hidden by the flash (pass 3)
   const objects: { drawFirst: boolean; node: React.ReactNode }[] = [];
   const measures: React.ReactNode[] = [];
-  const body = list.map(({ m, t, own, life }, i) => {
+  const body = list.map(({ m, t, own, life, base }, i) => {
     switch (m.kind) {
       case "fill":
         return <CountryFill key={i} a3={m.a3} color={m.color} t={t} opacity={fillOpacity(m.color, span)} edge={m.color.toLowerCase() === DIVAN.actors.iran || (m as { pulse?: boolean }).pulse} pulse={(m as { pulse?: boolean }).pulse} />;
@@ -201,7 +205,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
         return null;
       case "object":
         // over the lines and pins they belong to, under the labels
-        objects.push({ drawFirst: m.move === "drop" || m.move === "arc", node: <MapObject key={`o${i}`} o={m} t={t} life={life ?? 90} /> });
+        objects.push({ drawFirst: m.move === "drop" || m.move === "arc", node: <MapObject key={`o${i}`} o={m} t={t} life={life ?? 90} base={base} /> });
         return null;
       default:
         return null;

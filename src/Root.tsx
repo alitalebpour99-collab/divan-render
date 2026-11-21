@@ -2,6 +2,7 @@ import React from "react";
 import { Composition } from "remotion";
 import decisionSample from "../samples/decision-oil.json";
 import { direct } from "./storyboard/director";
+import { enrich } from "./storyboard/enrich";
 import { storyboardChecks } from "./storyboard/checks";
 import { fromDecision } from "./storyboard/fromDecision";
 import { Reel, ReelCover } from "./storyboard/Reel";
@@ -17,7 +18,8 @@ import type { VoiceLine } from "./storyboard/director";
 const frame = { width: 1080, height: 1920, fps: 30 };
 
 type In = (ReelContent | DecisionProps) & { voiceIn?: VoiceLine[]; music?: string };
-export const contentOf = (p: In): ReelContent => ((p as ReelContent).engine === "storyboard" ? (p as ReelContent) : fromDecision(p as DecisionProps));
+// round 3: every map beat brought up to a mark per 1.5 s from the ground in view (enrich.ts; never news)
+export const contentOf = (p: In): ReelContent => enrich((p as ReelContent).engine === "storyboard" ? (p as ReelContent) : fromDecision(p as DecisionProps));
 
 /** The storyboard, its checks, the narrator's lines where it put them: all known before a frame is drawn. */
 const reelMeta = ({ props }: { props: In }) => {

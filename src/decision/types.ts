@@ -27,6 +27,8 @@ export type ChartSpec = {
   source: string;
   /** decimals the counter shows */
   digits?: number;
+  /** where the figure stands on the map (a PLACES_FA id; oil: hormuz), round 3 */
+  place?: string;
 };
 /** A news wire on the desk: the day's headline as it came in, with who reported it. */
 export type WireSpec = { headline: string; outlets: string[]; when: string; source: string };

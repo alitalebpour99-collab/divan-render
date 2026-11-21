@@ -13,3 +13,4 @@ export { LANES, type Lane } from "./lanes";
 export { DIVAN, ROLE_OF, roleOf, type Theme, type Role } from "./theme";
 export { VAZIR, NASKH } from "./fonts";
 export { CAPITALS } from "./capitals";
+export { ZONES, zoneOf, type Zone } from "./zones";

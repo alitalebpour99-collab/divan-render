@@ -122,3 +122,94 @@ Scores after pass E: «تنگه» 6.4 (6.4 / 6.4) [ours 6.4], «میز سه‌ج
    actor's colour.
 6. **The 1 fps sheet is the judge's whole view.** Motion between seconds (the dives, the creep) is invisible to it;
    a 2 fps sheet or a short clip would judge the motion fairly.
+
+## Round 3 (21 Nov 2026)
+
+### The judge, re-based
+
+The judge read one frame a second: every move between two seconds was invisible to it. Since round 3 the contact sheets
+are **two frames a second, 20 s a sheet** (ten across, four down, each frame with its time, «12.5s»), and the judge
+reads a Reel's sheets in order (`qa.mjs` `contactSheets`; the worker sends `sheet`, `sheet2`, `sheet3`; `run.ts` and
+`judge.ts` take them all). Claude's vision takes images, not video, so a clip is not an option; one sheet for a whole
+Reel would be shrunk past reading. The reference sheets were already two frames a second.
+
+Round 2E re-judged on 2 fps sheets (the fair baseline): «تنگه» 6.7 (6.4 / 7.0), «میز سه‌جانبه» 6.9 (6.6 / 7.2),
+«تصمیم امروز» 6.35 (6.3 / 6.4). Within the noise of the 1 fps scores (6.4, 6.9, 6.9).
+
+### Pass A
+
+| flaw | fix |
+|---|---|
+| the writer hands one or two marks a beat; the map holds a frame with one comet | the map writer (`lib/agents/maps.ts`) is asked for a mark per 1.5 s of a beat's line, from the reports only: a sea area the report names (`zone`, hatched: «in and around the strait» is the zone, never invented points), the shipping lane (`lane`), the ports and cities it names (`label`); what it leaves short is filled from the ground in view (`enrich.ts`: the lane as a traced route, then the names of places in view), never with news; the site and the renderer both run it |
+| IRGC and UKMTO told in one colour | a claim carries its claimant's state: its colour and its flag; a link one side claims and the other has not confirmed is dashed |
+| a long label cut at the frame's edge | `fitCallout`: 60 px if it fits, down to 44 px, else two lines broken nearest the middle |
+| the oil chart leaves the map | a chart with a `place` (the writer sets Hormuz for oil) is a price tag on the map: the figure counting under the pen, a small line of the last days, a leader to the strait, the lane's tankers under it; the camera moves over it |
+| the gauge a bar over a still globe | each road's rider travels its own line toward Iran and stops where Divan's estimate puts it; the bar in the lower third moves with the riders |
+| a demand held 4 s on one state (13.5–17.5 s) | a beat with a line follows it after its first two shots: out to the line's middle, then to where it lands |
+| the poll's address over its options | the chip and the address on one row under the options |
+| thin comets | wider trail and head |
+
+Scores after pass A (2 fps): «تنگه» 6.35 (6.3 / 6.4) [ours 6.2], «میز سه‌جانبه» 7.2 (7.2 / 7.2) [7.0], «تصمیم امروز» 6.8
+(6.8 / 6.8) [6.7]. Gate: all pass. «تنگه» fell: the camera followed the shipping lane out to empty sea (7.5–9 s).
+
+### Pass B
+
+| flaw | fix |
+|---|---|
+| the camera followed a lane out to empty sea («تنگه» 7.5–9 s) | a looping comet is traffic, not a story: the camera follows only a beat's own lines |
+| the red hatching of the zone dominated every frame after it came | quieter hatching (lines 0.6, ground 0.12) |
+| boxed labels over the route and the zone | labels as words on a halo with a shade, not a card; placed clear of every line on the map (`taken` boxes along the lines) |
+| a dashed claim stands still once drawn («میز» 19–29 s) | a faint comet travels a dashed link while its beat is on screen |
+| the price tag a card over the map | a smaller tag (the map stays the picture) |
+| ghosted words caught mid-fade on the sheet | headers snap in (5 frames) |
+
+Scores after pass B (2 fps): «تنگه» 6.6 (6.6 / 6.6) [ours 6.5], «میز سه‌جانبه» 7.0 (7.0 / 7.0) [7.0], «تصمیم امروز» 6.6
+(6.6 / 6.6) [6.6]. Gate: all pass.
+
+### Pass C
+
+| flaw (asked in every round) | fix |
+|---|---|
+| «thick glowing comets with tails» | the comet's trail 24 px at its head, the head 22 px with a tighter glow |
+| the caption strip repeats the headline | the caption is the narrator's words: no narrator, no caption (the samples have none until the ElevenLabs narrator is back; with it the captions return and must be judged again) |
+| the end is the first frame only for an instant | home in 20 frames, then the last frames are the first frame itself, its comets running |
+| a demand holds on its state for 2.5 s before anything moves | a demand or a road follows its line from its second shot |
+
+Scores after pass C (2 fps): «تنگه» 6.6 (6.4 / 6.8) [ours 6.5], «میز سه‌جانبه» 7.4 (7.4 / 7.4) [7.2], «تصمیم امروز» 6.85
+(6.6 / 7.1) [6.8]. Gate: all pass. **Pass C is the head of round 3.**
+
+### Pass D (tried, reverted)
+
+White words on a solid navy backing (no red on a red fill), one label at a time, a state's fill flashing when its label
+lands, flags kept out of the title band, a bare price figure, the first frame held longer, bigger options. Scores: «تنگه»
+6.4 (6.4 / 6.4), «میز سه‌جانبه» 6.8 (6.8 / 6.8), «تصمیم امروز» 6.7 (6.6 / 6.8): no better, and the two runs asked for
+opposite labels (one: a solid backing; the other: «remove the opaque black boxes»). Reverted whole; the separate ideas
+(one label at a time, flags out of the title band, the flash) are worth trying again one at a time.
+
+### Round 3: scores (two frames a second)
+
+| pass | «تنگه» | «میز سه‌جانبه» | «تصمیم امروز» |
+|---|---|---|---|
+| 2E re-judged (baseline) | 6.7 | 6.9 | 6.35 |
+| 3A | 6.35 | 7.2 | 6.8 |
+| 3B | 6.6 | 7.0 | 6.6 |
+| **3C (head)** | **6.6** | **7.4** | **6.85** |
+| 3D (reverted) | 6.4 | 6.8 | 6.7 |
+
+### The plateau
+
+Since 2B every pass lands between 6.4 and 7.4, and two runs of the same sheet differ by up to 0.6. The fixes now move
+the score less than the judge's own noise. What the judge asks for in every round, and what stands in the way:
+
+1. **Events the reports do not place.** «Six tanker pins dropping one by one», «a counter 1→6», «an orbit across the
+   incident pins»: the reports name the strait, not six points. We draw the zone and never invent the pins. A source
+   that gives positions (an agency's own notice naming the distance from a port, where it does) would let the writer
+   place them honestly.
+2. **The narrator.** No voice until 27 Nov 2026, so no captions (they are the narrator's words) and no cut on a spoken
+   word; the judge sees a silent map. The next round must be judged with the ElevenLabs narrator.
+3. **The judge's taste is unsettled on labels** (solid card or bare words on a halo): pick one from the owner's own
+   references, not from the judge.
+4. **Roads that share one geography** («تصمیم امروز»: three roads all Europe → Iran) come from the day's story; a
+   road's own place (Doha, Washington) is used when the writer names it.
+5. **Throughput:** a pass is about 17 minutes of render on GitHub; a voice and a source of positions would move the
+   score more than another pass of polish.

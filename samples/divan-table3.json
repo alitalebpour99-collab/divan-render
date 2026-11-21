@@ -217,7 +217,7 @@
      "color": "#c8564c"
     },
     {
-     "kind": "comet",
+     "kind": "dashed",
      "coords": [
       [
        116.4,
@@ -256,7 +256,7 @@
      "color": "#6fa57a"
     },
     {
-     "kind": "comet",
+     "kind": "dashed",
      "coords": [
       [
        37.62,

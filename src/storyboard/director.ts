@@ -2,9 +2,10 @@
 // Pure (no React): the site and the renderer both run it. Every beat lasts as long as its line is said; it is cut
 // into shots of 1 to 2 seconds, each cut made on a word the narrator says, so a picture changes when a word lands.
 // Each shot says what it shows, how it moves, what it writes, what it sounds like, how it leaves, and why it is there.
-import { geoDistance } from "d3-geo";
+import { geoDistance, geoInterpolate } from "d3-geo";
 import type { Look } from "../map-engine/camera";
 import { CAPITALS } from "../map-engine/capitals";
+import { PLACES_FA } from "../map-engine/names";
 import { country } from "../map-engine/world";
 
 /**
@@ -87,7 +88,8 @@ const centreOf = (marks: Mark[], fallback: Look): [number, number] => {
   if (!pts.length) return [fallback.lon, fallback.lat];
   return [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
 };
-const lookOfBeat = (b: Beat): Look | null => (b.kind === "hook" || b.kind === "map" || b.kind === "demand" ? b.look : b.kind === "road" && b.look ? b.look : null);
+const lookOfBeat = (b: Beat): Look | null =>
+  b.kind === "hook" || b.kind === "map" || b.kind === "demand" ? b.look : b.kind === "road" && b.look ? b.look : b.kind === "chart" && b.chart.place && PLACES_FA[b.chart.place] ? { lon: PLACES_FA[b.chart.place].lon, lat: PLACES_FA[b.chart.place].lat - 1.5, span: 14 } : null;
 
 /**
  * The camera's vocabulary inside a beat (round 2, 21 Nov 2026; the judge: «one framing held for 20 s»). The first
@@ -100,6 +102,22 @@ const lookOfBeat = (b: Beat): Look | null => (b.kind === "hook" || b.kind === "m
  * The beat's own look bounds every move (0.4 to 2.8 of its span), so its marks stay in the frame. Each move is made in
  * 0.7 s and the camera then creeps on (Reel.tsx cameraKeys): on a sheet of one frame a second, every second is new.
  */
+/** The beat's line that travels furthest (a comet, a dashed line or a claim): the one the camera follows. */
+const lineOf = (marks: Mark[]): [number, number][] | null => {
+  let best: [number, number][] | null = null;
+  let len = 0;
+  for (const m of marks) {
+    if (m.kind !== "comet" && m.kind !== "dashed" && m.kind !== "claim") continue;
+    // a looping comet is traffic on a lane, not a story: the camera never follows it out to sea (round 3A, 7.5–9 s)
+    if (m.kind === "comet" && m.loop) continue;
+    const d = geoDistance(m.coords[0], m.coords[m.coords.length - 1]);
+    if (d > len) {
+      len = d;
+      best = m.coords;
+    }
+  }
+  return best && len > 0.02 ? best : null;
+};
 const endOf = (marks: Mark[]): [number, number] | null => {
   for (const m of [...marks].reverse()) if (m.kind === "comet" || m.kind === "dashed" || m.kind === "claim") return m.coords[m.coords.length - 1];
   return null;
@@ -217,7 +235,7 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         look = { lon, lat: lat - 6, span: 46, tilt: k % 2 ? 18 : 6, roll: 0 };
         camera = k === 0 ? (isDive(lastLook, look) ? "dive" : "pan") : "pan";
         lastLook = look;
-      } else if (b.kind === "poll" && homeLook) {
+      } else if ((b.kind === "poll" || b.kind === "gauge") && homeLook) {
         // the close goes home: the hook's own map, a little wider, the question over it; the loop then lands on frame 0
         look = k === 0 ? { ...homeLook, span: homeLook.span * 1.25, tilt: 12 } : { ...homeLook, span: homeLook.span * (1.25 - 0.125 * k), tilt: Math.max(0, 12 - 6 * k) };
         camera = k === 0 ? "pull-out" : "push";
@@ -232,14 +250,30 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
           // written there), else what this shot brings, else the beat's marks
           const own = b.kind === "demand" ? (CAPITALS[b.a3] ?? null) : b.kind === "road" ? endOf(marks) : null;
           const target = own ?? (mine.length ? centreOf(mine.map((i) => marks[i]), prev) : marks.length ? centreOf(marks, prev) : null);
-          const move = MOVES[(k - 1 + bi) % MOVES.length];
-          look = moveLook(move, prev, beatLook, target, k);
-          camera = move === "pull" ? "pull-out" : move === "push" ? "push-close" : "pan";
+          // round 3 (the judge at 2 fps: «the US hold 13.5–17.5 s»): a beat with a line on it follows the line after its
+          // first two shots: out to the line's middle (the whole way in the frame), then to where it lands, then the
+          // cycle's pull. The comet is seen arriving, not only leaving.
+          // a demand or a road follows from its second shot (its words land with the dive), a map beat from its third
+          const from = b.kind === "map" ? 2 : 1;
+          const path = (b.kind === "demand" || b.kind === "road" || b.kind === "map") && k >= from ? lineOf(marks) : null;
+          const step = path ? (k - from) % 3 : -1;
+          if (path && step < 2) {
+            const a = path[0];
+            const z = path[path.length - 1];
+            const far = (geoDistance(a, z) * 180) / Math.PI;
+            const [lon, lat] = step === 0 ? (geoInterpolate(a, z)(0.5) as [number, number]) : z;
+            look = { lon, lat, span: step === 0 ? Math.min(175, Math.max(beatLook.span * 0.8, far * 1.3)) : Math.max(4, beatLook.span * 0.8), tilt: 0, roll: 0 };
+            camera = step === 0 ? "pull-out" : "pan";
+          } else {
+            const move = MOVES[(k - 1 + bi) % MOVES.length];
+            look = moveLook(move, prev, beatLook, target, k);
+            camera = move === "pull" ? "pull-out" : move === "push" ? "push-close" : "pan";
+          }
         }
         // a beat whose words stand on the map (a label, a measure, a demand, a road's cost) is seen flat: a leaning map
         // moved the labels off their points and past the frame's edge (pass D, «میز» 13–29 s). It leans only when no
         // word is on it; its pull then stands in for the lean.
-        const speaks = b.kind === "demand" || b.kind === "road" || marks.some((m) => m.kind === "callout" || m.kind === "measure");
+        const speaks = b.kind === "demand" || b.kind === "road" || b.kind === "chart" || marks.some((m) => m.kind === "callout" || m.kind === "measure");
         if (speaks && look) look = { ...look, tilt: 0 };
         lastLook = look;
       } else if (lastLook) {

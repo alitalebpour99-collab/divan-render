@@ -66,6 +66,8 @@ jobs:
             if [ -f "out/$name.gate.json" ]; then cp "out/$name.gate.json" small/; fi
             # the storyboard engine: the storyboard, the quality gate, the one-frame-a-second sheet the judge scores
             for f in "out/$name.storyboard.json" "out/$name.qa.json" "out/$name-sheet-1fps.jpg"; do if [ -f "$f" ]; then cp "$f" small/; fi; done
+            # the judge's sheets since round 3: two frames a second, 20 s a sheet
+            for f in out/$name-sheet-2fps-*.jpg; do if [ -f "$f" ]; then cp "$f" small/; fi; done
             if [ -f "samples/$name.cover.json" ]; then node render.mjs cover --props "samples/$name.cover.json" --bundle bundle --still 0 --out "$name-tile"; ffmpeg -v error -y -i "out/$name-tile-0000.png" -vf scale=540:-2 -q:v 3 "small/$name-tile.jpg" || true; fi
           done
           ls -la out

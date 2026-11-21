@@ -6,12 +6,13 @@
 import React from "react";
 import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { geoContains, geoDistance, geoInterpolate } from "d3-geo";
+import { measureLabelBox, placeCallouts } from "../map-engine/layers";
 import { densify, useView, ContextNames, NAMES_FA, PLACES_FA, nameFa, CAPITALS, CometTrail, CountryFill, Callouts, ClaimLine, DashedLine, FlagChip, LANES, MapStage, MeasureLine, PinCluster, PlaceLabels, RegionHatch, DIVAN, country, lookAt, makeView, faNum, type Key, type Look, type CalloutSpec } from "../map-engine";
 import { VAZIR } from "../map-engine/fonts";
 import { LOOP } from "./director";
 import { RoadObject } from "./objects";
 import { MapObject, ObjectDefs, objectBox } from "../map-engine/objects";
-import { SeaDetail, ScaleAndNorth } from "../map-engine/detail";
+import { SeaDetail, ScaleAndNorth, scaleGeom } from "../map-engine/detail";
 import { SEA_PLACES_FA } from "../map-engine/names";
 import type { Beat, ChartSpec, Mark, ReelContent, Shot, Storyboard } from "./types";
 
@@ -173,8 +174,7 @@ const STATE_LIST = Object.keys(NAMES_FA)
   .filter((x): x is { t: string; lon: number; lat: number } => Boolean(x));
 
 /** Small boxes along every line on the map: the labels are placed clear of them (round 3: «labels over the route»). */
-const LineBoxes: React.FC<{ ms: Mark[]; children: (boxes: { x: number; y: number; w: number; h: number }[]) => React.ReactNode }> = ({ ms, children }) => {
-  const v = useView();
+const lineBoxesOf = (v: ReturnType<typeof useView>, ms: Mark[]) => {
   const boxes: { x: number; y: number; w: number; h: number }[] = [];
   for (const m of ms) {
     if (m.kind === "object") {
@@ -194,10 +194,10 @@ const LineBoxes: React.FC<{ ms: Mark[]; children: (boxes: { x: number; y: number
       if (p) boxes.push({ x: p[0] - 22, y: p[1] - 22, w: 44, h: 44 });
     }
   }
-  return <>{children(boxes)}</>;
+  return boxes;
 };
 
-const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: number; base?: number }[]; f: number; span: number }> = ({ list, f, span }) => {
+const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: number; base?: number }[]; f: number; span: number; scale?: boolean }> = ({ list, f, span, scale = false }) => {
   const callouts: CalloutSpec[] = [];
   const ts: number[] = [];
   const labels: { t: string; lon: number; lat: number }[] = [];
@@ -255,16 +255,29 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
     else if (m.kind === "pins") avoid.push(...m.points.map((p) => [p.lon, p.lat] as [number, number]));
     else if (m.kind === "measure") avoid.push(m.a, m.b, [(m.a[0] + m.b[0]) / 2, (m.a[1] + m.b[1]) / 2]);
   }
+  // pass 3: every word on the map is placed against every other: the scale and the measures first, then the callouts
+  // (clear of them and of the lines), then the place names (clear of all of it, the leaders too)
+  const sc = scale ? scaleGeom(view) : null;
+  const fixed = [...(sc ? [sc.box] : []), ...list.flatMap(({ m, t }) => (m.kind === "measure" && t >= 0 ? [measureLabelBox(view, m.a, m.b)].filter((b): b is NonNullable<typeof b> => Boolean(b)) : []))];
+  const pre = placeCallouts(view, callouts, SAFE, [...lineBoxesOf(view, list.map((x) => x.m)), ...fixed]);
+  const calloutBoxes = pre.placed.flatMap((p) => {
+    const out = [p.box];
+    // the leader, as a row of small boxes
+    const ex = p.box.x + p.box.w;
+    const ey = p.box.y + p.box.h / 2;
+    for (let s = 0; s <= 1; s += 0.1) out.push({ x: p.anchor[0] + (ex - p.anchor[0]) * s - 12, y: p.anchor[1] + (ey - p.anchor[1]) * s - 12, w: 24, h: 24 });
+    return out;
+  });
   return (
     <>
       <ObjectDefs />
-      <ContextNames avoid={avoid} places={span < 10 ? [...PLACE_LIST, ...SEA_LIST] : PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : span < 10 ? 6 : 5} />
+      <ContextNames avoid={avoid} boxes={[...fixed, ...calloutBoxes, ...objBoxes]} places={span < 10 ? [...PLACE_LIST, ...SEA_LIST] : PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : span < 10 ? 6 : 5} />
       {body}
       {objects.filter((o) => o.drawFirst).map((o) => o.node)}
       {objects.filter((o) => !o.drawFirst).map((o) => o.node)}
       {measures}
-      <PlaceLabels items={labels} avoid={objBoxes} />
-      <LineBoxes ms={list.map((x) => x.m)}>{(boxes) => <Callouts items={callouts} ts={ts} safe={SAFE} taken={boxes} />}</LineBoxes>
+      <PlaceLabels items={labels} avoid={objBoxes} block={[...fixed, ...calloutBoxes]} />
+      <Callouts items={callouts} ts={ts} safe={SAFE} pre={pre} />
     </>
   );
 };
@@ -779,7 +792,7 @@ export const Reel: React.FC<Props> = (p) => {
       <MapStage look={look} frame={STAGE} theme={DIVAN} f={f} dim={dim} bleed>
         <SeaDetail />
         <Ambient f={f} total={total} look={look} />
-        <MapMarks list={marks} f={f} span={look.span} />
+        <MapMarks list={marks} f={f} span={look.span} scale={!inLoop && beat.kind === "map"} />
         {!inLoop && beat.kind === "map" ? <ScaleAndNorth /> : null}
       </MapStage>
       {/* the scrims: the map runs under the header and the caption, darkened there so their words read */}

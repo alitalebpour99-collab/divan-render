@@ -141,6 +141,29 @@ const lineOf = (marks: Mark[]): [number, number][] | null => {
   }
   return best && len > 0.02 ? best : null;
 };
+/** A claim beat (round 4 pass 3): two or more states' callouts on one map. Their points, or null. */
+export const claimPoints = (marks: Mark[]): [number, number][] | null => {
+  const cs = marks.filter((m): m is Extract<Mark, { kind: "callout" }> => m.kind === "callout" && Boolean((m as { a3?: string }).a3));
+  return new Set(cs.map((m) => (m as { a3?: string }).a3)).size >= 2 ? cs.map((m) => [m.lon, m.lat] as [number, number]) : null;
+};
+/**
+ * The look that holds every claim point inside the labels' safe frame (x 140–820, y 620–1340 of 1080×1920), with room
+ * for the words: a narrative left off the screen is a narrative the viewer never hears (abqaiq «سه روایت», pass 2).
+ * Each later shot breathes a little wider and drifts, so the picture still changes every shot.
+ */
+export function frameAll(pts: [number, number][], k: number, beat: Look): Look {
+  const lons = pts.map((p) => p[0]);
+  const lats = pts.map((p) => p[1]);
+  const midLon = (Math.min(...lons) + Math.max(...lons)) / 2;
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const cos = Math.cos((midLat * Math.PI) / 180);
+  const need = Math.max(((Math.max(...lons) - Math.min(...lons)) * cos * 1080) / 680, ((Math.max(...lats) - Math.min(...lats)) * 1080) / 720) * 1.18;
+  const span = Math.max(need, beat.span * 0.8) * (1 + 0.07 * (k % 3));
+  // the safe frame's middle is 60 px left of and 20 px under the screen's
+  const lon = midLon + (60 * span) / (1080 * cos) + (k % 2 ? 1 : -1) * span * 0.02 * (k > 0 ? 1 : 0);
+  const lat = midLat + (20 * span) / 1080;
+  return { lon, lat, span, tilt: 0, roll: 0 };
+}
 const endOf = (marks: Mark[]): [number, number] | null => {
   for (const m of [...marks].reverse()) if (m.kind === "comet" || m.kind === "dashed" || m.kind === "claim") return m.coords[m.coords.length - 1];
   return null;
@@ -301,6 +324,9 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         // a beat whose words stand on the map (a label, a measure, a demand, a road's cost) is seen flat: a leaning map
         // moved the labels off their points and past the frame's edge (pass D, «میز» 13–29 s). It leans only when no
         // word is on it; its pull then stands in for the lean.
+        // pass 3: on a claim beat every claim stays in the frame, whatever move the cycle asked for
+        const claims = b.kind === "map" ? claimPoints(marks) : null;
+        if (claims && look) look = frameAll(claims, k, beatLook);
         const speaks = b.kind === "demand" || b.kind === "road" || b.kind === "chart" || marks.some((m) => m.kind === "callout" || m.kind === "measure");
         if (speaks && look) look = { ...look, tilt: 0 };
         lastLook = look;

@@ -37,7 +37,7 @@ export const SeaDetail: React.FC = () => {
       </g>
       <path d={v.path(world.land) ?? ""} fill={v.theme.land} stroke={v.theme.landEdge} strokeWidth={1.4} />
       {s < 14
-        ? COASTS.filter((c) => c.properties.strait === "hormuz").map((c, i) => <path key={i} d={v.path(c) ?? ""} fill={v.theme.land} stroke={v.theme.landEdge} strokeWidth={1.2} />)
+        ? COASTS.filter((c) => c.properties.strait === "hormuz").map((c, i) => <path key={i} d={v.path(c) ?? ""} fill={v.theme.land} />)
         : null}
       {s < 14 ? <path d={v.path(islands) ?? ""} fill={v.theme.land} stroke={v.theme.landEdge} strokeWidth={1.2} /> : null}
       <path d={v.path(world.borders) ?? ""} fill="none" stroke={v.theme.border} strokeWidth={s < 20 ? 2 : 1.3} strokeOpacity={0.8} />
@@ -46,8 +46,7 @@ export const SeaDetail: React.FC = () => {
 };
 
 /** A scale bar measured on the map at the frame's middle, and a north arrow: only on a close, flat map. */
-export const ScaleAndNorth: React.FC<{ x?: number; y?: number }> = ({ x = 64, y = 1296 }) => {
-  const v = useView();
+export function scaleGeom(v: { look: { lon: number; lat: number; span: number; tilt?: number }; at: (lon: number, lat: number) => [number, number] | null }, x = 64, y = 1296) {
   const s = v.look.span;
   if (s > 25 || (v.look.tilt ?? 0) > 0.5) return null;
   const c: [number, number] = [v.look.lon, v.look.lat];
@@ -57,11 +56,23 @@ export const ScaleAndNorth: React.FC<{ x?: number; y?: number }> = ({ x = 64, y 
   const pxPerKm = Math.hypot(b[0] - a[0], b[1] - a[1]) / km([c[0] - 0.25, c[1]], [c[0] + 0.25, c[1]]);
   const nice = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000].find((n) => n * pxPerKm >= 150) ?? 1000;
   const w = nice * pxPerKm;
+  // pass 3: the north arrow stands right of the bar and its words, never on them (the judge: «شمال» over «۱۰۰ کیلومتر»)
+  const textW = Math.ceil(`${nice} کیلومتر`.length * 40 * 0.58) + 8;
+  const end = x + 60 + Math.max(w, w / 2 + textW / 2);
+  const northX = end + 50;
+  return { nice, w, northX, box: { x: x - 24, y: y - 120, w: northX + 60 - (x - 24), h: 150 } };
+}
+
+export const ScaleAndNorth: React.FC<{ x?: number; y?: number }> = ({ x = 64, y = 1296 }) => {
+  const v = useView();
+  const g = scaleGeom(v, x, y);
+  if (!g) return null;
+  const { nice, w, northX } = g;
   const halo = { paintOrder: "stroke" as const, stroke: v.theme.halo, strokeWidth: 7, strokeLinejoin: "round" as const };
   return (
     <g opacity={0.9}>
       {/* the north arrow */}
-      <g transform={`translate(${x + 18} ${y - 70})`}>
+      <g transform={`translate(${northX} ${y - 70})`}>
         <path d="M0 -34 L12 4 L0 -4 L-12 4 Z" fill={v.theme.ink} stroke={v.theme.halo} strokeWidth={2} />
         <path d="M0 -34 L0 -4 L-12 4 Z" fill={v.theme.halo} opacity={0.5} />
         <text x={0} y={42} textAnchor="middle" fill={v.theme.ink} fontFamily={VAZIR} fontWeight={700} fontSize={40} style={halo}>

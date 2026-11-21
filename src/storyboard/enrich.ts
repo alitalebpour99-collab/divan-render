@@ -58,8 +58,12 @@ export function groundFor(look: Look, have: Mark[], want: number): Mark[] {
 export function enrich(content: ReelContent): ReelContent {
   // the topic's own objects first (a tanker, a missile, a rig …; owner, 21 Nov 2026): the ground only fills what is left
   const c = withObjects(content);
-  const beats = c.beats.map((b): Beat => {
-    if (b.kind !== "map") return b;
+  const norm = (s: string | undefined) => String(s ?? "").replace(/[\s،,٫.«»:]/g, "");
+  const beats = c.beats.map((b0): Beat => {
+    if (b0.kind !== "map") return b0;
+    // pass 3: a callout that only repeats the beat's headline goes (the header already says it, in bigger letters)
+    const dup = (m: Mark) => m.kind === "callout" && norm(b0.caption) !== "" && norm(m.bold) === norm(b0.caption);
+    const b = b0.marks.some(dup) ? { ...b0, marks: b0.marks.filter((m) => !dup(m)) } : b0;
     const short = marksWanted(b) - b.marks.filter(counts).length;
     if (short <= 0) return b;
     const extra = groundFor(b.look, b.marks, short);

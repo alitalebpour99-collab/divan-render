@@ -222,6 +222,18 @@ export const PinCluster: React.FC<{ points: { lon: number; lat: number }[]; colo
 /** How many pins of a cluster are in at clock t (for a counter beside it). */
 export const pinsIn = (n: number, t: number, gap = 2.4) => Math.max(0, Math.min(n, Math.floor(t / gap) + 1));
 
+/** Where a measure's words stand (pass 3: the names keep clear of it, label against label). */
+export function measureLabelBox(v: { at: (lon: number, lat: number) => [number, number] | null }, a: [number, number], b: [number, number], size = 64): Box | null {
+  const A = v.at(...a);
+  const B = v.at(...b);
+  if (!A || !B) return null;
+  const ang = Math.atan2(B[1] - A[1], B[0] - A[0]);
+  const cx = (A[0] + B[0]) / 2 - Math.sin(ang) * 18 * 3.2;
+  const cy = (A[1] + B[1]) / 2 + Math.cos(ang) * 18 * 3.2;
+  const w = textWidth(`${faNum(Math.round(km(a, b)))} کیلومتر`, size);
+  return { x: cx - w / 2, y: cy - size * 0.62, w, h: size * 1.05 };
+}
+
 /** A measure between two points, its length read from the data: «۵۴ کیلومتر». */
 export const MeasureLine: React.FC<{ a: [number, number]; b: [number, number]; t: number; color?: string; size?: number; label?: string }> = ({ a, b, t, color, size = 64, label }) => {
   const v = useView();
@@ -288,25 +300,33 @@ export function fitCallout(c: { bold: string; sub?: string; a3?: string; size?: 
   return { size, lines, w, h };
 }
 
-export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box; taken?: Box[] }> = ({ items, ts, safe, taken = [] }) => {
-  const v = useView();
+/** Where the callouts go (pass 3: made once outside, so the place names can keep clear of the words and the leaders). */
+export function placeCallouts(v: { at: (lon: number, lat: number) => [number, number] | null }, items: CalloutSpec[], safe: Box, taken: Box[] = []) {
   const fits = items.map((c) => fitCallout(c, safe.w));
   const wants = items.map((c, i) => {
     const at = v.at(c.lon, c.lat) ?? [-999, -999];
     return { id: c.id, x: at[0], y: at[1], w: fits[i].w, h: fits[i].h, prio: items.length - i };
   });
   // round 2: a label stands 56 px off its point on a leader, so it never lies on the coast or the line it names
-  const placed = place(wants, safe, taken, 56);
+  return { fits, placed: place(wants, safe, taken, 56) };
+}
+
+export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box; taken?: Box[]; pre?: ReturnType<typeof placeCallouts> }> = ({ items, ts, safe, taken = [], pre }) => {
+  const v = useView();
+  const { fits, placed } = pre ?? placeCallouts(v, items, safe, taken);
   return (
     <g>
       {items.map((c, i) => {
         const t = ts[i] ?? 0;
         if (t < 0) return null;
         const p = placed.find((x) => x.id === c.id);
-        const at = v.at(c.lon, c.lat);
-        if (!p || !at) return null;
-        // round 4: a callout whose point is off the frame is not drawn (a label floating far from its place misleads)
-        if (at[0] < v.frame.x - 20 || at[0] > v.frame.x + v.frame.w + 20 || at[1] < v.frame.y - 20 || at[1] > v.frame.y + v.frame.h + 20) return null;
+        const raw = v.at(c.lon, c.lat);
+        if (!p || !raw) return null;
+        // round 4: a callout whose point is off the frame is not drawn (a label floating far from its place misleads);
+        // pass 3: a claim (a state's words, its flag) is never hidden: its leader points to the frame's edge, toward its place
+        const off = raw[0] < v.frame.x - 20 || raw[0] > v.frame.x + v.frame.w + 20 || raw[1] < v.frame.y - 20 || raw[1] > v.frame.y + v.frame.h + 20;
+        if (off && !c.a3) return null;
+        const at: [number, number] = off ? [Math.max(v.frame.x + 30, Math.min(v.frame.x + v.frame.w - 30, raw[0])), Math.max(v.frame.y + 30, Math.min(v.frame.y + v.frame.h - 30, raw[1]))] : raw;
         const col = c.color ?? v.theme.ink;
         const { size, lines } = fits[i];
         const line = size * 1.2;
@@ -316,6 +336,9 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
         const ex = p.box.x + p.box.w;
         const ey = by + p.box.h / 2;
         const lead = Math.hypot(ex - at[0], ey - at[1]) > 30;
+        // pass 3: the flag stands where the words begin (at the leader's end), so it never drifts from them
+        const fw = c.a3 && flagArt(c.a3) ? size * 0.84 * flagAspect(c.a3) : 0;
+        const tx = ex - 22 - (fw ? fw + 14 : 0);
         return (
           <g key={c.id} opacity={k}>
             {lead ? <path d={`M${at[0]} ${at[1]} L${ex + 6} ${ey}`} stroke={col} strokeWidth={3} pathLength={1} strokeDasharray={`${k} 1`} fill="none" /> : null}
@@ -323,17 +346,17 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
             {/* the owner's decision (21 Nov 2026), as on @atlynxmaps: bare words with a soft shadow on a leader line, never a box */}
             <g transform={`translate(0 ${(1 - k) * 14})`} style={{ filter: "drop-shadow(0 3px 10px rgba(5,9,16,0.95)) drop-shadow(0 0 3px rgba(5,9,16,0.9))" }}>
               {lines.map((l, j) => (
-                <text key={j} x={ex - 22} y={by + size * 1.08 + j * line} textAnchor="start" direction="rtl" fill={col} fontFamily={VAZIR} fontWeight={800} fontSize={size}>
+                <text key={j} x={tx} y={by + size * 1.08 + j * line} textAnchor="start" direction="rtl" fill={col} fontFamily={VAZIR} fontWeight={800} fontSize={size}>
                   {l}
                 </text>
               ))}
               {c.a3 && flagArt(c.a3) ? (
-                <svg x={bx + 14} y={by + p.box.h / 2 - size * 0.42} width={size * 0.84 * flagAspect(c.a3)} height={size * 0.84} viewBox={`0 0 ${c.a3 === "IRN" ? 200 * flagAspect(c.a3) : 300} 200`} preserveAspectRatio="none">
+                <svg x={ex - 22 - fw} y={by + size * 1.08 - size * 0.74} width={size * 0.84 * flagAspect(c.a3)} height={size * 0.84} viewBox={`0 0 ${c.a3 === "IRN" ? 200 * flagAspect(c.a3) : 300} 200`} preserveAspectRatio="none">
                   {flagArt(c.a3)}
                 </svg>
               ) : null}
               {c.sub ? (
-                <text x={ex - 22} y={by + size * 1.08 + (lines.length - 1) * line + size * 0.95} textAnchor="start" direction="rtl" fill={v.theme.ink} fontFamily={VAZIR} fontWeight={700} fontSize={size * 0.72}>
+                <text x={tx} y={by + size * 1.08 + (lines.length - 1) * line + size * 0.95} textAnchor="start" direction="rtl" fill={v.theme.ink} fontFamily={VAZIR} fontWeight={700} fontSize={size * 0.72}>
                   {c.sub}
                 </text>
               ) : null}
@@ -350,7 +373,7 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
  * cities and states whose point is in the frame, quiet and small, nearest the centre first, never within 150 px of a
  * mark that speaks (`avoid`) nor of each other. At most `max`; none on the whole globe but the states.
  */
-export const ContextNames: React.FC<{ avoid: [number, number][]; max?: number; places: { t: string; lon: number; lat: number }[]; states: { t: string; lon: number; lat: number }[] }> = ({ avoid, max = 5, places, states }) => {
+export const ContextNames: React.FC<{ avoid: [number, number][]; max?: number; places: { t: string; lon: number; lat: number }[]; states: { t: string; lon: number; lat: number }[]; /** pass 3: words already on the map (a measure, the callouts and their leaders, the scale): a name never meets one */ boxes?: Box[] }> = ({ avoid, max = 5, places, states, boxes = [] }) => {
   const v = useView();
   const cx = v.frame.x + v.frame.w / 2;
   const cy = v.frame.y + v.frame.h / 2;
@@ -359,11 +382,16 @@ export const ContextNames: React.FC<{ avoid: [number, number][]; max?: number; p
   const pool = (v.look.span > 70 ? states : [...places, ...states]).map((p) => ({ ...p, at: v.at(p.lon, p.lat) })).filter((p) => p.at && p.at[0] > zone.x0 && p.at[0] < zone.x1 && p.at[1] > zone.y0 && p.at[1] < zone.y1) as { t: string; at: [number, number] }[];
   pool.sort((a, b) => Math.hypot(a.at[0] - cx, a.at[1] - cy) - Math.hypot(b.at[0] - cx, b.at[1] - cy));
   const out: { t: string; at: [number, number] }[] = [];
+  const used: Box[] = [...boxes];
   for (const p of pool) {
     if (out.length >= max) break;
     if (taken.some((q) => Math.hypot(q[0] - p.at[0], q[1] - p.at[1]) < 150)) continue;
+    const w = textWidth(p.t, 44);
+    const box = { x: p.at[0] - w / 2, y: p.at[1] - 26, w, h: 52 };
+    if (used.some((u) => u.x < box.x + box.w + 10 && box.x < u.x + u.w + 10 && u.y < box.y + box.h + 6 && box.y < u.y + u.h + 6)) continue;
     out.push(p);
     taken.push(p.at);
+    used.push(box);
   }
   return (
     <g opacity={0.82}>
@@ -377,7 +405,7 @@ export const ContextNames: React.FC<{ avoid: [number, number][]; max?: number; p
 };
 
 /** Quiet place names (seas, straits, states), never under 50 px (round 2: the judge could not read 40 px), each on a dark halo. */
-export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: number; size?: number; color?: string }[]; opacity?: number; /** boxes the names keep clear of (objects on the map): a name over one moves above it */ avoid?: Box[] }> = ({ items, opacity = 1, avoid = [] }) => {
+export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: number; size?: number; color?: string }[]; opacity?: number; /** boxes the names keep clear of (objects on the map): a name over one moves above it */ avoid?: Box[]; /** pass 3: words a name may not meet at all (a measure, the scale): it gives way */ block?: Box[] }> = ({ items, opacity = 1, avoid = [], block = [] }) => {
   const v = useView();
   return (
     <g opacity={opacity}>
@@ -390,6 +418,7 @@ export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: numbe
         // round 4: a name never lies on an object: it rises above the object's box (and its leader keeps the place)
         for (const b of avoid) if (at[0] + w / 2 > b.x && at[0] - w / 2 < b.x + b.w && y > b.y - 6 && y - size < b.y + b.h) y = b.y - 10;
         const moved = y !== at[1];
+        if (block.some((b) => at[0] + w / 2 > b.x && at[0] - w / 2 < b.x + b.w && y > b.y - 6 && y - size < b.y + b.h)) return null;
         return (
           <g key={i}>
             {moved ? <path d={`M${at[0]} ${at[1]} L${at[0]} ${y + 6}`} stroke={l.color ?? v.theme.label} strokeWidth={2} opacity={0.7} /> : null}

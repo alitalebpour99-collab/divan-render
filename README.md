@@ -284,3 +284,7 @@ real things the narrator talks about, never an abstract shape.
 - Round 4, pass 2: the ground's lane comet loops (the camera never chases traffic away from the story); the camera
   follows a pipeline's route or a ship's lane; a callout whose place is off the frame is not drawn; a label with no
   free place takes the one that covers least; a place name rises above an object passing under it, on a leader.
+- Round 4, pass 3: a claim beat (two or more states' callouts) frames every claim point in every shot, and a claim is
+  never hidden off the frame; all words on the map are placed against each other (scale and measures, then callouts
+  and their leaders, then place names); the flag stands where a callout's words begin; the north arrow sits beside
+  the scale, not on it; a callout that only repeats the headline is dropped; the clipped 1:10m coasts lose their stroke.

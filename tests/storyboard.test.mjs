@@ -140,3 +140,37 @@ test("every object of the library has its names and what it depicts", () => {
   assert.ok(MAP_OBJECTS.length >= 20);
   for (const o of MAP_OBJECTS) assert.ok(o.en && o.fa && o.depicts.length > 30 && o.moves.length, o.id);
 });
+
+// ---- round 4 pass 3: a claim beat keeps every claim on the screen ----
+test("abqaiq «سه روایت»: every shot of a claim beat holds all its claim points inside the safe frame", async () => {
+  const { enrich: en } = await import("../src/storyboard/enrich.ts");
+  const { claimPoints } = await import("../src/storyboard/director.ts");
+  const { scaleOf } = await import("../src/map-engine/camera.ts");
+  const { geoOrthographic } = await import("d3-geo");
+  const c = en(read("divan-abqaiq"));
+  const sb = direct(c, []);
+  let seen = 0;
+  c.beats.forEach((b, bi) => {
+    if (b.kind !== "map") return;
+    const pts = claimPoints(b.marks);
+    if (!pts) return;
+    for (const s of sb.shots.filter((x) => x.beat === bi)) {
+      const L = s.motion.look;
+      assert.ok(L, `shot ${s.n} has a look`);
+      const proj = geoOrthographic().rotate([-L.lon, -L.lat, L.roll ?? 0]).scale(scaleOf(L.span, 1080)).translate([540, 960]);
+      for (const p of pts) {
+        const [x, y] = proj(p);
+        assert.ok(x >= 64 && x <= 884 && y >= 560 && y <= 1400, `shot ${s.n}: the claim at ${p} stands at ${Math.round(x)},${Math.round(y)}, outside the safe frame`);
+        seen += 1;
+      }
+    }
+  });
+  assert.ok(seen >= 6, "the abqaiq sample has a claim beat");
+});
+
+test("pass 3: a callout that only repeats the beat's headline is not drawn again on the map", async () => {
+  const { enrich: en } = await import("../src/storyboard/enrich.ts");
+  const c = en(read("divan-abqaiq"));
+  const norm = (s) => String(s ?? "").replace(/[\s،,٫.«»:]/g, "");
+  for (const b of c.beats) if (b.kind === "map") for (const m of b.marks) if (m.kind === "callout") assert.notEqual(norm(m.bold), norm(b.caption), `«${m.bold}» repeats the headline`);
+});

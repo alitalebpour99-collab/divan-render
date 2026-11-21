@@ -5,8 +5,8 @@
 // picture back, so the Reel loops. Every word comes from the content (types.ts); nothing is typed here.
 import React from "react";
 import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { geoContains } from "d3-geo";
-import { ContextNames, NAMES_FA, PLACES_FA, nameFa, CAPITALS, CometTrail, CountryFill, Callouts, ClaimLine, DashedLine, FlagChip, LANES, MapStage, MeasureLine, PinCluster, PlaceLabels, RegionHatch, DIVAN, country, lookAt, makeView, faNum, type Key, type Look, type CalloutSpec } from "../map-engine";
+import { geoContains, geoDistance, geoInterpolate } from "d3-geo";
+import { densify, useView, ContextNames, NAMES_FA, PLACES_FA, nameFa, CAPITALS, CometTrail, CountryFill, Callouts, ClaimLine, DashedLine, FlagChip, LANES, MapStage, MeasureLine, PinCluster, PlaceLabels, RegionHatch, DIVAN, country, lookAt, makeView, faNum, type Key, type Look, type CalloutSpec } from "../map-engine";
 import { VAZIR } from "../map-engine/fonts";
 import { LOOP } from "./director";
 import { RoadObject } from "./objects";
@@ -63,7 +63,8 @@ function cameraKeys(sb: Storyboard): Key[] {
     prev = look;
   }
   // the loop: hold the last look, then fly back to the first in the last frames (the frame number goes last: a key's own «at» must not win)
-  if (keys.length) keys.push({ ...keys[keys.length - 1], at: sb.total - LOOP }, { ...keys[0], at: sb.total - 1 });
+  // round 3C: home in 20 frames, then the last frames are the first frame itself (the judge: «end on the exact 0 s frame»)
+  if (keys.length) keys.push({ ...keys[keys.length - 1], at: sb.total - LOOP }, { ...keys[0], at: sb.total - LOOP + 20 }, { ...keys[0], at: sb.total - 1 });
   return keys.filter((k, i, all) => i === 0 || k.at > all[i - 1].at);
 }
 
@@ -112,6 +113,22 @@ const STATE_LIST = Object.keys(NAMES_FA)
   })
   .filter((x): x is { t: string; lon: number; lat: number } => Boolean(x));
 
+/** Small boxes along every line on the map: the labels are placed clear of them (round 3: «labels over the route»). */
+const LineBoxes: React.FC<{ ms: Mark[]; children: (boxes: { x: number; y: number; w: number; h: number }[]) => React.ReactNode }> = ({ ms, children }) => {
+  const v = useView();
+  const boxes: { x: number; y: number; w: number; h: number }[] = [];
+  for (const m of ms) {
+    if (m.kind !== "comet" && m.kind !== "dashed" && m.kind !== "claim") continue;
+    const pts = densify(m.coords, 0.5);
+    const step = Math.max(1, Math.floor(pts.length / 24));
+    for (let i = 0; i < pts.length; i += step) {
+      const p = v.at(pts[i][0], pts[i][1]);
+      if (p) boxes.push({ x: p[0] - 22, y: p[1] - 22, w: 44, h: 44 });
+    }
+  }
+  return <>{children(boxes)}</>;
+};
+
 const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: number; span: number }> = ({ list, f, span }) => {
   const callouts: CalloutSpec[] = [];
   const ts: number[] = [];
@@ -125,9 +142,14 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: numb
       case "claim":
         return <ClaimLine key={i} coords={m.coords} color={m.color} t={t} />;
       case "dashed":
-        return <DashedLine key={i} coords={m.coords} color={m.color} t={t} />;
+        return (
+          <g key={i}>
+            <DashedLine coords={m.coords} color={m.color} t={t} />
+            {own && t > 30 ? <CometTrail coords={m.coords} color={m.color} t={t - 30} loop={60} head={12} width={8} tail={0.25} /> : null}
+          </g>
+        );
       case "comet":
-        return <CometTrail key={i} coords={m.coords} color={m.color} t={t} dur={36} loop={m.loop ? 75 : own && t > 40 ? 54 : undefined} head={16} width={12} tail={0.34} route />;
+        return <CometTrail key={i} coords={m.coords} color={m.color} t={t} dur={36} loop={m.loop ? 75 : own && t > 40 ? 54 : undefined} head={22} width={24} tail={0.45} route />;
       case "pins":
         return <PinCluster key={i} points={m.points} color={m.color} t={t} />;
       case "measure":
@@ -157,7 +179,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: numb
       <ContextNames avoid={avoid} places={PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : 5} />
       {body}
       <PlaceLabels items={labels} />
-      <Callouts items={callouts} ts={ts} safe={SAFE} />
+      <LineBoxes ms={list.map((x) => x.m)}>{(boxes) => <Callouts items={callouts} ts={ts} safe={SAFE} taken={boxes} />}</LineBoxes>
     </>
   );
 };
@@ -263,6 +285,65 @@ export function shortSource(text: string): string {
     .filter((p) => p && !/^جای نشانه/.test(p));
   return [...new Set(who)].slice(0, 3).join("، ");
 }
+/**
+ * A figure on the map (round 3, the judge: «put the oil price on the map»): a tag standing over its place (the chart's
+ * `place`, Hormuz for oil) on a leader, the figure counting under the pen, a small line of the last days drawn by the
+ * same pen, today's point in red. The tankers of the lane run under it (Ambient).
+ */
+const PriceTag: React.FC<{ chart: ChartSpec; k: number; f: number; look: Look }> = ({ chart, k, f, look }) => {
+  const pl = chart.place ? PLACES_FA[chart.place] : null;
+  const v = makeView(look, STAGE, DIVAN, f, "price");
+  const at = pl ? v.at(pl.lon, pl.lat) : null;
+  if (!at) return null;
+  const pts = chart.points;
+  const lo = Math.min(...pts);
+  const hi = Math.max(...pts);
+  // a tag, not a card: the map stays the picture (round 3B)
+  const W = 440;
+  const Hh = 90;
+  const x = Math.max(L, Math.min(R - W - 40, at[0] - (W + 40) / 2));
+  const y = Math.max(600, Math.min(1080, at[1] - 470));
+  const X = (i: number) => 20 + (i / Math.max(1, pts.length - 1)) * (W - 40);
+  const Y = (val: number) => Hh - 10 - ((val - lo) / (hi - lo || 1)) * (Hh - 20);
+  const head = k * (pts.length - 1);
+  const i0 = Math.floor(head);
+  const under = i0 >= pts.length - 1 ? pts[pts.length - 1] : pts[i0] + (pts[i0 + 1] - pts[i0]) * (head - i0);
+  const line = pts.map((val, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(val).toFixed(1)}`).join(" ");
+  const shown = faDigits(under.toFixed(chart.digits ?? 2)).replace(".", "٫");
+  const pop = rise(k * 60, 0, 8);
+  const pulse = (f % 30) / 30;
+  return (
+    <AbsoluteFill>
+      <svg width={1080} height={1920} style={{ position: "absolute", inset: 0 }}>
+        <path d={`M${at[0]} ${at[1]} L${at[0]} ${y + 300}`} stroke={ROOM.amber} strokeWidth={4} strokeDasharray="10 8" opacity={pop} />
+        <circle cx={at[0]} cy={at[1]} r={12} fill={ROOM.amber} />
+        <circle cx={at[0]} cy={at[1]} r={12 + pulse * 34} fill="none" stroke={ROOM.amber} strokeWidth={3} opacity={1 - pulse} />
+      </svg>
+      <div style={{ position: "absolute", left: x, top: y, width: W + 40, opacity: pop, transform: `translateY(${(1 - pop) * 30}px)`, background: "rgba(22,32,50,0.9)", border: `3px solid ${ROOM.amber}`, borderRadius: 30, padding: "18px 20px 14px", direction: "rtl", fontFamily: VAZIR, boxShadow: "0 0 60px rgba(255,176,32,0.25)" }}>
+        <div style={{ fontWeight: 700, fontSize: 34, color: ROOM.paper }}>{chart.title}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
+          <div style={{ fontWeight: 800, fontSize: 96, color: ROOM.amber, lineHeight: 1.05 }}>{shown}</div>
+          <div style={{ fontWeight: 600, fontSize: 38, color: ROOM.mute }}>{chart.unit}</div>
+        </div>
+        <svg width={W} height={Hh} style={{ direction: "ltr" }}>
+          <clipPath id="tag-pen">
+            <rect x={0} y={0} width={20 + k * (W - 40) + 4} height={Hh} />
+          </clipPath>
+          <g clipPath="url(#tag-pen)">
+            <path d={line} fill="none" stroke={ROOM.amber} strokeWidth={6} strokeLinejoin="round" strokeLinecap="round" />
+          </g>
+          {k >= 0.999 ? <circle cx={X(pts.length - 1)} cy={Y(pts[pts.length - 1])} r={10} fill={ROOM.hit} /> : <circle cx={20 + k * (W - 40)} cy={Y(under)} r={10} fill={ROOM.paper} />}
+        </svg>
+        <div style={{ display: "flex", justifyContent: "space-between", direction: "ltr", fontSize: 32, fontWeight: 600, color: ROOM.mute }}>
+          <span>{chart.first}</span>
+          <span style={{ color: ROOM.paper }}>{chart.last}</span>
+        </div>
+      </div>
+      <Source text={chart.source} k={k > 0.5 ? 1 : 0} />
+    </AbsoluteFill>
+  );
+};
+
 const Source: React.FC<{ text?: string; k: number; top?: number }> = ({ text, k }) =>
   text && shortSource(text) ? (
     <div style={{ position: "absolute", top: SOURCE_TOP, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, fontWeight: 600, fontSize: 36, color: ROOM.mute, opacity: 0.85 * k, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -368,14 +449,21 @@ const FlagsPic: React.FC<{ b: Extract<Beat, { kind: "flags" }>; local: number }>
   </AbsoluteFill>
 );
 
-/** Divan's estimate for each road on one bar: calm on the right, the far end on the left. */
-const GaugePic: React.FC<{ b: Extract<Beat, { kind: "gauge" }>; local: number; f: number }> = ({ b, local, f }) => {
+/**
+ * Divan's estimate for each road, on the map (round 3, the judge: «make the gauge pins ride their road comets»): the
+ * close's map holds every road's line; each road's rider travels its own line toward Iran and stops where Divan's
+ * estimate puts it (near the table: most of the way; far: little of it). The bar in the lower third reads the same,
+ * its pins moving with the riders, calm on the right, the far end on the left.
+ */
+const GaugePic: React.FC<{ b: Extract<Beat, { kind: "gauge" }>; local: number; f: number; look: Look; lines: Record<string, [number, number][]> }> = ({ b, local, f, look, lines }) => {
   const x0 = L + 30;
   const x1 = R - 30;
   const at = (r: number) => x1 - r * (x1 - x0);
+  const v = makeView(look, STAGE, DIVAN, f, "gauge");
+  const yBar = 1270;
   return (
     <AbsoluteFill>
-      <div style={{ position: "absolute", top: 720, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, fontWeight: 800, fontSize: 64, color: ROOM.paper }}>{b.label}</div>
+      <div style={{ position: "absolute", top: 330, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, fontWeight: 800, fontSize: 72, color: ROOM.paper, textShadow: "0 4px 24px rgba(0,0,0,0.7)" }}>{b.label}</div>
       <svg width={1080} height={1920} style={{ position: "absolute", inset: 0 }}>
         <defs>
           <linearGradient id="sb-risk" x1="1" x2="0">
@@ -384,22 +472,41 @@ const GaugePic: React.FC<{ b: Extract<Beat, { kind: "gauge" }>; local: number; f
             <stop offset="100%" stopColor={ROOM.hit} />
           </linearGradient>
         </defs>
-        <rect x={x0} y={1000} width={x1 - x0} height={22} rx={11} fill="url(#sb-risk)" />
-        <text x={x1} y={1080} textAnchor="end" fill={ROOM.mute} fontFamily={VAZIR} fontSize={40} fontWeight={700}>
+        {b.roads.map((r, i) => {
+          const k = rise(local, 8 + i * 22, 30);
+          const line = lines[r.key];
+          if (!line) return null;
+          const share = (1 - (r.risk ?? 0.5)) * k;
+          const [lon, lat] = alongLine(line, share);
+          const p = v.at(lon, lat);
+          if (!p) return null;
+          const ring = ((f + i * 12) % 36) / 36;
+          return (
+            <g key={`rider-${i}`}>
+              <circle cx={p[0]} cy={p[1]} r={34 + ring * 40} fill="none" stroke={r.color} strokeWidth={4} opacity={(1 - ring) * k} />
+              <circle cx={p[0]} cy={p[1]} r={34} fill={r.color} stroke="#ffffff" strokeWidth={4} opacity={Math.min(1, k * 3)} />
+              <text x={p[0]} y={p[1] + 12} textAnchor="middle" fill={ROOM.bg} fontFamily={VAZIR} fontWeight={800} fontSize={34} opacity={Math.min(1, k * 3)}>
+                {r.key}
+              </text>
+            </g>
+          );
+        })}
+        <rect x={x0 - 20} y={yBar - 96} width={x1 - x0 + 40} height={170} rx={28} fill="rgba(22,32,50,0.82)" />
+        <rect x={x0} y={yBar} width={x1 - x0} height={18} rx={9} fill="url(#sb-risk)" />
+        <text x={x1} y={yBar + 58} textAnchor="end" fill={ROOM.mute} fontFamily={VAZIR} fontSize={38} fontWeight={700}>
           {b.ends[0]}
         </text>
-        <text x={x0} y={1080} textAnchor="start" fill={ROOM.mute} fontFamily={VAZIR} fontSize={40} fontWeight={700}>
+        <text x={x0} y={yBar + 58} textAnchor="start" fill={ROOM.mute} fontFamily={VAZIR} fontSize={38} fontWeight={700}>
           {b.ends[1]}
         </text>
         {b.roads.map((r, i) => {
-          const k = rise(local, 8 + i * 22, 20);
-          const x = at((r.risk ?? 0.5) * k);
+          const k = rise(local, 8 + i * 22, 30);
+          const x = at((r.risk ?? 0.5) * k + 0 * (1 - k));
           return (
             <g key={i}>
-              <path d={`M${x} 994 L${x - 16} 966 H${x + 16} Z`} fill={r.color} />
-              <circle cx={x} cy={930} r={36 + Math.sin(f / 6 + i) * 3} fill={r.color} opacity={k} />
-              <circle cx={x} cy={930} r={36 + ((f + i * 12) % 36) * 1.2} fill="none" stroke={r.color} strokeWidth={3} opacity={k * (1 - ((f + i * 12) % 36) / 36)} />
-              <text x={x} y={946} textAnchor="middle" fill={ROOM.bg} fontFamily={VAZIR} fontWeight={800} fontSize={36}>
+              <path d={`M${x} ${yBar - 6} L${x - 14} ${yBar - 30} H${x + 14} Z`} fill={r.color} />
+              <circle cx={x} cy={yBar - 58} r={28 + Math.sin(f / 6 + i) * 2} fill={r.color} opacity={Math.min(1, k * 3)} />
+              <text x={x} y={yBar - 46} textAnchor="middle" fill={ROOM.bg} fontFamily={VAZIR} fontWeight={800} fontSize={30}>
                 {r.key}
               </text>
             </g>
@@ -409,6 +516,38 @@ const GaugePic: React.FC<{ b: Extract<Beat, { kind: "gauge" }>; local: number; f
     </AbsoluteFill>
   );
 };
+
+/** The point at share s (0…1) of the way along a polyline of [lon, lat], on great circles. */
+function alongLine(line: [number, number][], s: number): [number, number] {
+  const legs = line.slice(1).map((p, i) => geoDistance(line[i], p));
+  const all = legs.reduce((a, x) => a + x, 0) || 1;
+  let want = Math.max(0, Math.min(1, s)) * all;
+  for (let i = 0; i < legs.length; i += 1) {
+    if (want <= legs[i] || i === legs.length - 1) return geoInterpolate(line[i], line[i + 1])(legs[i] ? Math.min(1, want / legs[i]) : 0) as [number, number];
+    want -= legs[i];
+  }
+  return line[line.length - 1];
+}
+
+/** The line each road draws (its furthest comet, dashed line or claim), by the road's key. */
+function roadLines(p: ReelContent): Record<string, [number, number][]> {
+  const out: Record<string, [number, number][]> = {};
+  for (const b of p.beats) {
+    if (b.kind !== "road") continue;
+    let best: [number, number][] | null = null;
+    let len = -1;
+    for (const m of b.marks ?? []) {
+      if (m.kind !== "comet" && m.kind !== "dashed" && m.kind !== "claim") continue;
+      const d = geoDistance(m.coords[0], m.coords[m.coords.length - 1]);
+      if (d > len) {
+        len = d;
+        best = m.coords;
+      }
+    }
+    if (best) out[b.road.key] = best;
+  }
+  return out;
+}
 
 const PollPic: React.FC<{ b: Extract<Beat, { kind: "poll" }>; local: number; view: number; f: number; badge?: string; len: number }> = ({ b, local, view, f, badge, len }) => {
   const badgeAt = Math.max(30, len - LOOP - 46);
@@ -427,7 +566,7 @@ const PollPic: React.FC<{ b: Extract<Beat, { kind: "poll" }>; local: number; vie
           );
         })}
       </div>
-      <div style={{ position: "absolute", top: 1240, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, display: "flex", flexDirection: "column", gap: 14, opacity: view >= 2 ? 1 : 0 }}>
+      <div style={{ position: "absolute", top: 1345, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, display: "flex", flexDirection: "row", alignItems: "center", gap: 20, opacity: view >= 2 ? 1 : 0 }}>
         <div style={{ alignSelf: "flex-start", border: `3px solid ${ROOM.amber}`, color: ROOM.amber, fontWeight: 800, fontSize: 40, padding: "6px 22px", borderRadius: 999 }}>{b.chip}</div>
         <div style={{ color: ROOM.mute, fontWeight: 600, fontSize: 40, direction: "ltr", textAlign: "right" }}>{b.site}</div>
       </div>
@@ -461,7 +600,8 @@ const DemandPic: React.FC<{ b: Extract<Beat, { kind: "demand" }>; local: number;
 
 const Header: React.FC<{ s: Shot; local: number; big: boolean; color: string }> = ({ s, local, big, color }) => {
   if (!s.text.header || s.picture.layer === "chart" || s.picture.layer === "number" || s.picture.layer === "road" || s.picture.layer === "gauge") return null;
-  const k = big ? 1 : rise(local, 0, 9);
+  // words snap in (5 frames): a cross-fade caught half-way read as ghosted text on the judge's sheets (round 3A)
+  const k = big ? 1 : rise(local, 0, 5);
   return (
     <div style={{ position: "absolute", top: 330, left: L, width: COLW, direction: "rtl", textAlign: "right", fontFamily: VAZIR, opacity: k, transform: `translateY(${(1 - k) * 24}px)` }}>
       <div style={{ fontWeight: 800, fontSize: big ? 92 : 76, color, lineHeight: 1.22, textShadow: "0 4px 24px rgba(0,0,0,0.55)" }}>{s.text.header}</div>
@@ -516,7 +656,7 @@ export const Reel: React.FC<Props> = (p) => {
   // a road drawn on the map keeps the map lit: the road is on it. Round 2: no picture puts the map out any more; a chart
   // or a figure dims it to half, the poll and the flags hardly at all (the judge: «a dimmed still behind the poll»)
   const roadOnMap = beat.kind === "road" && Boolean(beat.look);
-  const dimTo = !overMap || roadOnMap || beat.kind === "flags" ? 0 : beat.kind === "poll" ? 0.12 : beat.kind === "gauge" ? 0.3 : beat.kind === "chart" ? 0.25 : 0.5;
+  const dimTo = !overMap || roadOnMap || beat.kind === "flags" ? 0 : beat.kind === "poll" ? 0.12 : beat.kind === "gauge" || (beat.kind === "chart" && beat.chart.place) ? 0 : beat.kind === "chart" ? 0.25 : 0.5;
   const dim = interpolate(f, [beatStart, beatStart + 8], [0, dimTo], clamp) * (inLoop ? 0 : 1);
   // every shot over the map moves on its own: a slow push and a drift that turns at each cut, so no 2 s stand still
   const shotLen = Math.max(1, Math.round(shot.dur * fps));
@@ -562,14 +702,16 @@ export const Reel: React.FC<Props> = (p) => {
       {!inLoop && beat.kind === "flags" ? <FlagsOnMap b={beat} local={beatLocal} look={look} f={f} /> : null}
       {/* the picture of this shot, over the dimmed map */}
       <div style={push}>
-      {!inLoop && beat.kind === "chart" ? <Chart chart={beat.chart} k={interpolate(beatLocal, [6, Math.max(20, sb.shots.filter((s) => s.beat === shot.beat).reduce((n, s) => n + s.dur, 0) * fps * 0.72)], [0, 1], { ...clamp, easing: Easing.inOut(Easing.cubic) })} f={f} showSource={shot.view >= 1} /> : null}
+      {!inLoop && beat.kind === "chart" && !beat.chart.place ? <Chart chart={beat.chart} k={interpolate(beatLocal, [6, Math.max(20, sb.shots.filter((s) => s.beat === shot.beat).reduce((n, s) => n + s.dur, 0) * fps * 0.72)], [0, 1], { ...clamp, easing: Easing.inOut(Easing.cubic) })} f={f} showSource={shot.view >= 1} /> : null}
       {!inLoop && beat.kind === "number" ? <NumberPic b={beat} local={beatLocal} view={shot.view} /> : null}
       {!inLoop && beat.kind === "road" ? <RoadPic b={beat} local={beatLocal} view={roadOnMap ? Math.max(1, shot.view) : shot.view} f={f} aiLabel={p.ai_label} onMap={roadOnMap} /> : null}
       {!inLoop && beat.kind === "flags" && !lookFlags ? <FlagsPic b={beat} local={beatLocal} /> : null}
-      {!inLoop && beat.kind === "gauge" ? <GaugePic b={beat} local={beatLocal} f={f} /> : null}
       {!inLoop && beat.kind === "poll" ? <PollPic b={beat} local={beatLocal} view={shot.view} f={f} badge={p.badge} len={sb.shots.filter((s) => s.beat === shot.beat).reduce((n, s) => n + Math.round(s.dur * fps), 0)} /> : null}
       {!inLoop && beat.kind === "demand" ? <DemandPic b={beat} local={beatLocal} view={shot.view} color={demandColor} /> : null}
       </div>
+      {/* the pictures that stand on the map itself, outside the push (round 3) */}
+      {!inLoop && beat.kind === "gauge" ? <GaugePic b={beat} local={beatLocal} f={f} look={look} lines={roadLines(p)} /> : null}
+      {!inLoop && beat.kind === "chart" && beat.chart.place ? <PriceTag chart={beat.chart} k={interpolate(beatLocal, [6, Math.max(20, sb.shots.filter((s) => s.beat === shot.beat).reduce((n, s) => n + s.dur, 0) * fps * 0.6)], [0, 1], { ...clamp, easing: Easing.inOut(Easing.cubic) })} f={f} look={look} /> : null}
       {!inLoop && beat.kind === "map" ? <Source text={shot.text.source ?? beat.source} k={rise(beatLocal, 10, 10)} /> : null}
       {!inLoop ? <Header s={shot} local={local} big={shot.beat === 0} color={shot.picture.layer === "poll" ? ROOM.amber : shot.beat === 0 ? ROOM.paper : color} /> : null}
       {/* the loop: the first picture's words come back */}
@@ -580,7 +722,7 @@ export const Reel: React.FC<Props> = (p) => {
       ) : null}
       <Hud p={p} f={f} active={inLoop ? -1 : roadsShown.findIndex((r) => beat.kind === "road" && beat.road.key === r.key)} roads={roadsShown} after={!inLoop && (beat.kind === "poll" || beat.kind === "gauge")} ai={!inLoop && beat.kind === "road" ? p.ai_label : undefined} />
       {/* the poll writes its own options and the badge sits where the caption would: no caption there */}
-      {!inLoop && beat.kind !== "poll" && !marks.some((x) => x.own && x.t >= 0 && x.m.kind === "callout") ? <Caption sb={sb} f={f} /> : null}
+      {!inLoop && sb.voice.length > 0 && beat.kind !== "poll" && !marks.some((x) => x.own && x.t >= 0 && x.m.kind === "callout") ? <Caption sb={sb} f={f} /> : null}
       {sb.voice.map((v, i) => (
         <Sequence key={i} from={v.from} durationInFrames={v.frames + 6} layout="none">
           <Audio src={staticFile(v.file)} />

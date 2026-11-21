@@ -51,7 +51,8 @@ export type Fingerprint = {
 
 export type ObjectId = "barrel" | "tanker" | "banknote" | "treaty" | "table" | "shield" | "mine" | "pipeline" | "container" | "megaphone" | "scale" | "factory";
 
-export type ChartSpec = { title: string; unit: string; points: number[]; first: string; last: string; source: string; digits?: number };
+/** `place` (a PLACES_FA id): the figure stands on the map there (Hormuz for oil), the camera on it; none: a panel */
+export type ChartSpec = { title: string; unit: string; points: number[]; first: string; last: string; source: string; digits?: number; place?: string };
 
 /** A mark on the map: what appears, where, in whose colour. Coordinates are [lon, lat]. */
 export type Mark =

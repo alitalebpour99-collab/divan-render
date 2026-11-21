@@ -84,11 +84,11 @@ export const RegionHatch: React.FC<{ a3?: string; polygon?: [number, number][]; 
     <g opacity={k}>
       <defs>
         <pattern id={id} width={18} height={18} patternUnits="userSpaceOnUse" patternTransform={`rotate(${angle}) translate(${(v.f * 0.4) % 18} 0)`}>
-          <rect width={18} height={18} fill={color} opacity={0.18} />
-          <line x1={0} y1={0} x2={0} y2={18} stroke={color} strokeWidth={6} opacity={0.9} />
+          <rect width={18} height={18} fill={color} opacity={0.12} />
+          <line x1={0} y1={0} x2={0} y2={18} stroke={color} strokeWidth={4} opacity={0.6} />
         </pattern>
       </defs>
-      <path d={d} fill={`url(#${id})`} stroke={color} strokeWidth={3} strokeDasharray="10 8" />
+      <path d={d} fill={`url(#${id})`} stroke={color} strokeWidth={3} strokeDasharray="10 8" strokeOpacity={0.8} />
     </g>
   );
 };
@@ -187,7 +187,7 @@ export const CometTrail: React.FC<{ coords: [number, number][]; color: string; t
       {seg}
       {H ? (
         <g>
-          <circle cx={H[0]} cy={H[1]} r={head * 3.4} fill={color} opacity={0.5} filter={`url(#${v.uid}-glow)`} />
+          <circle cx={H[0]} cy={H[1]} r={head * 2.4} fill={color} opacity={0.55} filter={`url(#${v.uid}-glow)`} />
           <circle cx={H[0]} cy={H[1]} r={head} fill="#fffaf0" />
         </g>
       ) : null}
@@ -262,14 +262,38 @@ export type CalloutSpec = { id: string; lon: number; lat: number; bold: string; 
  * (labels.ts). The placement is made once from `placeView` (the shot's own look), so the labels never jump; the
  * leader is drawn from the label's right edge, where a Persian line starts.
  */
+/**
+ * How a label fits the safe frame (round 3; pass 2D cut «به گفتهٔ آمریکا: هرمز باز بماند» at the left edge): the
+ * bold line at 60 px if it fits, else smaller down to 44 px, else broken into two lines at the space nearest its middle
+ * (at the largest size that then fits). Returns the size, the lines and the box.
+ */
+export function fitCallout(c: { bold: string; sub?: string; a3?: string; size?: number }, maxW: number) {
+  const flag = c.a3 && flagArt(c.a3) ? 1.3 : 0;
+  const widthOf = (lines: string[], size: number) => Math.max(...lines.map((l) => textWidth(l, size)), c.sub ? textWidth(c.sub, size * 0.72) : 0) + 34 + flag * size;
+  const top = c.size ?? 60;
+  const sizes = [top, 56, 52, 48, 44].filter((s) => s <= top);
+  let lines = [c.bold];
+  let size = sizes.find((s) => widthOf(lines, s) <= maxW);
+  if (!size) {
+    const words = c.bold.split(" ");
+    if (words.length > 1) {
+      let best = 1;
+      for (let i = 1; i < words.length; i += 1) if (Math.abs(words.slice(0, i).join(" ").length - c.bold.length / 2) < Math.abs(words.slice(0, best).join(" ").length - c.bold.length / 2)) best = i;
+      lines = [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+    }
+    size = sizes.find((s) => widthOf(lines, s) <= maxW) ?? sizes[sizes.length - 1];
+  }
+  const w = Math.min(maxW, widthOf(lines, size));
+  const h = size * 1.35 * lines.length - (lines.length - 1) * size * 0.15 + (c.sub ? size * 0.95 : 0) + 18;
+  return { size, lines, w, h };
+}
+
 export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box; taken?: Box[] }> = ({ items, ts, safe, taken = [] }) => {
   const v = useView();
+  const fits = items.map((c) => fitCallout(c, safe.w));
   const wants = items.map((c, i) => {
     const at = v.at(c.lon, c.lat) ?? [-999, -999];
-    const size = c.size ?? 60;
-    const w = Math.max(textWidth(c.bold, size), c.sub ? textWidth(c.sub, size * 0.72) : 0) + 34 + (c.a3 && flagArt(c.a3) ? size * 1.3 : 0);
-    const h = size * 1.35 + (c.sub ? size * 0.95 : 0) + 18;
-    return { id: c.id, x: at[0], y: at[1], w, h, prio: items.length - i };
+    return { id: c.id, x: at[0], y: at[1], w: fits[i].w, h: fits[i].h, prio: items.length - i };
   });
   // round 2: a label stands 56 px off its point on a leader, so it never lies on the coast or the line it names
   const placed = place(wants, safe, taken, 56);
@@ -282,7 +306,8 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
         const at = v.at(c.lon, c.lat);
         if (!p || !at) return null;
         const col = c.color ?? v.theme.ink;
-        const size = c.size ?? 60;
+        const { size, lines } = fits[i];
+        const line = size * 1.2;
         const k = out3(t / 10);
         const bx = p.box.x;
         const by = p.box.y;
@@ -294,18 +319,20 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
             {lead ? <path d={`M${at[0]} ${at[1]} L${ex + 6} ${ey}`} stroke={col} strokeWidth={3} pathLength={1} strokeDasharray={`${k} 1`} fill="none" /> : null}
             <circle cx={at[0]} cy={at[1]} r={7} fill={col} />
             <g transform={`translate(0 ${(1 - k) * 14})`}>
-              <rect x={bx} y={by} width={p.box.w} height={p.box.h} rx={14} fill={v.theme.halo} opacity={0.86} stroke={col} strokeOpacity={0.6} strokeWidth={2} />
+              <rect x={bx} y={by} width={p.box.w} height={p.box.h} rx={14} fill={v.theme.halo} opacity={0.5} />
               <rect x={ex - 8} y={by + 10} width={6} height={p.box.h - 20} rx={3} fill={col} />
-              <text x={ex - 22} y={by + size * 1.08} textAnchor="start" direction="rtl" fill={col} fontFamily={VAZIR} fontWeight={800} fontSize={size}>
-                {c.bold}
-              </text>
+              {lines.map((l, j) => (
+                <text key={j} x={ex - 22} y={by + size * 1.08 + j * line} textAnchor="start" direction="rtl" fill={col} fontFamily={VAZIR} fontWeight={800} fontSize={size} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 10, strokeLinejoin: "round" }}>
+                  {l}
+                </text>
+              ))}
               {c.a3 && flagArt(c.a3) ? (
                 <svg x={bx + 14} y={by + p.box.h / 2 - size * 0.42} width={size * 0.84 * flagAspect(c.a3)} height={size * 0.84} viewBox={`0 0 ${c.a3 === "IRN" ? 200 * flagAspect(c.a3) : 300} 200`} preserveAspectRatio="none">
                   {flagArt(c.a3)}
                 </svg>
               ) : null}
               {c.sub ? (
-                <text x={ex - 22} y={by + size * 1.08 + size * 0.95} textAnchor="start" direction="rtl" fill={v.theme.label} fontFamily={VAZIR} fontWeight={600} fontSize={size * 0.72}>
+                <text x={ex - 22} y={by + size * 1.08 + (lines.length - 1) * line + size * 0.95} textAnchor="start" direction="rtl" fill={v.theme.ink} fontFamily={VAZIR} fontWeight={700} fontSize={size * 0.72} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 8, strokeLinejoin: "round" }}>
                   {c.sub}
                 </text>
               ) : null}

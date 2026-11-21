@@ -170,7 +170,8 @@
     "first": "۲۱ آبان",
     "last": "۳۰ آبان",
     "source": "نرخ‌های بازار منشور",
-    "digits": 2
+    "digits": 2,
+    "place": "hormuz"
    }
   },
   {

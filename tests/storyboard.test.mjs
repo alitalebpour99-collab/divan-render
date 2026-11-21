@@ -62,3 +62,17 @@ test("the strait's width is measured from Natural Earth, not typed", () => {
   const g = nearestGap("IRN", "OMN", [[55.8, 25.9], [57.0, 27.0]]);
   assert.ok(g && g.km > 35 && g.km < 60, `Hormuz measured ${g?.km}`);
 });
+
+test("round 3: enrichment adds only ground (lanes, names), never news, and is idempotent", async () => {
+  const { enrich } = await import("../src/storyboard/enrich.ts");
+  for (const name of ["divan-strait", "divan-table3", "divan-today"]) {
+    const c = read(name);
+    const once = enrich(c);
+    assert.deepEqual(enrich(once), once, `${name}: a second pass changes nothing`);
+    once.beats.forEach((b, i) => {
+      if (b.kind !== "map") return;
+      const added = b.marks.slice(c.beats[i].marks.length);
+      for (const m of added) assert.ok(m.kind === "label" || m.kind === "comet", `${name}: enrichment added a ${m.kind}`);
+    });
+  }
+});

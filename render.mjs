@@ -11,7 +11,7 @@ import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
 import { enforce, enforceDecision } from "./gate.mjs";
-import { contactSheet, qa } from "./qa.mjs";
+import { contactSheet, contactSheets, qa } from "./qa.mjs";
 import { score } from "./music.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 
@@ -88,6 +88,8 @@ if (stills) {
     for (const c of result.checks) console.log(`qa ${c.ok ? "pass" : "FAIL"} ${c.id}: ${c.detail}`);
     fs.writeFileSync(`out/${name}.qa.json`, JSON.stringify({ ...result, seconds, storyboard_checks: composition.props.qc }, null, 1));
     console.log("sheet", contactSheet(outputLocation, `out/${name}-sheet-1fps.jpg`));
+    // the judge's sheets since round 3: two frames a second, 20 s a sheet
+    console.log("sheets", contactSheets(outputLocation, `out/${name}-sheet-2fps`).join(", "));
   }
   const plan = composition.props.plan;
   if (plan) {

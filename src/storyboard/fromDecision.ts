@@ -53,7 +53,8 @@ export function fromDecision(p: DecisionProps): ReelContent {
   let factCue = "fact";
   const chart = st.kind === "chart" ? st.chart : p.factChart;
   if (chart) {
-    beats.push({ kind: "chart", cue: factCue, chart: { title: chart.title, unit: chart.unit, points: chart.points, first: chart.first, last: chart.last, source: chart.source, digits: chart.digits } });
+    // round 3: an oil figure stands on the map at Hormuz (the oil route), every other figure keeps its panel
+    beats.push({ kind: "chart", cue: factCue, chart: { title: chart.title, unit: chart.unit, points: chart.points, first: chart.first, last: chart.last, source: chart.source, digits: chart.digits, ...(chart.place ? { place: chart.place } : /نفت|برنت/.test(chart.title) ? { place: "hormuz" } : {}) } });
     factCue = "fact-2";
   }
   for (const x of p.facts ?? []) {

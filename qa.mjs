@@ -74,6 +74,21 @@ export function contactSheet(file, out) {
   return fs.existsSync(out) ? out : null;
 }
 
+/**
+ * The judge's sheets (round 3, 21 Nov 2026): two frames a second, 20 s a sheet (ten across, four down), each frame
+ * with its second («12.5s»). One frame a second hid every move between two seconds, and one sheet for a whole Reel would
+ * be shrunk past reading by the vision model; so a Reel of 40 s is two sheets, read in order. Returns the paths.
+ */
+export function contactSheets(file, prefix) {
+  const font = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "C:/Windows/Fonts/arialbd.ttf"].find((f) => fs.existsSync(f));
+  const label = font ? `,drawtext=fontfile='${font.replace(/:/g, "\\:")}':text='%{eif\\:floor(t)\\:d}.%{eif\\:mod(round(t*2)\\,2)*5\\:d}s':x=8:y=6:fontsize=22:fontcolor=white:box=1:boxcolor=black@0.55` : "";
+  for (const old of fs.readdirSync(path.dirname(path.resolve(prefix)))) if (old.startsWith(path.basename(prefix) + "-")) fs.rmSync(path.join(path.dirname(path.resolve(prefix)), old), { force: true });
+  spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", file, "-vf", `fps=2,scale=216:-2${label},tile=10x4:padding=4:color=0x000000`, "-q:v", "3", `${prefix}-%d.jpg`]);
+  const out = [];
+  for (let i = 1; fs.existsSync(`${prefix}-${i}.jpg`); i += 1) out.push(`${prefix}-${i}.jpg`);
+  return out;
+}
+
 export function qa(file, sb) {
   const checks = [];
   const add = (id, ok, detail, fa) => checks.push({ id, ok: Boolean(ok), detail, fa });

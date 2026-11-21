@@ -29,7 +29,7 @@ import { bundle } from "@remotion/bundler";
 import { makeCancelSignal, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
 import { GateRefusal, enforce, enforceDecision, planChecks, verdict } from "./gate.mjs";
-import { contactSheet, qa as qualityGate } from "./qa.mjs";
+import { contactSheets, qa as qualityGate } from "./qa.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 import { score } from "./music.mjs";
 
@@ -286,13 +286,15 @@ async function render(job) {
     }
     // the storyboard engine's quality gate on the file, and the contact sheet the site's vision judge scores (lib/social/judge.ts)
     let quality = null;
-    const sheet = path.resolve("out", `${job.name}-sheet.jpg`);
     if (composition.props.storyboard) {
       quality = qualityGate(video, composition.props.storyboard);
       for (const c of quality.checks) console.log(`qa ${c.ok ? "pass" : "FAIL"} ${c.id}: ${c.detail}`);
-      contactSheet(video, sheet);
-      if (fs.existsSync(sheet)) await call(`?id=${job.id}&file=sheet`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: fs.readFileSync(sheet) });
-      fs.rmSync(sheet, { force: true });
+      // two frames a second, 20 s a sheet: «sheet», «sheet2», «sheet3» (the site's judge reads them in order)
+      const sheets = contactSheets(video, path.resolve("out", `${job.name}-sheet`)).slice(0, 3);
+      for (const [i, s] of sheets.entries()) {
+        await call(`?id=${job.id}&file=${i ? `sheet${i + 1}` : "sheet"}`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: fs.readFileSync(s) });
+        fs.rmSync(s, { force: true });
+      }
     }
     if (composition.props.plan) {
       const result = enforce({ plan: composition.props.plan, file: video, cover: String(job.cover?.big ?? "") });

@@ -80,7 +80,7 @@ export function guessWords(text: string, fps = FPS): { text: string; from: numbe
 const centreOf = (marks: Mark[], fallback: Look): [number, number] => {
   const pts: [number, number][] = [];
   for (const m of marks) {
-    if (m.kind === "callout" || m.kind === "label" || m.kind === "flag") pts.push([m.lon, m.lat]);
+    if (m.kind === "callout" || m.kind === "label" || m.kind === "flag" || m.kind === "object") pts.push([m.lon, m.lat]);
     else if (m.kind === "pins") pts.push(...m.points.map((p) => [p.lon, p.lat] as [number, number]));
     else if (m.kind === "measure") pts.push(m.a, m.b);
     else if (m.kind === "claim" || m.kind === "dashed" || m.kind === "comet") pts.push(m.coords[Math.floor(m.coords.length / 2)]);
@@ -294,7 +294,7 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         at_word: word,
         word_at: wordAt,
         picture: { layer, asset: assetOf(b), beat: bi, view: String(view) },
-        motion: { camera, ...(look ? { look } : {}), ...(bi === 0 && k === 0 && hookFrom(b) ? { from: hookFrom(b)! } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : "draw", ...(word ? { at_word: word } : {}) })) },
+        motion: { camera, ...(look ? { look } : {}), ...(bi === 0 && k === 0 && hookFrom(b) ? { from: hookFrom(b)! } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : marks[i].kind === "object" ? `${(marks[i] as { move?: string }).move ?? "stand"} ${(marks[i] as { id: string }).id}` : "draw", ...(word ? { at_word: word } : {}) })) },
         text: tail ? { chips: [], caption_keyword: word ?? undefined } : textOf(b, view, k),
         sound: k === 0 || mine.length ? { sfx: k === 0 ? SFX_OF[b.kind] : "pop", ...(word ? { at_word: word } : {}), ...(bi === 0 && k === 0 ? { music: "bed-in" } : {}) } : {},
         transition_out: tOut,
@@ -369,7 +369,7 @@ export function textOf(b: Beat, view: number, k: number): Shot["text"] {
 }
 
 function meaningOf(b: Beat, view: number, marks: Mark[]): string {
-  const what = marks.map((m) => (m.kind === "callout" ? `callout «${m.bold}»` : m.kind === "fill" ? `fill ${m.a3}` : m.kind)).join(", ");
+  const what = marks.map((m) => (m.kind === "callout" ? `callout «${m.bold}»` : m.kind === "fill" ? `fill ${m.a3}` : m.kind === "object" ? `${m.id} (${m.move ?? "stand"})` : m.kind)).join(", ");
   switch (b.kind) {
     case "hook":
       return `the hook: the event on the map from frame 0${what ? ` (${what})` : ""}`;

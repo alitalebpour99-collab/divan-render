@@ -10,6 +10,7 @@ import { PLACES_FA } from "../map-engine/names";
 import type { Look } from "../map-engine/camera";
 import { guessWords, FPS } from "./director";
 import type { Beat, Mark, ReelContent } from "./types";
+import { withObjects } from "./topics";
 
 /** A new picture every 45 frames (1.5 s). */
 export const MARK_EVERY = 45;
@@ -19,7 +20,7 @@ const inView = (look: Look, p: [number, number], share = 0.42) => deg([look.lon,
 /** what a mark brings that the eye counts as new (a fill is ground, not news) */
 const counts = (m: Mark) => m.kind !== "fill";
 const anchors = (m: Mark): [number, number][] =>
-  m.kind === "callout" || m.kind === "label" || m.kind === "flag" ? [[m.lon, m.lat]] : m.kind === "pins" ? m.points.map((p) => [p.lon, p.lat] as [number, number]) : m.kind === "measure" ? [m.a, m.b] : m.kind === "comet" || m.kind === "dashed" || m.kind === "claim" ? [m.coords[0], m.coords[m.coords.length - 1]] : [];
+  m.kind === "callout" || m.kind === "label" || m.kind === "flag" || m.kind === "object" ? [[m.lon, m.lat]] : m.kind === "pins" ? m.points.map((p) => [p.lon, p.lat] as [number, number]) : m.kind === "measure" ? [m.a, m.b] : m.kind === "comet" || m.kind === "dashed" || m.kind === "claim" ? [m.coords[0], m.coords[m.coords.length - 1]] : [];
 
 /** How many marks a beat's line asks for: one per 1.5 s it is said (at least one). */
 export function marksWanted(b: Beat): number {
@@ -53,7 +54,9 @@ export function groundFor(look: Look, have: Mark[], want: number): Mark[] {
 }
 
 /** The content with every map beat brought up to a mark per 1.5 s from the ground in view. */
-export function enrich(c: ReelContent): ReelContent {
+export function enrich(content: ReelContent): ReelContent {
+  // the topic's own objects first (a tanker, a missile, a rig …; owner, 21 Nov 2026): the ground only fills what is left
+  const c = withObjects(content);
   const beats = c.beats.map((b): Beat => {
     if (b.kind !== "map") return b;
     const short = marksWanted(b) - b.marks.filter(counts).length;

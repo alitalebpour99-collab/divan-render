@@ -1,0 +1,1032 @@
+{
+ "about": "The map engine's objects for Ahura's shared asset library, in the register() shape of ahura-library.mjs. Made by scripts in code; regenerate from object-ids.ts when an object is added.",
+ "entries": [
+  {
+   "kind": "vector",
+   "id": "divan-map-object-tanker",
+   "names": {
+    "en": "oil tanker",
+    "fa": "نفتکش"
+   },
+   "description": "a crude tanker in side view: long low hull with its red boot-top, deck pipes and manifold, the bridge and funnel aft",
+   "depicts": "a crude tanker in side view: long low hull with its red boot-top, deck pipes and manifold, the bridge and funnel aft",
+   "tags": [
+    "map object",
+    "shipping",
+    "oil",
+    "strait",
+    "hormuz"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "sail",
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: sail, stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.tanker"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-cargo",
+   "names": {
+    "en": "container ship",
+    "fa": "کشتی باری"
+   },
+   "description": "a container ship in side view, stacks of coloured boxes, the bridge aft",
+   "depicts": "a container ship in side view, stacks of coloured boxes, the bridge aft",
+   "tags": [
+    "map object",
+    "shipping",
+    "trade",
+    "red sea"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "sail",
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: sail, stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.cargo"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-lng",
+   "names": {
+    "en": "LNG carrier",
+    "fa": "کشتی گاز مایع"
+   },
+   "description": "a gas carrier in side view with four round tanks on deck",
+   "depicts": "a gas carrier in side view with four round tanks on deck",
+   "tags": [
+    "map object",
+    "gas",
+    "qatar",
+    "shipping"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "sail",
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: sail, stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.lng"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-warship",
+   "names": {
+    "en": "warship",
+    "fa": "ناو جنگی"
+   },
+   "description": "a grey destroyer in side view: sharp bow, gun forward, stepped superstructure, radar mast, ensign aft",
+   "depicts": "a grey destroyer in side view: sharp bow, gun forward, stepped superstructure, radar mast, ensign aft",
+   "tags": [
+    "map object",
+    "navy",
+    "escort",
+    "military"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "sail",
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: sail, stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.warship"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-boats",
+   "names": {
+    "en": "fast attack boats",
+    "fa": "قایق‌های تندرو"
+   },
+   "description": "three small fast boats in a staggered line, each with its white wake",
+   "depicts": "three small fast boats in a staggered line, each with its white wake",
+   "tags": [
+    "map object",
+    "navy",
+    "irgc",
+    "strait"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "sail",
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: sail, stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.boats"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-mine",
+   "names": {
+    "en": "naval mine",
+    "fa": "مین دریایی"
+   },
+   "description": "a horned contact mine half under the water, bobbing, its mooring chain below",
+   "depicts": "a horned contact mine half under the water, bobbing, its mooring chain below",
+   "tags": [
+    "map object",
+    "navy",
+    "strait",
+    "incident"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.mine"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-missile",
+   "names": {
+    "en": "missile",
+    "fa": "موشک"
+   },
+   "description": "a missile in side view, ogive nose, fins and a burning motor, with its smoke trail",
+   "depicts": "a missile in side view, ogive nose, fins and a burning motor, with its smoke trail",
+   "tags": [
+    "map object",
+    "strike",
+    "military"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "arc",
+     "drop"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: arc, drop"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.missile"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-drone",
+   "names": {
+    "en": "drone",
+    "fa": "پهپاد"
+   },
+   "description": "a delta-wing one-way drone seen from above, winglets and the pusher propeller turning",
+   "depicts": "a delta-wing one-way drone seen from above, winglets and the pusher propeller turning",
+   "tags": [
+    "map object",
+    "strike",
+    "military"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "fly",
+     "orbit"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: fly, orbit"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.drone"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-jet",
+   "names": {
+    "en": "fighter jet",
+    "fa": "جنگنده"
+   },
+   "description": "a fighter seen from above, swept wings, tailplanes and twin fins, its shadow on the ground",
+   "depicts": "a fighter seen from above, swept wings, tailplanes and twin fins, its shadow on the ground",
+   "tags": [
+    "map object",
+    "air force",
+    "airstrike",
+    "bases"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "fly",
+     "orbit"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: fly, orbit"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.jet"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-rig",
+   "names": {
+    "en": "offshore oil rig",
+    "fa": "سکوی نفتی"
+   },
+   "description": "an offshore platform: legs in the sea, the deck, the derrick, a crane and a flare burning on its boom",
+   "depicts": "an offshore platform: legs in the sea, the deck, the derrick, a crane and a flare burning on its boom",
+   "tags": [
+    "map object",
+    "oil",
+    "gas",
+    "field"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.rig"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-refinery",
+   "names": {
+    "en": "refinery",
+    "fa": "پالایشگاه"
+   },
+   "description": "a refinery: storage tanks, a distillation tower, pipes and a flare stack burning",
+   "depicts": "a refinery: storage tanks, a distillation tower, pipes and a flare stack burning",
+   "tags": [
+    "map object",
+    "oil",
+    "industry",
+    "fuel"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.refinery"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-pipeline",
+   "names": {
+    "en": "pipeline",
+    "fa": "خط لوله"
+   },
+   "description": "a steel pipeline on its supports with flanges and a valve wheel; along a path, the pipe laid on the map with the flow running",
+   "depicts": "a steel pipeline on its supports with flanges and a valve wheel; along a path, the pipe laid on the map with the flow running",
+   "tags": [
+    "map object",
+    "oil",
+    "gas",
+    "export"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand",
+     "pipe"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand, pipe"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.pipeline"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-barrel",
+   "names": {
+    "en": "oil barrel",
+    "fa": "بشکهٔ نفت"
+   },
+   "description": "a steel oil drum with its ribs and a drop of crude on it",
+   "depicts": "a steel oil drum with its ribs and a drop of crude on it",
+   "tags": [
+    "map object",
+    "oil",
+    "price",
+    "export"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.barrel"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-nuclear",
+   "names": {
+    "en": "nuclear site",
+    "fa": "تأسیسات هسته‌ای"
+   },
+   "description": "a nuclear site at city level: a domed reactor hall and a cooling tower with steam rising",
+   "depicts": "a nuclear site at city level: a domed reactor hall and a cooling tower with steam rising",
+   "tags": [
+    "map object",
+    "nuclear",
+    "iaea",
+    "enrichment"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.nuclear"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-tank",
+   "names": {
+    "en": "battle tank",
+    "fa": "تانک"
+   },
+   "description": "a main battle tank in side view: tracks and road wheels, hull, turret and long gun",
+   "depicts": "a main battle tank in side view: tracks and road wheels, hull, turret and long gun",
+   "tags": [
+    "map object",
+    "army",
+    "front",
+    "military"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.tank"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-troops",
+   "names": {
+    "en": "troops",
+    "fa": "نیروهای نظامی"
+   },
+   "description": "three soldiers in helmets with rifles, in a staggered file",
+   "depicts": "three soldiers in helmets with rifles, in a staggered file",
+   "tags": [
+    "map object",
+    "army",
+    "deployment",
+    "front"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.troops"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-parliament",
+   "names": {
+    "en": "parliament building",
+    "fa": "ساختمان مجلس"
+   },
+   "description": "a parliament: steps, six columns, a pediment and a dome with the state's flag waving on it",
+   "depicts": "a parliament: steps, six columns, a pediment and a dome with the state's flag waving on it",
+   "tags": [
+    "map object",
+    "politics",
+    "vote",
+    "law"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.parliament"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-money",
+   "names": {
+    "en": "money",
+    "fa": "پول"
+   },
+   "description": "a stack of banknotes with the currency's sign and a pile of coins beside it",
+   "depicts": "a stack of banknotes with the currency's sign and a pile of coins beside it",
+   "tags": [
+    "map object",
+    "economy",
+    "currency",
+    "inflation"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.money"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-treaty",
+   "names": {
+    "en": "signed agreement",
+    "fa": "توافق‌نامه"
+   },
+   "description": "a signed document with its ruled lines, a wax seal and a pen across it",
+   "depicts": "a signed document with its ruled lines, a wax seal and a pen across it",
+   "tags": [
+    "map object",
+    "diplomacy",
+    "talks",
+    "deal"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.treaty"
+    }
+   ]
+  },
+  {
+   "kind": "vector",
+   "id": "divan-map-object-padlock",
+   "names": {
+    "en": "padlock (sanctions)",
+    "fa": "قفل تحریم"
+   },
+   "description": "a heavy padlock, shackle closed, a keyhole in its face",
+   "depicts": "a heavy padlock, shackle closed, a keyhole in its face",
+   "tags": [
+    "map object",
+    "sanctions",
+    "economy"
+   ],
+   "style": "divan-night-map",
+   "facts": {
+    "moves": [
+     "stand"
+    ],
+    "width_px": 200,
+    "drawn_in": "SVG inside the map engine (no raster file)"
+   },
+   "made": {
+    "tool": "code",
+    "model": null,
+    "prompt": null,
+    "source": "video/src/map-engine/objects.tsx",
+    "detail": "drawn in code as SVG; moves: stand"
+   },
+   "licence": {
+    "kind": "own",
+    "name": "Ahura",
+    "credit": null,
+    "url": null
+   },
+   "owner": "divan",
+   "origin": {
+    "project": "divan",
+    "made": "2026-11-21",
+    "by": "map-engine/objects.tsx"
+   },
+   "use": "on the map of every Divan Reel whose line names it (storyboard/topics.ts picks and places it); the map engine is shared, so Bidar and Manshur can draw it too",
+   "files": [
+    {
+     "path": "video/src/map-engine/objects.tsx",
+     "role": "source",
+     "label": "ART.padlock"
+    }
+   ]
+  }
+ ]
+}

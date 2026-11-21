@@ -10,6 +10,7 @@ import { densify, useView, ContextNames, NAMES_FA, PLACES_FA, nameFa, CAPITALS, 
 import { VAZIR } from "../map-engine/fonts";
 import { LOOP } from "./director";
 import { RoadObject } from "./objects";
+import { MapObject } from "../map-engine/objects";
 import type { Beat, ChartSpec, Mark, ReelContent, Shot, Storyboard } from "./types";
 
 export const ROOM = { bg: "#1a2330", bg2: "#202b3a", edge: "#151d28", panel: "rgba(30,41,58,0.94)", line: "#34445a", paper: "#f3efe6", mute: "#a3afbd", amber: "#ffb020", hit: "#ff4d40" };
@@ -70,7 +71,10 @@ function cameraKeys(sb: Storyboard): Key[] {
 
 /** The marks on the map at frame f, each with its clock: the hook's are whole from frame 0 (the event is already there). */
 function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
-  const out: { m: Mark; t: number; beat: number; own: boolean }[] = [];
+  const out: { m: Mark; t: number; beat: number; own: boolean; life?: number }[] = [];
+  // where each beat ends: an object that moves (a ship, an aircraft) spends its beat on its way
+  const ends: Record<number, number> = {};
+  for (const s of sb.shots) ends[s.beat] = Math.max(ends[s.beat] ?? 0, Math.round((s.start + s.dur) * sb.fps));
   const cur = sb.shots.find((s) => f >= s.start * sb.fps && f < (s.start + s.dur) * sb.fps) ?? sb.shots[sb.shots.length - 1];
   // the chapter: from the last beat that clears the map
   let from = 0;
@@ -84,18 +88,19 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
       const m = marks[i];
       const at = s.beat === 0 && s.n === 1 ? -60 : Math.round(s.start * sb.fps) + 3;
       if (inLoop) {
-        if (s.beat === 0 && s.n === 1) out.push({ m, t: f - at, beat: 0, own: true });
+        // an object of the first frame runs back to where it stood then, so the last frame meets the first
+        if (s.beat === 0 && s.n === 1) out.push({ m, t: m.kind === "object" ? -at - (sb.total - f) : f - at, beat: 0, own: true, life: (ends[0] ?? 0) - at });
         continue;
       }
       if (f < at) continue;
       if (s.beat === 0 || s.beat >= from) {
         // labels, measures and callouts belong to their own beat; what is drawn on the ground stays for the chapter
-        const passing = m.kind === "callout" || m.kind === "measure" || m.kind === "label" || m.kind === "flag" || b.kind === "road";
+        const passing = m.kind === "callout" || m.kind === "measure" || m.kind === "label" || m.kind === "flag" || m.kind === "object" || b.kind === "road";
         // the close gathers the story on the first frame: every line and pin of every beat (the roads too) is back on
         // the hook's map and its comets run again (round 2, the judge: «end on the 0 s map with the three roads»)
         const gather = (c.beats[cur.beat].kind === "poll" || c.beats[cur.beat].kind === "gauge") && (m.kind === "comet" || m.kind === "dashed" || m.kind === "pins" || m.kind === "claim");
         if (passing && s.beat !== cur.beat && !gather) continue;
-        out.push({ m, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather });
+        out.push({ m, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather, life: (ends[s.beat] ?? at) - at });
       }
     }
   }
@@ -118,6 +123,15 @@ const LineBoxes: React.FC<{ ms: Mark[]; children: (boxes: { x: number; y: number
   const v = useView();
   const boxes: { x: number; y: number; w: number; h: number }[] = [];
   for (const m of ms) {
+    if (m.kind === "object") {
+      // an object takes its own room (about 230 by 150 px) where it stands, starts and ends
+      const at = [[m.lon, m.lat] as [number, number], ...(m.path && m.path.length > 1 ? [m.path[0], m.path[Math.floor(m.path.length / 2)], m.path[m.path.length - 1]] : [])];
+      for (const q of at) {
+        const p = v.at(q[0], q[1]);
+        if (p) boxes.push({ x: p[0] - 115, y: p[1] - 130, w: 230, h: 150 });
+      }
+      continue;
+    }
     if (m.kind !== "comet" && m.kind !== "dashed" && m.kind !== "claim") continue;
     const pts = densify(m.coords, 0.5);
     const step = Math.max(1, Math.floor(pts.length / 24));
@@ -129,11 +143,12 @@ const LineBoxes: React.FC<{ ms: Mark[]; children: (boxes: { x: number; y: number
   return <>{children(boxes)}</>;
 };
 
-const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: number; span: number }> = ({ list, f, span }) => {
+const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: number }[]; f: number; span: number }> = ({ list, f, span }) => {
   const callouts: CalloutSpec[] = [];
   const ts: number[] = [];
   const labels: { t: string; lon: number; lat: number }[] = [];
-  const body = list.map(({ m, t, own }, i) => {
+  const objects: React.ReactNode[] = [];
+  const body = list.map(({ m, t, own, life }, i) => {
     switch (m.kind) {
       case "fill":
         return <CountryFill key={i} a3={m.a3} color={m.color} t={t} opacity={fillOpacity(m.color, span)} edge={m.color.toLowerCase() === DIVAN.actors.iran || (m as { pulse?: boolean }).pulse} pulse={(m as { pulse?: boolean }).pulse} />;
@@ -161,6 +176,10 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: numb
       case "label":
         labels.push({ t: m.t, lon: m.lon, lat: m.lat });
         return null;
+      case "object":
+        // over the lines and pins they belong to, under the labels
+        objects.push(<MapObject key={`o${i}`} o={m} t={t} life={life ?? 90} />);
+        return null;
       default:
         return null;
     }
@@ -170,7 +189,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: numb
   const avoid: [number, number][] = [];
   for (const { m, t } of list) {
     if (t < 0) continue;
-    if (m.kind === "callout" || m.kind === "label" || m.kind === "flag") avoid.push([m.lon, m.lat]);
+    if (m.kind === "callout" || m.kind === "label" || m.kind === "flag" || m.kind === "object") avoid.push([m.lon, m.lat]);
     else if (m.kind === "pins") avoid.push(...m.points.map((p) => [p.lon, p.lat] as [number, number]));
     else if (m.kind === "measure") avoid.push(m.a, m.b, [(m.a[0] + m.b[0]) / 2, (m.a[1] + m.b[1]) / 2]);
   }
@@ -178,6 +197,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: numb
     <>
       <ContextNames avoid={avoid} places={PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : 5} />
       {body}
+      {objects}
       <PlaceLabels items={labels} />
       <LineBoxes ms={list.map((x) => x.m)}>{(boxes) => <Callouts items={callouts} ts={ts} safe={SAFE} taken={boxes} />}</LineBoxes>
     </>

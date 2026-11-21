@@ -1,6 +1,7 @@
 // The storyboard of a Divan Reel (storyboard-fa.md §2), and the content it is made from. Pure types: the site's
 // writer (lib/agents) and the renderer share them. One style for every template: the navy room of «تصمیم امروز».
 import type { Look } from "../map-engine/camera";
+import type { MapObjectId, ObjectMove } from "../map-engine/object-ids";
 
 export type TemplateId =
   | "today"
@@ -65,7 +66,9 @@ export type Mark =
   | { kind: "callout"; lon: number; lat: number; bold: string; sub?: string; color?: string; /** whose claim: its flag beside the words */ a3?: string }
   | { kind: "measure"; a: [number, number]; b: [number, number] }
   | { kind: "label"; t: string; lon: number; lat: number }
-  | { kind: "flag"; a3: string; lon: number; lat: number };
+  | { kind: "flag"; a3: string; lon: number; lat: number }
+  /** a real thing of the story standing or moving on the map (topics.ts places it, map-engine/objects.tsx draws it) */
+  | { kind: "object"; id: MapObjectId; lon: number; lat: number; move?: ObjectMove; path?: [number, number][]; color?: string; /** frames after it lands when it catches fire */ fire?: number | boolean; sign?: string; size?: number };
 
 export type Road = { key: string; color: string; title: string; cost: string; source: string; object: ObjectId; risk?: number | null };
 

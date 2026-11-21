@@ -227,3 +227,28 @@ After the owner's template review:
 - **Assets**: every new set piece is a file of its own with an entry in
   `src/set/props/manifest.json` (name in English and Persian, what it shows,
   tags, how it was made, licence, origin) for Ahura's shared asset library.
+
+## The topic's objects on the map (21 November 2026)
+
+The owner: «آبجکت‌های خاص همون موضوع برای دیوان درست بشه، مثلاً کشتی یا هر چیزی که بحث میشه». Every map now shows the
+real things the narrator talks about, never an abstract shape.
+
+- `src/map-engine/object-ids.ts` and `objects.tsx`: twenty objects drawn in code (SVG, about 200 px on the finished
+  frame, outlined for the night map): tanker, container ship, LNG carrier, warship, fast boats, naval mine, missile,
+  drone, fighter jet, offshore rig, refinery, pipeline, oil barrel, nuclear site, tank, troops, parliament, money,
+  signed agreement, sanctions padlock. Ships are seen from the side, aircraft from above. Each moves in its own way:
+  `sail` (along a line, with its wake), `fly` (with its shadow), `orbit`, `arc` (a missile between the writer's two
+  places, a burst where it lands), `drop` (a missile coming down onto the writer's pin; no launch site is drawn),
+  `pipe` (a pipeline laid along a line, the flow running) and `stand` (lands, then keeps a flame, steam or a flag
+  moving); `fire` sets a ship burning after it is hit. Registered for Ahura's asset library in
+  `objects.manifest.json`.
+- `src/storyboard/topics.ts`: a keyword classifier in Persian and English (whole words; «همین» is not a mine) names
+  the objects of each beat, in the order the line says them, and places them where the story already is: the n-th
+  sentence that names an object goes on the writer's n-th pin (a burning tanker, a mine beside it, a missile coming
+  down), a ship sails the beat's own comet or the sea lane in view, a parliament, money or the padlock stand on the
+  capital of the beat's state, talks on their venue, a nuclear site on a town the line names (city level only). A beat
+  that names nothing shows the Reel's main thing; a Reel that names nothing falls back on its template's object. It
+  runs inside `enrich()`, before the ground labels; pure and idempotent. A road drawn on the map carries its road
+  object (a tanker sails its line, a barrel or a signed text stands under its cost).
+- Labels keep clear of the objects (`LineBoxes`), and an object of the first frame runs back to where it stood, so
+  the loop still ends on the first picture.

@@ -71,8 +71,54 @@ test("round 3: enrichment adds only ground (lanes, names), never news, and is id
     assert.deepEqual(enrich(once), once, `${name}: a second pass changes nothing`);
     once.beats.forEach((b, i) => {
       if (b.kind !== "map") return;
-      const added = b.marks.slice(c.beats[i].marks.length);
+      // the topic's objects stand among the writer's marks (topics.ts); the rest of what is added is ground at the end
+      const writer = b.marks.filter((m) => m.kind !== "object");
+      assert.deepEqual(writer.slice(0, c.beats[i].marks.length), c.beats[i].marks, `${name}: the writer's marks are kept in order`);
+      const added = writer.slice(c.beats[i].marks.length);
       for (const m of added) assert.ok(m.kind === "label" || m.kind === "comet", `${name}: enrichment added a ${m.kind}`);
     });
   }
+});
+
+// ---- the topic's objects on the map (owner, 21 Nov 2026) ----
+import { topicsOf, objectsSaid, withObjects } from "../src/storyboard/topics.ts";
+import { enrich as enrichAll } from "../src/storyboard/enrich.ts";
+import { MAP_OBJECTS } from "../src/map-engine/object-ids.ts";
+
+test("the classifier names the things a line is about, in fa and en, whole words only", () => {
+  assert.deepEqual(objectsSaid("سپاه می‌گوید نفتکشی نزدیک خصب به مین خورد. ساعتی بعد، نفتکش دیگری با پرتابه آتش گرفت."), ["tanker", "mine", "missile"]);
+  assert.deepEqual(objectsSaid("Drones and a ballistic missile hit the refinery"), ["drone", "missile", "refinery"]);
+  assert.ok(objectsSaid("مجلس طرح تحریم را تصویب کرد").includes("parliament"));
+  assert.ok(objectsSaid("بازرسان آژانس به نطنز رفتند").includes("nuclear"));
+  assert.ok(objectsSaid("دلار در بازار تهران گران شد").includes("money"));
+  // «همین» and «زمین» are not a mine, «ارزش» is not a currency, «ناوگان» is a fleet
+  assert.ok(!topicsOf("همین حدود، روی زمین، ارزش").some((h) => h.topic === "mine" || h.topic === "money"));
+  assert.ok(objectsSaid("ناوگان آمریکا").includes("warship"));
+});
+
+test("strait: a tanker sails the strait from frame 0, the incidents stand on the writer's pins", () => {
+  const c = enrichAll(read("divan-strait"));
+  const objs = (b) => (b.marks ?? []).filter((m) => m.kind === "object");
+  const hook = objs(c.beats[0]);
+  assert.equal(hook.length, 1);
+  assert.equal(hook[0].id, "tanker");
+  assert.equal(hook[0].move, "sail");
+  const m2 = objs(c.beats[3]);
+  assert.deepEqual(m2.map((m) => `${m.id}/${m.move}`), ["tanker/stand", "mine/stand", "missile/drop", "tanker/stand"]);
+  const pins = c.beats[3].marks.filter((m) => m.kind === "pins").map((m) => [m.points[0].lon, m.points[0].lat]);
+  // the burning tankers stand on the writer's two pins; nothing stands where the writer put nothing
+  assert.deepEqual([m2[0], m2[3]].map((m) => [m.lon, m.lat]), pins);
+  assert.ok(m2[0].fire !== undefined && m2[3].fire !== undefined);
+  // the object comes in on the shot of its pin: it follows the pin in the marks
+  const ks = c.beats[3].marks.map((m) => m.kind);
+  assert.equal(ks[ks.indexOf("object") - 1], "pins");
+  // every storyboard check still passes, and a second pass adds nothing (idempotent)
+  const sb = direct(c, []);
+  assert.deepEqual(storyboardChecks(c, sb).filter((x) => !x.ok), []);
+  assert.deepEqual(withObjects(c), c);
+});
+
+test("every object of the library has its names and what it depicts", () => {
+  assert.ok(MAP_OBJECTS.length >= 20);
+  for (const o of MAP_OBJECTS) assert.ok(o.en && o.fa && o.depicts.length > 30 && o.moves.length, o.id);
 });

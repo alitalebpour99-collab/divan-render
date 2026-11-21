@@ -174,3 +174,13 @@ test("pass 3: a callout that only repeats the beat's headline is not drawn again
   const norm = (s) => String(s ?? "").replace(/[\s،,٫.«»:]/g, "");
   for (const b of c.beats) if (b.kind === "map") for (const m of b.marks) if (m.kind === "callout") assert.notEqual(norm(m.bold), norm(b.caption), `«${m.bold}» repeats the headline`);
 });
+
+test("pass 3: a crowded label covers other labels before it ever covers the scale", () => {
+  const safe = { x: 0, y: 0, w: 400, h: 400 };
+  const scale = { x: 0, y: 300, w: 400, h: 100 };
+  // the frame is full: every place meets something; the label must still keep off the scale
+  const crowd = [{ x: 0, y: 0, w: 400, h: 300 }];
+  const [p] = place([{ id: "a", x: 200, y: 320, w: 200, h: 60 }], safe, [...crowd, scale], 18, [scale]);
+  const meets = p.box.y < scale.y + scale.h && scale.y < p.box.y + p.box.h;
+  assert.ok(!meets, `the label stands at y ${p.box.y}, over the scale`);
+});

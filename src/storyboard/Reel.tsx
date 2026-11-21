@@ -259,7 +259,10 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
   // (clear of them and of the lines), then the place names (clear of all of it, the leaders too)
   const sc = scale ? scaleGeom(view) : null;
   const fixed = [...(sc ? [sc.box] : []), ...list.flatMap(({ m, t }) => (m.kind === "measure" && t >= 0 ? [measureLabelBox(view, m.a, m.b)].filter((b): b is NonNullable<typeof b> => Boolean(b)) : []))];
-  const pre = placeCallouts(view, callouts, SAFE, [...lineBoxesOf(view, list.map((x) => x.m)), ...fixed]);
+  const pre = placeCallouts(view, callouts, SAFE, lineBoxesOf(view, list.map((x) => x.m)), fixed);
+  // the scale is the least of the words: where a callout found no other room than over it, the scale steps aside
+  const meet = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  const showScale = Boolean(sc) && !pre.placed.some((p) => meet(p.box, sc!.box));
   const calloutBoxes = pre.placed.flatMap((p) => {
     const out = [p.box];
     // the leader, as a row of small boxes
@@ -278,6 +281,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
       {measures}
       <PlaceLabels items={labels} avoid={objBoxes} block={[...fixed, ...calloutBoxes]} />
       <Callouts items={callouts} ts={ts} safe={SAFE} pre={pre} />
+      {showScale ? <ScaleAndNorth /> : null}
     </>
   );
 };
@@ -793,7 +797,6 @@ export const Reel: React.FC<Props> = (p) => {
         <SeaDetail />
         <Ambient f={f} total={total} look={look} />
         <MapMarks list={marks} f={f} span={look.span} scale={!inLoop && beat.kind === "map"} />
-        {!inLoop && beat.kind === "map" ? <ScaleAndNorth /> : null}
       </MapStage>
       {/* the scrims: the map runs under the header and the caption, darkened there so their words read */}
       <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 640, background: "linear-gradient(180deg, rgba(22,32,50,0.94) 0%, rgba(22,32,50,0.72) 55%, rgba(22,32,50,0) 100%)" }} />

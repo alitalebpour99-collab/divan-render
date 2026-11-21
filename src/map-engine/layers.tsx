@@ -301,14 +301,14 @@ export function fitCallout(c: { bold: string; sub?: string; a3?: string; size?: 
 }
 
 /** Where the callouts go (pass 3: made once outside, so the place names can keep clear of the words and the leaders). */
-export function placeCallouts(v: { at: (lon: number, lat: number) => [number, number] | null }, items: CalloutSpec[], safe: Box, taken: Box[] = []) {
+export function placeCallouts(v: { at: (lon: number, lat: number) => [number, number] | null }, items: CalloutSpec[], safe: Box, taken: Box[] = [], hard: Box[] = []) {
   const fits = items.map((c) => fitCallout(c, safe.w));
   const wants = items.map((c, i) => {
     const at = v.at(c.lon, c.lat) ?? [-999, -999];
     return { id: c.id, x: at[0], y: at[1], w: fits[i].w, h: fits[i].h, prio: items.length - i };
   });
   // round 2: a label stands 56 px off its point on a leader, so it never lies on the coast or the line it names
-  return { fits, placed: place(wants, safe, taken, 56) };
+  return { fits, placed: place(wants, safe, [...taken, ...hard], 56, hard) };
 }
 
 export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box; taken?: Box[]; pre?: ReturnType<typeof placeCallouts> }> = ({ items, ts, safe, taken = [], pre }) => {

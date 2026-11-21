@@ -11,7 +11,7 @@ export const textWidth = (s: string, size: number) => Math.ceil(String(s).length
 const meets = (a: Box, b: Box, pad = 8) => a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
 const inside = (a: Box, safe: Box) => a.x >= safe.x && a.y >= safe.y && a.x + a.w <= safe.x + safe.w && a.y + a.h <= safe.y + safe.h;
 
-export function place(wants: Want[], safe: Box, taken: Box[] = [], gap = 18): Placed[] {
+export function place(wants: Want[], safe: Box, taken: Box[] = [], gap = 18, /** pass 3: words a label may never cover (the scale, a measure) */ hard: Box[] = []): Placed[] {
   const out: Placed[] = [];
   const used = [...taken];
   const order = [...wants].sort((a, b) => (b.prio ?? 0) - (a.prio ?? 0));
@@ -55,7 +55,7 @@ export function place(wants: Want[], safe: Box, taken: Box[] = [], gap = 18): Pl
       for (const [x, y] of tries) cands.push({ x, y, w: w.w, h: w.h });
       for (let r = 120; r <= 520; r += 80) for (const dy of [-r, r, -r * 0.6, r * 0.6]) cands.push({ x: Math.min(safe.x + safe.w - w.w, Math.max(safe.x, w.x - w.w / 2)), y: w.y + dy - w.h / 2, w: w.w, h: w.h });
       const fit = (b: Box): Box => ({ ...b, x: Math.min(safe.x + safe.w - b.w, Math.max(safe.x, b.x)), y: Math.min(safe.y + safe.h - b.h, Math.max(safe.y, b.y)) });
-      const best = cands.map(fit).map((b) => ({ b, cost: used.reduce((n, u) => n + area(u, b), 0) + Math.hypot(b.x + b.w / 2 - w.x, b.y + b.h / 2 - w.y) * 2 })).sort((a, z) => a.cost - z.cost)[0].b;
+      const best = cands.map(fit).map((b) => ({ b, cost: used.reduce((n, u) => n + area(u, b), 0) + hard.reduce((n, u) => n + area(u, b) * 50, 0) + Math.hypot(b.x + b.w / 2 - w.x, b.y + b.h / 2 - w.y) * 2 })).sort((a, z) => a.cost - z.cost)[0].b;
       done = { id: w.id, box: best, anchor: [w.x, w.y], leader: true, side: "l" };
     }
     used.push(done.box);

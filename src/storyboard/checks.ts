@@ -3,7 +3,11 @@
 // the render (video/qa.mjs): frozen picture, sync, legibility, loop, loudness, darkness, the vision score.
 import { TEMPLATES, recipeProblems } from "./templates";
 import type { ReelContent, Storyboard } from "./types";
-import { wordsIn } from "./director";
+import { readFrames, wordsIn } from "./director";
+import { textIssues } from "./textcheck";
+
+/** How long a Reel may run (owner, 21 Nov 2026): as long as its content needs to be read and understood, within these. */
+export const LENGTH = { reels: [15, 90], youtube: [15, 600] } as const;
 
 export type Check = { id: string; ok: boolean; detail: string; fa: string };
 
@@ -15,7 +19,12 @@ export function storyboardChecks(c: ReelContent, sb: Storyboard): Check[] {
   const add = (id: string, ok: boolean, detail: string, fa: string) => out.push({ id, ok, detail, fa });
   const t = TEMPLATES[c.template];
   const secs = sb.total / sb.fps;
-  add("length", secs >= t.seconds[0] && secs <= t.seconds[1], `${secs.toFixed(1)} s (${t.seconds[0]} to ${t.seconds[1]} for ${t.id})`, "طول ویدیو برای این قالب درست نیست");
+  // the length follows the content (reading time per beat, director.ts); the template's seconds are its usual length, not a limit
+  const [lo, hi] = LENGTH[c.platform ?? "reels"];
+  add("length", secs >= lo && secs <= hi, `${secs.toFixed(1)} s (${lo} to ${hi} for ${c.platform ?? "reels"}; ${t.id} usually ${t.seconds[0]}–${t.seconds[1]})`, "طول ویدیو از حد مجاز بیرون است");
+  // the text rules: no filler, clean Persian, no line that contradicts the map (textcheck.ts)
+  const issues = textIssues(c);
+  add("text", !issues.length, issues.length ? issues.map((x) => `beat ${x.beat} ${x.field}: ${x.detail}`).join("; ") : "no filler, clean spelling, every named place where its mark is", "متن ویدیو مشکل دارد (پرکننده، املا یا ناهمخوانی با نقشه)");
   const recipe = recipeProblems(c);
   add("recipe", !recipe.length, recipe.length ? recipe.join("; ") : `beats follow «${t.fa}»`, "ترتیب بخش‌ها با قالب نمی‌خواند");
   const bad = sb.shots.filter((s) => s.dur < 0.99 || s.dur > 2.01);
@@ -35,7 +44,9 @@ export function storyboardChecks(c: ReelContent, sb: Storyboard): Check[] {
   const v0 = sb.voice[0];
   add("voice-zero", !sb.voice.length || v0.from <= 3, v0 ? `first line at frame ${v0.from}` : "no narrator", "صدای راوی از ثانیهٔ صفر شروع نمی‌شود");
   const lastWord = sb.words.length ? sb.words[sb.words.length - 1].end : 0;
-  add("end", !sb.words.length || secs - lastWord <= sb.checks.end_after_last_word_s + 1.2, `${(secs - lastWord).toFixed(1)} s after the last word`, "پایان ویدیو بعد از آخرین کلمه طولانی است");
+  // the last beat (the poll) may stay to be read after the narrator's last word (reading time, director.ts)
+  const lastRead = c.beats.length ? readFrames(c.beats[c.beats.length - 1], sb.fps) / sb.fps : 0;
+  add("end", !sb.words.length || secs - lastWord <= sb.checks.end_after_last_word_s + 1.2 + lastRead, `${(secs - lastWord).toFixed(1)} s after the last word`, "پایان ویدیو بعد از آخرین کلمه طولانی است");
   const meaningless = sb.shots.filter((s) => !s.meaning || !s.picture.asset);
   add("meaning", !meaningless.length, meaningless.length ? `shots without a meaning: ${meaningless.map((s) => `#${s.n}`).join(", ")}` : "every shot has a picture and a reason", "نمایی بی‌معنی یا بی‌تصویر است");
   // two effects a second at most

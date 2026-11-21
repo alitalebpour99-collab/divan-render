@@ -62,13 +62,13 @@ export type Mark =
   | { kind: "claim"; coords: [number, number][]; color: string }
   | { kind: "dashed"; coords: [number, number][]; color: string }
   | { kind: "comet"; coords: [number, number][]; color: string; loop?: boolean }
-  | { kind: "pins"; points: { lon: number; lat: number }[]; color: string; counter?: string }
+  | { kind: "pins"; points: { lon: number; lat: number }[]; color: string; counter?: string; /** the source gives the place only roughly: drawn as an area, not a precise pin */ area?: boolean }
   | { kind: "callout"; lon: number; lat: number; bold: string; sub?: string; color?: string; /** whose claim: its flag beside the words */ a3?: string }
   | { kind: "measure"; a: [number, number]; b: [number, number] }
   | { kind: "label"; t: string; lon: number; lat: number }
   | { kind: "flag"; a3: string; lon: number; lat: number }
   /** a real thing of the story standing or moving on the map (topics.ts places it, map-engine/objects.tsx draws it) */
-  | { kind: "object"; id: MapObjectId; lon: number; lat: number; move?: ObjectMove; path?: [number, number][]; color?: string; /** frames after it lands when it catches fire */ fire?: number | boolean; sign?: string; size?: number };
+  | { kind: "object"; id: MapObjectId; lon: number; lat: number; move?: ObjectMove; path?: [number, number][]; color?: string; /** frames after it lands when it catches fire */ fire?: number | boolean; sign?: string; size?: number; /** a type of its kind (shahed, male, f35, su35, ballistic, cruise, majlis, capitol) */ variant?: string; /** an approaching ship: frames to its point (the renderer sets it from the incident) */ arrive?: number; wind?: [number, number] };
 
 export type Road = { key: string; color: string; title: string; cost: string; source: string; object: ObjectId; risk?: number | null };
 
@@ -100,6 +100,10 @@ export type ReelContent = {
   /** «roads» (today and its family: red, blue, green) or «actors» (the map templates): never both (map-engine-fa.md §5) */
   convention: "roads" | "actors";
   badge?: string;
+  /** where it is posted: a Reel runs 15–90 s, a YouTube video longer (checks.ts LENGTH); the content sets the length */
+  platform?: "reels" | "youtube";
+  /** what the fact-check gate cut or rewrote before this was drawn (lib/agents/factcheck.ts), for the owner's desk */
+  factcheck?: { beat: number; field: string; before: string; after: string; why: string }[];
   /** a label on the screen: this is Divan's analysis, made with AI */
   ai_label?: string;
 };

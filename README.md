@@ -258,3 +258,26 @@ real things the narrator talks about, never an abstract shape.
   is hit catches fire only when its pin or the missile lands; a missile's burst is short and draws under the ship.
   Pass 4: a name keeps its room on the widest frame a beat is seen in (the opening dive too), and objects shrink with
   the map when the camera is wider than their beat (to 0.55 of their size).
+
+### Round 4 (owner, 21 Nov 2026: detail, accuracy, text, length)
+
+- **Objects as illustrations** (`objects.tsx`, shared paints `ObjectDefs`): a VLCC with its aft house, pipe rack and
+  manifold cranes; a container ship with its bays; a Moss LNG carrier; a destroyer with its gun, cells, radar panel and
+  mast; types by name (`variant`: Shahed-type or MALE drone, F-35 or Su-35, ballistic or cruise missile, Iran's Majlis
+  or the Capitol); a waterline and foam, wakes, contrails, exhaust plumes, smoke that drifts with the wind, lifeboats
+  pulling away from a burning ship. One scale for all (a destroyer about 0.8 of a VLCC).
+- **Real routes** (`data/routes.json`, GeoJSON with a source and an accuracy on each): the Hormuz traffic separation
+  scheme's outbound (south) and inbound (north) lanes, the Red Sea route, and the Goreh–Jask, East–West and
+  Habshan–Fujairah pipelines. Ships sail the real lane in its own direction; a pipeline a line names is laid on its
+  route. The test checks every sea lane is water on the 1:50m and 1:10m coasts.
+- **Events in order**: a ship sails in along its lane, lies at the reported point when the incident lands, then burns;
+  a missile or a drone comes down on the point (never from a launch site); the time or date the line or the source gives
+  joins the callout on its leader line; a place the source calls approximate is an area, not a pin.
+- **Map detail** (`detail.tsx`, data `sea-detail.json` from Natural Earth 1:10m by `scripts/build-sea-detail.mjs`): the
+  200 m and 1000 m depth bands, the 1:10m coasts and small islands of Hormuz, islands and ports named small on close
+  maps, a scale bar and a north arrow on map beats.
+- **Text** (`storyboard/textcheck.ts`, the check `text`): no filler, clean Persian spelling, no named place far from its
+  mark. On the site, `lib/agents/factcheck.ts` checks every line against the reports with Claude before a draft is
+  kept; unsupported lines are rewritten or cut, and the log goes with the Reel (`factcheck`).
+- **Length follows the content** (`director.ts` `readFrames`, `checks.ts` `LENGTH`): a beat stays until its words can be
+  read at 2.75 words a second plus a second to look at its map; a Reel runs 15–90 s (YouTube up to 600 s).

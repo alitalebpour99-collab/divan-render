@@ -62,8 +62,22 @@ export const viewsOf = (b: Beat): number => {
       return 3;
   }
 };
+/**
+ * Reading time (owner, 21 Nov 2026: «زمان ویدیو برای توضیح بیشتر وجود داشته باشه اگه لازمه»): a beat stays until its
+ * words can be read at 2.75 words a second, plus the time to look at its map (a second, and a little more for each
+ * incident or thing on it). The length of a Reel follows its content, not a fixed short time; the hook is the exception
+ * (its title is the first two seconds and the cut is what holds the eye).
+ */
+export const READ_WPS = 2.75;
+const screenWords = (b: Beat): number => {
+  const marks = b.kind === "hook" || b.kind === "map" || b.kind === "demand" || b.kind === "road" ? (b.marks ?? []) : [];
+  const own = b.kind === "map" ? [b.caption] : b.kind === "number" ? [b.big, b.unit, b.text] : b.kind === "chart" ? [b.chart.title] : b.kind === "road" ? [b.road.title, b.road.cost] : b.kind === "demand" ? [b.wants] : b.kind === "flags" ? [b.title] : b.kind === "poll" ? [b.q, ...b.options.map((o) => o.title)] : [];
+  return [...own, ...marks.flatMap((m) => (m.kind === "callout" ? [m.bold, m.sub] : m.kind === "label" ? [m.t] : []))].reduce((n, s) => n + wordsIn(s), 0);
+};
+const lookFrames = (b: Beat, fps: number) => (b.kind === "map" || b.kind === "demand" || b.kind === "road" ? fps + Math.round(0.4 * fps * (b.marks ?? []).filter((m) => m.kind === "object" || m.kind === "pins").length) : 0);
+export const readFrames = (b: Beat, fps = FPS) => (b.kind === "hook" ? 0 : Math.round((screenWords(b) / READ_WPS) * fps) + lookFrames(b, fps));
 /** The least a beat lasts without a narrator, in frames. */
-const floorOf = (b: Beat) => (b.kind === "hook" ? 45 : b.kind === "chart" ? 105 : b.kind === "poll" ? 3 * 32 + LOOP : viewsOf(b) * 40);
+const floorOf = (b: Beat) => Math.max(b.kind === "hook" ? 45 : b.kind === "chart" ? 105 : b.kind === "poll" ? 3 * 32 + LOOP : viewsOf(b) * 40, readFrames(b));
 
 /** Words of a line said at about 13 letters a second, when no narrator read it (samples, a Reel held without voice). */
 export function guessWords(text: string, fps = FPS): { text: string; from: number; frames: number }[] {

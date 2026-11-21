@@ -28,9 +28,10 @@ export type MapObjectId =
  * flag). sail: a ship along its path, its wake behind it. fly: an aircraft or a drone along its path, its shadow under
  * it. orbit: an aircraft circling its point. arc: a missile from the path's first point to its last, a burst where it
  * lands. drop: a missile coming down onto its point from the sky (no launch site is drawn: none is claimed). pipe: a
- * pipeline laid along its path with the flow running in it.
+ * pipeline laid along its path with the flow running in it. approach: a ship sailing its real lane in to an incident's
+ * point, arriving when the incident lands (then it burns there).
  */
-export type ObjectMove = "stand" | "sail" | "fly" | "orbit" | "arc" | "drop" | "pipe";
+export type ObjectMove = "stand" | "sail" | "approach" | "fly" | "orbit" | "arc" | "drop" | "pipe";
 
 export type ObjectMeta = { id: MapObjectId; en: string; fa: string; depicts: string; moves: ObjectMove[]; tags: string[] };
 

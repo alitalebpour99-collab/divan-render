@@ -74,3 +74,32 @@ export const PLACES_FA: Readonly<Record<string, { t: string; lon: number; lat: n
 
 /** A state's Persian name: Divan's list first, then Natural Earth's column, then the code itself. */
 export const nameFa = (a3: string, ne?: string) => NAMES_FA[a3] ?? (ne || a3);
+
+/**
+ * Islands and ports for a close map of the Gulf (span under 10°): written small, quiet, only where nothing speaks.
+ * Ports at Natural Earth 1:10m ports' points where it has them (Bandar Abbas, Bushehr, Fujairah, Sohar, Muscat, Dubai,
+ * Doha, Abu Dhabi, Jubail); the rest and the islands at their town or the island's middle (city level).
+ */
+export const SEA_PLACES_FA: Readonly<Record<string, { t: string; lon: number; lat: number; kind: "island" | "port" }>> = {
+  hormuzIsland: { t: "جزیرهٔ هرمز", lon: 56.46, lat: 27.06, kind: "island" },
+  larak: { t: "لارک", lon: 56.36, lat: 26.86, kind: "island" },
+  abuMusa: { t: "ابوموسی", lon: 55.03, lat: 25.88, kind: "island" },
+  greaterTunb: { t: "تنب بزرگ", lon: 55.3, lat: 26.26, kind: "island" },
+  lesserTunb: { t: "تنب کوچک", lon: 55.14, lat: 26.24, kind: "island" },
+  kish: { t: "کیش", lon: 53.98, lat: 26.53, kind: "island" },
+  sirri: { t: "سیری", lon: 54.54, lat: 25.91, kind: "island" },
+  kharg: { t: "خارک", lon: 50.32, lat: 29.24, kind: "island" },
+  bandarAbbasPort: { t: "بندرعباس", lon: 56.2, lat: 27.14, kind: "port" },
+  jask: { t: "جاسک", lon: 57.77, lat: 25.64, kind: "port" },
+  bushehr: { t: "بوشهر", lon: 50.84, lat: 28.98, kind: "port" },
+  lengeh: { t: "بندر لنگه", lon: 54.88, lat: 26.56, kind: "port" },
+  fujairahPort: { t: "فجیره", lon: 56.36, lat: 25.18, kind: "port" },
+  khorFakkan: { t: "خورفکان", lon: 56.36, lat: 25.34, kind: "port" },
+  sohar: { t: "صحار", lon: 56.74, lat: 24.38, kind: "port" },
+  dubai: { t: "دبی", lon: 55.27, lat: 25.27, kind: "port" },
+  rasAlKhaimah: { t: "رأس‌الخیمه", lon: 55.94, lat: 25.79, kind: "port" },
+  khasabPort: { t: "خصب", lon: 56.25, lat: 26.18, kind: "port" },
+  rasTanura: { t: "راس تنوره", lon: 50.16, lat: 26.64, kind: "port" },
+  jubail: { t: "جبیل", lon: 49.67, lat: 27.03, kind: "port" },
+  yanbu: { t: "ینبع", lon: 38.06, lat: 24.09, kind: "port" },
+};

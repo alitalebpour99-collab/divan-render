@@ -10,7 +10,9 @@ import { densify, useView, ContextNames, NAMES_FA, PLACES_FA, nameFa, CAPITALS, 
 import { VAZIR } from "../map-engine/fonts";
 import { LOOP } from "./director";
 import { RoadObject } from "./objects";
-import { MapObject } from "../map-engine/objects";
+import { MapObject, ObjectDefs } from "../map-engine/objects";
+import { SeaDetail, ScaleAndNorth } from "../map-engine/detail";
+import { SEA_PLACES_FA } from "../map-engine/names";
 import type { Beat, ChartSpec, Mark, ReelContent, Shot, Storyboard } from "./types";
 
 export const ROOM = { bg: "#1a2330", bg2: "#202b3a", edge: "#151d28", panel: "rgba(30,41,58,0.94)", line: "#34445a", paper: "#f3efe6", mute: "#a3afbd", amber: "#ffb020", hit: "#ff4d40" };
@@ -106,7 +108,7 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
         if (passing && s.beat !== cur.beat && !gather) continue;
         // a burning object came in early (pass 3): its fire waits for the pin it stands on, and for a missile's burst there
         let mm: Mark = m;
-        if (m.kind === "object" && m.fire !== undefined && m.fire !== false) {
+        if (m.kind === "object" && ((m.fire !== undefined && m.fire !== false) || m.move === "approach")) {
           // the incident nearest the ship (its pin, or the missile coming down on it) sets when it starts to burn
           const dist = (lon: number, lat: number) => Math.hypot(lon - m.lon, lat - m.lat);
           let best = Infinity;
@@ -121,7 +123,9 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
                   land = Math.round(z.start * sb.fps) + 3 + (q.kind === "object" ? 30 : 0);
                 }
               }
-          mm = { ...m, fire: Math.max(0, land - at) + (m.fire === true ? 0 : m.fire) };
+          const struck = best < Infinity && land > at;
+          // round 4, the sequence: the ship sails in and lies at its point when the incident lands, then burns
+          mm = { ...m, ...(m.fire !== undefined && m.fire !== false ? { fire: Math.max(0, land - at) + (m.fire === true ? 0 : m.fire) } : {}), ...(m.move === "approach" ? { arrive: Math.max(24, (struck ? land : at + 60) - at - 8) } : {}) };
         }
         out.push({ m: mm, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather, life: (ends[s.beat] ?? at) - at, base: baseOf(s.beat) });
       }
@@ -134,6 +138,33 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
 const fillOpacity = (color: string, span: number) => (color.toLowerCase() === DIVAN.actors.iran ? (span < 12 ? 0.3 : 0.5) : span < 12 ? 0.26 : 0.4);
 /** the ground's names the context layer may write: the places of the engine, and every named state at its centroid */
 const PLACE_LIST = Object.values(PLACES_FA);
+/** islands and ports on a close map of the Gulf (round 4), never two of one name */
+const SEA_LIST = Object.values(SEA_PLACES_FA).filter((p) => !PLACE_LIST.some((q) => q.t === p.t));
+
+/** An area where the source gives a place only roughly: a soft disc and a dashed ring about 15 km across, its centre a small dot. */
+const AreaMarks: React.FC<{ points: { lon: number; lat: number }[]; color: string; t: number; span: number }> = ({ points, color, t, span }) => {
+  const v = useView();
+  if (t < 0) return null;
+  const k = Math.min(1, t / 12);
+  return (
+    <g opacity={k}>
+      {points.map((p, i) => {
+        const at = v.at(p.lon, p.lat);
+        const edge = v.at(p.lon + 0.07, p.lat);
+        if (!at || !edge) return null;
+        const r = Math.max(36, Math.min(160, Math.hypot(edge[0] - at[0], edge[1] - at[1])));
+        void span;
+        return (
+          <g key={i}>
+            <circle cx={at[0]} cy={at[1]} r={r} fill={color} opacity={0.16} />
+            <circle cx={at[0]} cy={at[1]} r={r} fill="none" stroke={color} strokeWidth={3} strokeDasharray="10 8" strokeDashoffset={-v.f * 0.6} />
+            <circle cx={at[0]} cy={at[1]} r={5} fill={color} />
+          </g>
+        );
+      })}
+    </g>
+  );
+};
 const STATE_LIST = Object.keys(NAMES_FA)
   .map((a3) => {
     const c = country(a3);
@@ -191,7 +222,8 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
       case "comet":
         return <CometTrail key={i} coords={m.coords} color={m.color} t={t} dur={36} loop={m.loop ? 75 : own && t > 40 ? 54 : undefined} head={22} width={24} tail={0.45} route />;
       case "pins":
-        return <PinCluster key={i} points={m.points} color={m.color} t={t} />;
+        // a place the source gives only roughly: an area (a soft disc and a dashed ring), never a precise pin
+        return m.area ? <AreaMarks key={i} points={m.points} color={m.color} t={t} span={span} /> : <PinCluster key={i} points={m.points} color={m.color} t={t} />;
       case "measure":
         // over the objects: a ship passing the narrowest point must not hide its length
         measures.push(<MeasureLine key={i} a={m.a} b={m.b} t={t} />);
@@ -223,7 +255,8 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
   }
   return (
     <>
-      <ContextNames avoid={avoid} places={PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : 5} />
+      <ObjectDefs />
+      <ContextNames avoid={avoid} places={span < 10 ? [...PLACE_LIST, ...SEA_LIST] : PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : span < 10 ? 6 : 5} />
       {body}
       {objects.filter((o) => o.drawFirst).map((o) => o.node)}
       {objects.filter((o) => !o.drawFirst).map((o) => o.node)}
@@ -742,8 +775,10 @@ export const Reel: React.FC<Props> = (p) => {
   return (
     <AbsoluteFill style={{ background: `radial-gradient(120% 75% at 50% 42%, ${ROOM.bg2} 0%, ${ROOM.bg} 62%, ${ROOM.edge} 100%)` }}>
       <MapStage look={look} frame={STAGE} theme={DIVAN} f={f} dim={dim} bleed>
+        <SeaDetail />
         <Ambient f={f} total={total} look={look} />
         <MapMarks list={marks} f={f} span={look.span} />
+        {!inLoop && beat.kind === "map" ? <ScaleAndNorth /> : null}
       </MapStage>
       {/* the scrims: the map runs under the header and the caption, darkened there so their words read */}
       <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 640, background: "linear-gradient(180deg, rgba(22,32,50,0.94) 0%, rgba(22,32,50,0.72) 55%, rgba(22,32,50,0) 100%)" }} />

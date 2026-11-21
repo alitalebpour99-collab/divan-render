@@ -72,8 +72,10 @@ test("round 3: enrichment adds only ground (lanes, names), never news, and is id
     once.beats.forEach((b, i) => {
       if (b.kind !== "map") return;
       // the topic's objects stand among the writer's marks (topics.ts); the rest of what is added is ground at the end
-      const writer = b.marks.filter((m) => m.kind !== "object");
-      assert.deepEqual(writer.slice(0, c.beats[i].marks.length), c.beats[i].marks, `${name}: the writer's marks are kept in order`);
+      // round 4: a time joins a callout's sub line, an approximate place becomes an area; kinds and places stay the writer's
+      const key = (m) => `${m.kind}:${m.lon ?? m.points?.[0]?.lon ?? m.coords?.[0]?.[0] ?? m.a3 ?? ""}`;
+      const writer = b.marks.filter((m) => m.kind !== "object" && !(m.kind === "callout" && !c.beats[i].marks.some((w) => w.kind === "callout" && w.lon === m.lon && w.lat === m.lat)));
+      assert.deepEqual(writer.slice(0, c.beats[i].marks.length).map(key), c.beats[i].marks.map(key), `${name}: the writer's marks are kept in order`);
       const added = writer.slice(c.beats[i].marks.length);
       for (const m of added) assert.ok(m.kind === "label" || m.kind === "comet", `${name}: enrichment added a ${m.kind}`);
     });
@@ -106,7 +108,13 @@ test("strait: a tanker sails the strait from frame 0, the incidents stand on the
   assert.equal(hook[0].id, "tanker");
   assert.equal(hook[0].move, "sail");
   const m2 = objs(c.beats[3]);
-  assert.deepEqual(m2.map((m) => `${m.id}/${m.move}`), ["tanker/stand", "mine/stand", "missile/drop", "tanker/stand"]);
+  // round 4: approach (along the real lane), the event, the aftermath
+  assert.deepEqual(m2.map((m) => `${m.id}/${m.move}`), ["tanker/approach", "mine/stand", "missile/drop", "tanker/approach"]);
+  // the times: the first incident at the source's date, the second «ساعتی بعد»
+  const subs = c.beats[3].marks.filter((m) => m.kind === "callout").map((m) => m.sub);
+  assert.ok(subs[0].includes("۲۰ نوامبر") && subs[1].includes("ساعتی بعد"), subs.join(" | "));
+  // the source says the places are approximate: areas, not pins
+  assert.ok(c.beats[3].marks.filter((m) => m.kind === "pins").every((m) => m.area));
   const pins = c.beats[3].marks.filter((m) => m.kind === "pins").map((m) => [m.points[0].lon, m.points[0].lat]);
   // the burning tankers stand on the writer's two pins; nothing stands where the writer put nothing
   // pass 3: on water, at most a few km off the pin when the pin is on the coast

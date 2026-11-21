@@ -8,7 +8,7 @@
 import { geoContains, geoDistance } from "d3-geo";
 import type { Look } from "../map-engine/camera";
 import { CAPITALS } from "../map-engine/capitals";
-import { LANES } from "../map-engine/lanes";
+import { LANES, PIPELINES } from "../map-engine/lanes";
 import { NAMES_FA, PLACES_FA } from "../map-engine/names";
 import { country, worldFor } from "../map-engine/world";
 import { isAircraft, isShip, type MapObjectId } from "../map-engine/object-ids";
@@ -30,7 +30,7 @@ export const TOPICS: Topic[] = [
   { id: "jet", objects: ["jet"], fa: ["جنگنده", "جنگنده‌ها", "بمب‌افکن", "حمله هوایی", "حملات هوایی", "نیروی هوایی", "هواپیمای جنگی"], en: ["jet", "fighter", "airstrike", "air strike", "bomber", "warplane", "air force"] },
   { id: "aircraft", objects: ["jet"], fa: ["هواپیما", "پرواز", "حریم هوایی"], en: ["aircraft", "airspace", "flight"], weight: 0.5 },
   { id: "rig", objects: ["rig"], fa: ["سکوی نفتی", "سکو", "میدان نفتی", "میدان گازی", "پارس جنوبی", "چاه نفت", "تولید نفت", "دریایی نفت"], en: ["oil rig", "platform", "oilfield", "oil field", "gas field", "south pars", "offshore"] },
-  { id: "refinery", objects: ["refinery"], fa: ["پالایشگاه", "پتروشیمی", "پالایش", "بنزین"], en: ["refinery", "petrochemical", "gasoline", "fuel"] },
+  { id: "refinery", objects: ["refinery"], fa: ["پالایشگاه", "پتروشیمی", "پالایش", "بنزین", "تأسیسات نفتی", "تاسیسات نفتی", "فرآوری نفت", "کارخانهٔ فرآوری"], en: ["refinery", "petrochemical", "gasoline", "fuel"] },
   { id: "pipeline", objects: ["pipeline"], fa: ["خط لوله", "لوله"], en: ["pipeline"] },
   { id: "oil", objects: ["barrel", "tanker"], fa: ["نفت", "نفت خام", "بشکه", "برنت", "اوپک", "صادرات نفت", "نفتی"], en: ["oil", "crude", "barrel", "brent", "opec"] },
   { id: "gas", objects: ["lng", "rig"], fa: ["گاز"], en: ["gas"], weight: 0.7 },
@@ -59,6 +59,9 @@ const TOWNS: { fa: string[]; en: string[]; lon: number; lat: number; for: MapObj
   { fa: ["خارک"], en: ["kharg"], lon: 50.32, lat: 29.24, for: ["barrel", "tanker", "rig"] },
   { fa: ["پارس جنوبی", "عسلویه"], en: ["south pars", "asaluyeh"], lon: 52.4, lat: 26.9, for: ["rig", "lng"] },
   { fa: ["جاسک"], en: ["jask"], lon: 57.77, lat: 25.64, for: ["tanker", "pipeline"] },
+  { fa: ["ابقیق", "بقیق"], en: ["abqaiq"], lon: 49.68, lat: 25.94, for: ["refinery", "barrel", "rig"] },
+  { fa: ["خریص"], en: ["khurais"], lon: 48.15, lat: 25.1, for: ["refinery", "barrel", "rig"] },
+  { fa: ["راس تنوره"], en: ["ras tanura"], lon: 50.16, lat: 26.64, for: ["refinery", "barrel", "tanker"] },
 ];
 
 /** A text for matching: Persian letters of one form, no half-spaces, no hamzah on its own, no punctuation. */
@@ -178,7 +181,20 @@ const sentencesOf = (say: string) =>
     .split(/[.!?؟]+/)
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((s) => ({ ids: objectsSaid(s), hit: isHit(s) }));
+    .map((s) => ({ text: s, ids: objectsSaid(s), hit: isHit(s) }));
+
+/** What can be struck and burn on land or at sea, besides a ship. */
+const BUILDINGS = new Set<MapObjectId>(["refinery", "rig", "nuclear", "pipeline", "barrel"]);
+
+/** The type of a drone, a jet, a missile when the line names it (round 4: a Shahed is not a MALE drone, an F-35 not an Su-35). */
+export function variantOf(id: MapObjectId, text: string): string | undefined {
+  const t = norm(text);
+  const has = (fa: string[], en: string[]) => firstAt(t, fa, en) >= 0;
+  if (id === "drone") return has(["ریپر", "مهاجر", "بیرقدار", "هرون", "شاهد ۱۲۹", "شاهد۱۲۹"], ["mq-9", "mq9", "reaper", "mohajer", "bayraktar", "heron", "male"]) ? "male" : "shahed";
+  if (id === "jet") return has(["اف ۳۵", "اف۳۵", "اف-۳۵", "اف ۳۵ها"], ["f-35", "f35"]) ? "f35" : has(["سوخو", "سو ۳۵", "سو-۳۵"], ["su-35", "su35", "sukhoi"]) ? "su35" : undefined;
+  if (id === "missile") return has(["کروز"], ["cruise"]) ? "cruise" : "ballistic";
+  return undefined;
+}
 
 /**
  * Where a beat's objects go on its map, each as a mark and the index of the mark it follows (it comes in with it).
@@ -238,6 +254,13 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
   };
   /** a sea lane in view for a ship with no line of its own: the writer's looping lane, else Divan's lanes */
   const lane = (): { path: [number, number][]; i: number } | null => {
+    for (const d of LANES) {
+      const pts = seaIn(d.path);
+      if (!usedLanes.has(d.id) && pts.length >= 2) {
+        usedLanes.add(d.id);
+        return { path: pts, i: -1 };
+      }
+    }
     for (const l of loops) {
       const key = `w${l.i}`;
       const pts = seaIn(l.coords);
@@ -257,6 +280,22 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
     }
     return null;
   };
+  /** a ship's way in to an incident: the real lane nearest the point, sailed in its own direction up to the point's
+   *  nearest place on it, then the last leg to the point (the report's place) */
+  const approachTo = (p: [number, number]): [number, number][] | null => {
+    let best: { lane: [number, number][]; i: number; d: number } | null = null;
+    for (const d of LANES) {
+      const fine = seaIn(d.path);
+      fine.forEach((q, i) => {
+        const dd = deg(q, p);
+        if (!best || dd < best.d) best = { lane: fine, i, d: dd };
+      });
+    }
+    const b0 = best as { lane: [number, number][]; i: number; d: number } | null;
+    if (!b0 || b0.d > look.span * 0.35) return null;
+    const way = b0.lane.slice(Math.max(0, b0.i - 8), b0.i + 1);
+    return way.length >= 2 ? [...way, p] : [b0.lane[b0.i], p];
+  };
   const town = (id: MapObjectId): [number, number] | null => {
     for (const t of TOWNS) if (t.for.includes(id) && firstAt(text, t.fa, t.en) >= 0 && inView(look, [t.lon, t.lat], 0.45)) return [t.lon, t.lat];
     return null;
@@ -270,26 +309,36 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
   const colourOf = (a3: string) => fills.find((f) => f.a3 === a3)?.color;
   const plainShip = (x: MapObjectId) => isShip(x) && x !== "warship" && x !== "boats";
 
-  // 1. the incidents on the writer's pins, sentence by sentence
+  // 1. the incidents on the writer's pins, sentence by sentence (round 4: approach, then the event, then the aftermath).
+  // The n-th sentence that names an object is the n-th pin; the last such sentence takes every pin left (one line may
+  // name two places hit at once). Who strikes (a missile, a drone) comes down onto each pin in turn; what is struck (a
+  // ship, a refinery, a rig) stands there and burns once it is hit; a ship first sails in along its real lane.
+  const said = sentencesOf(b.say ?? "").filter((s) => s.ids.some((x) => ids.includes(x)));
   let pin = 0;
-  for (const s of sentencesOf(b.say ?? "")) {
+  said.forEach((s, si) => {
     const own = s.ids.filter((x) => ids.includes(x));
-    if (!own.length || pin >= pins.length) continue;
-    const p = pins[pin];
-    pin += 1;
-    const missile = own.includes("missile");
-    const ship = own.find(plainShip) ?? (missile && s.hit ? ids.find(plainShip) : undefined);
-    if (missile) push(p.i, { kind: "object", id: "missile", lon: p.at[0], lat: p.at[1], move: "drop" });
-    if (ship && s.hit) push(p.i, { kind: "object", id: ship, lon: p.at[0], lat: p.at[1], move: "stand", fire: missile ? 32 : 12 });
-    else if (ship) push(p.i, { kind: "object", id: ship, lon: p.at[0], lat: p.at[1], move: "stand" });
-    // a mine floats beside the ship it struck (to the west, so the two do not meet)
-    if (own.includes("mine")) push(p.i, { kind: "object", id: "mine", lon: p.at[0] - look.span * (ship ? 0.085 : 0), lat: p.at[1] - look.span * (ship ? 0.035 : 0), move: "stand" });
-    for (const x of own) {
-      if (x === "missile" || x === "mine" || x === ship) continue;
-      if (isAircraft(x)) push(p.i, { kind: "object", id: x, lon: p.at[0], lat: p.at[1], move: "orbit" });
-      else if (x === "tank" || x === "troops" || x === "boats" || x === "warship") push(p.i, { kind: "object", id: x, lon: p.at[0] + look.span * 0.08, lat: p.at[1] - look.span * 0.04, move: "stand" });
-    }
-  }
+    if (pin >= pins.length) return;
+    const mine = si === said.length - 1 ? pins.slice(pin) : [pins[pin]];
+    pin += mine.length;
+    const strikers = own.filter((x) => x === "missile" || x === "drone");
+    const target = own.find((x) => plainShip(x) || BUILDINGS.has(x)) ?? (s.hit && strikers.length ? ids.find((x) => plainShip(x) || BUILDINGS.has(x)) : undefined);
+    mine.forEach((p, k) => {
+      const striker = strikers.length ? strikers[k % strikers.length] : null;
+      if (striker) push(p.i, { kind: "object", id: striker, lon: p.at[0], lat: p.at[1], move: "drop", ...(variantOf(striker, s.text) ? { variant: variantOf(striker, s.text) } : {}) });
+      if (target) {
+        const hit = s.hit || Boolean(striker) || own.includes("mine");
+        const way = plainShip(target) ? approachTo(p.at) : null;
+        push(p.i, { kind: "object", id: target, lon: p.at[0], lat: p.at[1], move: way ? "approach" : "stand", ...(way ? { path: way } : {}), ...(hit ? { fire: striker ? 32 : 12 } : {}) });
+      }
+      // a mine floats beside the ship it struck (to the west, so the two do not meet)
+      if (own.includes("mine")) push(p.i, { kind: "object", id: "mine", lon: p.at[0] - look.span * (target ? 0.085 : 0), lat: p.at[1] - look.span * (target ? 0.035 : 0), move: "stand" });
+      for (const x of own) {
+        if (x === "missile" || x === "drone" || x === "mine" || x === target) continue;
+        if (x === "jet") push(p.i, { kind: "object", id: x, lon: p.at[0], lat: p.at[1], move: "orbit", ...(variantOf(x, s.text) ? { variant: variantOf(x, s.text) } : {}) });
+        else if (x === "tank" || x === "troops" || x === "boats" || x === "warship") push(p.i, { kind: "object", id: x, lon: p.at[0] + look.span * 0.08, lat: p.at[1] - look.span * 0.04, move: "stand" });
+      }
+    });
+  });
 
   // 2. the rest, each in its own way
   for (const id of ids) {
@@ -333,16 +382,23 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
       const ln = comets.find((l) => !used.has(l.i)) ?? lines.find((l) => !used.has(l.i));
       if (ln) {
         used.add(ln.i);
-        push(ln.i, { kind: "object", id, lon: ln.coords[0][0], lat: ln.coords[0][1], move: "fly", path: ln.coords });
+        push(ln.i, { kind: "object", id, lon: ln.coords[0][0], lat: ln.coords[0][1], move: "fly", path: ln.coords, ...(variantOf(id, text) ? { variant: variantOf(id, text) } : {}) });
       } else {
         const p = pins[0]?.at ?? (callouts[0] ? ([callouts[0].m.lon, callouts[0].m.lat] as [number, number]) : regional ? centre : null);
-        if (p) push(pins[0]?.i ?? callouts[0]?.i ?? -1, { kind: "object", id, lon: p[0], lat: p[1], move: "orbit" });
+        if (p) push(pins[0]?.i ?? callouts[0]?.i ?? -1, { kind: "object", id, lon: p[0], lat: p[1], move: "orbit", ...(variantOf(id, text) ? { variant: variantOf(id, text) } : {}) });
       }
       continue;
     }
     if (id === "pipeline") {
+      // a pipeline the line names by its route (Goreh–Jask, East–West, Habshan–Fujairah) is laid on its real route
+      const named = PIPELINES.find((r) => firstAt(text, r.names.filter((x) => /[؀-ۿ]/.test(x)), r.names.filter((x) => !/[؀-ۿ]/.test(x))) >= 0);
       const ln = comets.find((l) => !used.has(l.i)) ?? lines.find((l) => !used.has(l.i));
-      if (ln) {
+      if (named) {
+        const at = mid(named.path);
+        const li = ln ? ln.i : -1;
+        if (ln) used.add(ln.i);
+        push(li, { kind: "object", id, lon: at[0], lat: at[1], move: "pipe", path: named.path });
+      } else if (ln) {
         used.add(ln.i);
         const mid = ln.coords[Math.floor(ln.coords.length / 2)];
         push(ln.i, { kind: "object", id, lon: mid[0], lat: mid[1], move: "pipe", path: ln.coords });
@@ -359,6 +415,8 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
         (id === "rig" && inView(look, [52.4, 26.9], 0.45) ? ([52.4, 26.9] as [number, number]) : null) ??
         (id === "barrel" && inView(look, [50.32, 29.24], 0.45) ? ([50.32, 29.24] as [number, number]) : null) ??
         (id === "nuclear" && iran && inView(look, iran, 0.45) ? iran : null) ??
+        // the place the beat is about (its first pin or callout), beside its words, before the frame's middle
+        (pins[0] ? ([pins[0].at[0] - look.span * 0.1, pins[0].at[1] - look.span * 0.06] as [number, number]) : callouts[0] ? ([callouts[0].m.lon - look.span * 0.1, callouts[0].m.lat - look.span * 0.06] as [number, number]) : null) ??
         (id === "barrel" && regional ? ([centre[0] - look.span * 0.12, centre[1] - look.span * 0.1] as [number, number]) : null);
       if (p) push(-1, { kind: "object", id, lon: p[0], lat: p[1], move: "stand" });
       continue;
@@ -376,7 +434,8 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
       const sign = id === "money" ? (firstAt(text, ["دلار"], ["dollar", "usd"]) >= 0 ? "$" : firstAt(text, ["یورو"], ["euro"]) >= 0 ? "€" : undefined) : undefined;
       const where = at && inView(look, at, 0.45) ? at : regional ? centre : null;
       const col = a3 ? colourOf(a3) : undefined;
-      if (where) push(-1, { kind: "object", id, lon: where[0], lat: where[1], move: "stand", ...(col ? { color: col } : {}), ...(sign ? { sign } : {}) });
+      const variant = id === "parliament" ? (a3 === "IRN" ? "majlis" : a3 === "USA" ? "capitol" : undefined) : undefined;
+      if (where) push(-1, { kind: "object", id, lon: where[0], lat: where[1], move: "stand", ...(col ? { color: col } : {}), ...(sign ? { sign } : {}), ...(variant ? { variant } : {}) });
       continue;
     }
     if (id === "treaty") {
@@ -395,6 +454,7 @@ export function placeObjects(b: Extract<Beat, { kind: "hook" | "map" }>, ids: Ma
 
 /** Things that float: they must stand and sail on water, never on a coast. */
 const FLOATS = new Set<MapObjectId>(["tanker", "cargo", "lng", "warship", "boats", "mine", "rig"]);
+const floatsAt = (m: { id: MapObjectId; lon: number; lat: number }) => FLOATS.has(m.id) && !(m.id === "rig" && isLand([m.lon, m.lat]));
 const isLand = (p: [number, number]) => geoContains(worldFor(0).land, p);
 /** the object's own footprint, in shares of the span: a ship seen from the side is wide and low */
 const FOOT: [number, number][] = [[0, 0], [-0.08, 0], [0.08, 0], [-0.05, -0.02], [0.05, -0.02], [-0.05, 0.015], [0.05, 0.015]];
@@ -439,7 +499,7 @@ export function settle(out: Placed[], look: Look, marks: Mark[], wide = look.spa
   const res: Placed[] = [];
   for (const x of out) {
     let m = x.m;
-    const floats = FLOATS.has(m.id);
+    const floats = floatsAt(m);
     if (m.path && m.path.length >= 2 && (m.move === "sail" || m.move === "fly")) {
       // the route cut into short steps, then the longest stretch that is water (with the hull's room) and clear of names
       const fine: [number, number][] = [];
@@ -462,6 +522,8 @@ export function settle(out: Placed[], look: Look, marks: Mark[], wide = look.spa
       m = { ...m, path: run, lon: mid[0], lat: mid[1] };
     } else if (m.move !== "arc" && m.move !== "drop" && m.move !== "pipe") {
       let p: [number, number] = [m.lon, m.lat];
+      // a rig on land is an onshore field's plant: drawn as the processing plant, never moved out to sea
+      if (m.id === "rig" && isLand(p)) m = { ...m, id: "refinery" };
       // off a place name: straight away from it
       for (const l of labels)
         if (deg(p, l) <= gap) {
@@ -480,6 +542,12 @@ export function settle(out: Placed[], look: Look, marks: Mark[], wide = look.spa
         const sea = toSea(p, span);
         if (!sea) continue;
         p = sea;
+      }
+      if (m.move === "approach" && m.path && m.path.length >= 2) {
+        // the way in stays on water: drop the lane's points on land, end at the sea point by the report's place
+        const way = m.path.slice(0, -1).filter((q) => !isLand(q));
+        m = { ...m, path: [...way, p] };
+        if (m.path!.length < 2) m = { ...m, move: "stand", path: undefined };
       }
       m = { ...m, lon: p[0], lat: p[1] };
     }
@@ -515,7 +583,8 @@ export function withObjects(c: ReelContent): ReelContent {
     const ids = b.kind === "hook" ? [...new Set([...said, ...main])].slice(0, 2) : said.length ? said : main.slice(0, 1).filter((x) => isShip(x) || !last.includes(x));
     const placed = placeObjects(b, ids, b.kind === "hook" ? 1 : 4, venue);
     last = placed.map((p) => p.m.id);
-    return placed.length ? { ...b, marks: insert(b.marks ?? [], placed) } : b;
+    const withObj = placed.length ? { ...b, marks: insert(b.marks ?? [], placed) } : b;
+    return b.kind === "map" ? annotate(withObj as Extract<Beat, { kind: "map" }>) : withObj;
   });
   return { ...c, beats };
 }
@@ -563,4 +632,43 @@ export function venueOf(text: string): [number, number] | null {
   const places = [...Object.values(PLACES_FA).map((p) => ({ n: norm(p.t), at: [p.lon, p.lat] as [number, number] })), ...Object.keys(NAMES_FA).filter((a3) => a3 !== "IRN").map((a3) => ({ n: norm(NAMES_FA[a3]), at: (CAPITALS[a3] ?? country(a3)?.centroid ?? null) as [number, number] | null }))].filter((p): p is { n: string; at: [number, number] } => Boolean(p.at));
   for (const p of places) if (t.includes(` در${p.n}`)) return p.at;
   return null;
+}
+
+const MONTHS = "فروردین|اردیبهشت|خرداد|تیر|مرداد|شهریور|مهر|آبان|آذر|دی|بهمن|اسفند|ژانویه|فوریه|مارس|آوریل|مه|ژوئن|ژوئیه|اوت|سپتامبر|اکتبر|نوامبر|دسامبر";
+const DATE = new RegExp(`[0-9۰-۹]{1,2}\\s*(?:${MONTHS})(?:\\s*[0-9۰-۹]{4})?`);
+const TIME = /ساعت\s*[0-9۰-۹:]+|ساعتی بعد|ساعاتی بعد|دقایقی بعد|صبح زود|بامداد|نیمه‌شب|سحرگاه/;
+/** the time an incident is told at: a time or a date in its own sentence, else (for the first) the date of the beat's source */
+export function timeOfIncident(sentence: string, source: string, first: boolean): string | null {
+  const t = TIME.exec(sentence)?.[0] ?? null;
+  const d = DATE.exec(sentence)?.[0] ?? (first ? (DATE.exec(source)?.[0] ?? null) : null);
+  return t && d ? `${d}، ${t}` : (t ?? d);
+}
+
+/**
+ * Round 4 (owner: «اتفاقات دقیق‌تر»): the times of the incidents as bare words on their leader lines (the time joins the
+ * callout already on the pin; with none, the time is its own callout), and a place the source calls approximate drawn
+ * as an area, not a precise pin. Idempotent: a time already written is not written again.
+ */
+function annotate(b: Extract<Beat, { kind: "map" }>): Beat {
+  const source = b.source ?? "";
+  const area = /تقریبی|approximate|approx\./i.test(source);
+  let marks = b.marks.map((m) => (m.kind === "pins" && area && !m.area ? { ...m, area: true } : m));
+  const sentences = (b.say ?? "").split(/[.!?؟]+/).map((x) => x.trim()).filter((x) => objectsSaid(x).length);
+  const pins = marks.flatMap((m) => (m.kind === "pins" ? m.points.map((p) => [p.lon, p.lat] as [number, number]) : []));
+  const span = b.look.span;
+  pins.forEach((p, k) => {
+    const sentence = sentences[Math.min(k, sentences.length - 1)] ?? "";
+    const time = timeOfIncident(sentence, source, k === 0);
+    if (!time) return;
+    const ci = marks.findIndex((m) => m.kind === "callout" && Math.hypot(m.lon - p[0], m.lat - p[1]) < span * 0.06);
+    if (ci >= 0) {
+      const c = marks[ci] as Extract<Mark, { kind: "callout" }>;
+      if ((c.sub ?? "").includes(time) || c.bold.includes(time)) return;
+      marks = marks.map((m, i) => (i === ci ? { ...c, sub: c.sub ? `${c.sub}، ${time}` : time } : m));
+    } else if (!marks.some((m) => m.kind === "callout" && m.bold === time)) {
+      const pi = marks.findIndex((m) => m.kind === "pins" && m.points.some((q) => q.lon === p[0] && q.lat === p[1]));
+      marks = [...marks.slice(0, pi + 1), { kind: "callout", lon: p[0], lat: p[1], bold: time, color: "#f3efe6" } as Mark, ...marks.slice(pi + 1)];
+    }
+  });
+  return { ...b, marks };
 }

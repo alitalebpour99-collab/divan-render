@@ -288,3 +288,8 @@ real things the narrator talks about, never an abstract shape.
   never hidden off the frame; all words on the map are placed against each other (scale and measures, then callouts
   and their leaders, then place names); the flag stands where a callout's words begin; the north arrow sits beside
   the scale, not on it; a callout that only repeats the headline is dropped; the clipped 1:10m coasts lose their stroke.
+- Round 5: callouts read at 4.5:1 against the ground sampled under them (contrast.ts, WCAG), with a halo, and a larger
+  sub-line; a beat's callouts are placed once on its look and carried with their places (no jumps), clear of objects,
+  smoke and lanes; every later shot of a map beat brings a new mark (exact shot count in enrich, standing things come
+  in one by one, more Saudi places); a hook standing where the story's strike lands shows the strike on shot 1; the
+  camera keeps a beat's main standing thing inside the safe frame.

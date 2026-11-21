@@ -70,6 +70,16 @@ export const PLACES_FA: Readonly<Record<string, { t: string; lon: number; lat: n
   riyadh: { t: "ریاض", lon: 46.72, lat: 24.71 },
   baghdad: { t: "بغداد", lon: 44.36, lat: 33.31 },
   ankara: { t: "آنکارا", lon: 32.85, lat: 39.93 },
+  // round 5: the Saudi oil coast and the east–west pipeline's way (towns at their centres), so a close map of Arabia has its ground
+  rastanura: { t: "راس تنوره", lon: 50.16, lat: 26.64 },
+  dammam: { t: "دمام", lon: 50.1, lat: 26.43 },
+  manama: { t: "منامه", lon: 50.58, lat: 26.22 },
+  hofuf: { t: "هفوف", lon: 49.59, lat: 25.38 },
+  jubail: { t: "جبیل", lon: 49.66, lat: 27.01 },
+  yanbu: { t: "ینبع", lon: 38.06, lat: 24.09 },
+  jeddah: { t: "جده", lon: 39.19, lat: 21.49 },
+  medina: { t: "مدینه", lon: 39.61, lat: 24.47 },
+  sanaa: { t: "صنعا", lon: 44.21, lat: 15.35 },
 };
 
 /** A state's Persian name: Divan's list first, then Natural Earth's column, then the code itself. */

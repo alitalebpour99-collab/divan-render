@@ -164,6 +164,25 @@ export function frameAll(pts: [number, number][], k: number, beat: Look): Look {
   const lat = midLat + (20 * span) / 1080;
   return { lon, lat, span, tilt: 0, roll: 0 };
 }
+/** The beat's main thing: its first object that stands at its point (not one that sails, flies or falls, not a pipeline). */
+export const mainObject = (marks: Mark[]): [number, number] | null => {
+  const o = marks.find((m) => m.kind === "object" && (m.move === undefined || m.move === "stand" || m.move === "approach"));
+  return o && o.kind === "object" ? [o.lon, o.lat] : null;
+};
+/**
+ * The look moved as little as it must for the point to stand inside the labels' safe frame (x 140–820, y 620–1340 of
+ * 1080×1920). Round 5 (the judge: «the camera follows a comet away, the refinery drops off the left edge»).
+ */
+export function keepInFrame(look: Look, p: [number, number]): Look {
+  const cos = Math.cos((p[1] * Math.PI) / 180);
+  const px = 1080 / look.span;
+  const dx = (p[0] - look.lon) * cos * px;
+  const dy = -(p[1] - look.lat) * px;
+  const cx = Math.max(-400, Math.min(280, dx));
+  const cy = Math.max(-340, Math.min(380, dy));
+  if (cx === dx && cy === dy) return look;
+  return { ...look, lon: p[0] - cx / (cos * px), lat: p[1] + cy / px };
+}
 const endOf = (marks: Mark[]): [number, number] | null => {
   for (const m of [...marks].reverse()) if (m.kind === "comet" || m.kind === "dashed" || m.kind === "claim") return m.coords[m.coords.length - 1];
   return null;
@@ -223,6 +242,16 @@ export function cutBeat(from: number, to: number, wordStarts: number[], need: nu
 
 const SFX_OF: Partial<Record<Beat["kind"], Shot["sound"]["sfx"]>> = { hook: "hit", map: "whoosh", chart: "tick", number: "rise", flags: "pop", demand: "whoosh", road: "swish", gauge: "tick", poll: "rise" };
 
+/** How many shots direct() cuts a beat into when it has no recorded line (round 5: enrich.ts fills each with a mark). */
+export function shotsFor(b: Beat, fps = FPS): number {
+  const lead = b.kind === "hook" ? LEAD.hook : LEAD.other;
+  const ws = guessWords(b.say ?? "", fps);
+  const spoken = ws.length ? ws[ws.length - 1].from + ws[ws.length - 1].frames : 0;
+  const need = viewsOf(b);
+  const len = Math.max(floorOf(b), spoken ? lead + spoken + PAD : 0, need * MIN_SHOT);
+  return Math.min(Math.max(1, Math.floor(len / MIN_SHOT)), Math.max(need, Math.ceil(len / MAX_SHOT)));
+}
+
 export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Storyboard {
   const shots: Shot[] = [];
   const voice: Storyboard["voice"] = [];
@@ -255,14 +284,21 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
       // frame 0); the rest of the line follows on the same map as the event in detail, its other marks coming in one by one
       const tail = b.kind === "hook" && s - at >= HOOK_MAX;
       // the hook's objects too: the thing of the story is on the first frame, and so on the loop's last
-      const ground = (m: Mark) => m.kind === "fill" || m.kind === "hatch" || m.kind === "label" || m.kind === "pins" || m.kind === "object";
       const tailShots = b.kind === "hook" ? cuts.filter((x) => x - at >= HOOK_MAX).length : 0;
+      // round 5: a hook whose marks are all ground keeps its names for the second shot, so that shot brings something new
+      const namesLate = b.kind === "hook" && tailShots > 0 && marks.every((m) => m.kind === "fill" || m.kind === "hatch" || m.kind === "label" || m.kind === "pins" || m.kind === "object") && marks.some((m) => m.kind === "label");
+      const ground = (m: Mark) => m.kind === "fill" || m.kind === "hatch" || (m.kind === "label" && !namesLate) || m.kind === "pins" || m.kind === "object";
       const later = marks.map((m, i) => (ground(m) ? -1 : i)).filter((i) => i >= 0);
       const ti = tail ? cuts.filter((x) => x - at >= HOOK_MAX).indexOf(s) : -1;
       // pass 3: a beat's objects are there from its first shot (a missile still comes on its own shot, with its pin)
       const early = (m: Mark) => m.kind === "object" && m.move !== "drop" && m.move !== "arc";
-      const firsts = marks.map((m, i) => (early(m) ? i : -1)).filter((i) => i >= 0);
-      const rest = marks.map((m, i) => (early(m) ? -1 : i)).filter((i) => i >= 0);
+      const firsts0 = marks.map((m, i) => (early(m) ? i : -1)).filter((i) => i >= 0);
+      const rest0 = marks.map((m, i) => (early(m) ? -1 : i)).filter((i) => i >= 0);
+      // round 5: when the beat has more shots than marks of its own, its other standing things come in one by one
+      // (the barrel after the refinery), so every later shot brings something new
+      const stage = rest0.length < cuts.length && firsts0.length > 1;
+      const firsts = stage ? firsts0.slice(0, 1) : firsts0;
+      const rest = stage ? [...firsts0.slice(1), ...rest0] : rest0;
       const mine =
         b.kind !== "hook"
           ? [...(k === 0 ? firsts : []), ...rest.slice(Math.floor((k * rest.length) / cuts.length), Math.floor(((k + 1) * rest.length) / cuts.length))]
@@ -327,6 +363,9 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         // pass 3: on a claim beat every claim stays in the frame, whatever move the cycle asked for
         const claims = b.kind === "map" ? claimPoints(marks) : null;
         if (claims && look) look = frameAll(claims, k, beatLook);
+        // round 5: the camera never leaves the beat's main thing (a standing object: a refinery, a mine, a ship lying at its point)
+        const main = mainObject(marks);
+        if (!claims && main && look) look = keepInFrame(look, main);
         const speaks = b.kind === "demand" || b.kind === "road" || b.kind === "chart" || marks.some((m) => m.kind === "callout" || m.kind === "measure");
         if (speaks && look) look = { ...look, tilt: 0 };
         lastLook = look;

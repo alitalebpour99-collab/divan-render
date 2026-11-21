@@ -8,7 +8,7 @@ import { geoDistance } from "d3-geo";
 import { LANES } from "../map-engine/lanes";
 import { PLACES_FA } from "../map-engine/names";
 import type { Look } from "../map-engine/camera";
-import { guessWords, FPS } from "./director";
+import { guessWords, FPS, shotsFor } from "./director";
 import type { Beat, Mark, ReelContent } from "./types";
 import { withObjects } from "./topics";
 
@@ -32,8 +32,9 @@ export function marksWanted(b: Beat): number {
 /** The marks a map beat is short of, from the ground in view: the lane, then the places by nearness to the centre. */
 export function groundFor(look: Look, have: Mark[], want: number): Mark[] {
   const out: Mark[] = [];
-  const used = have.flatMap(anchors);
-  const near = (p: [number, number]) => used.some((q) => deg(p, q) < look.span * 0.12);
+  // round 5: a name may stand beside a pipeline or a lane; only the points of things keep the names off
+  const used = have.flatMap((m) => (m.kind === "object" ? [[m.lon, m.lat] as [number, number]] : anchors(m)));
+  const near = (p: [number, number]) => used.some((q) => deg(p, q) < look.span * 0.08);
   if (want > 0 && !have.some((m) => m.kind === "comet" || m.kind === "dashed")) {
     const lane = LANES.find((l) => l.path.filter((p) => inView(look, p, 0.6)).length >= 2);
     if (lane) {
@@ -48,7 +49,7 @@ export function groundFor(look: Look, have: Mark[], want: number): Mark[] {
     .sort((a, b) => deg(a.at, [look.lon, look.lat]) - deg(b.at, [look.lon, look.lat]));
   for (const p of places) {
     if (out.length >= want) break;
-    if (out.some((m) => m.kind === "label" && deg([m.lon, m.lat], p.at) < look.span * 0.15)) continue;
+    if (out.some((m) => m.kind === "label" && deg([m.lon, m.lat], p.at) < look.span * 0.1)) continue;
     out.push({ kind: "label", t: p.t, lon: p.lon, lat: p.lat });
   }
   return out.slice(0, Math.max(0, want));
@@ -64,13 +65,48 @@ export function enrich(content: ReelContent): ReelContent {
     // pass 3: a callout that only repeats the beat's headline goes (the header already says it, in bigger letters)
     const dup = (m: Mark) => m.kind === "callout" && norm(b0.caption) !== "" && norm(m.bold) === norm(b0.caption);
     const b = b0.marks.some(dup) ? { ...b0, marks: b0.marks.filter((m) => !dup(m)) } : b0;
-    const short = marksWanted(b) - b.marks.filter(counts).length;
+    // round 5: every later shot brings something new: as many marks that come in on their own as the beat has shots
+    // (an object that stands comes with the first shot, so it does not count)
+    const own = (m: Mark) => counts(m) && m.kind !== "hatch" && !(m.kind === "object" && m.move !== "drop" && m.move !== "arc");
+    const short = Math.max(marksWanted(b), shotsOf(b)) - b.marks.filter(own).length;
     if (short <= 0) return b;
     const extra = groundFor(b.look, b.marks, short);
     // the news first, as the narrator says it; the ground fills the beat's later shots
     return extra.length ? { ...b, marks: [...b.marks, ...extra] } : b;
   });
-  return { ...c, beats };
+  return { ...c, beats: strikeInHook(beats) };
+}
+
+/** About how many shots the director cuts a beat into (director.ts: shots of 1 to 2 s over its line). */
+export function shotsOf(b: Beat): number {
+  return shotsFor(b);
+}
+
+/**
+ * Round 5 (the judge: «the hook shows the refinery, not the strike»): a hook whose thing stands where the story's strike
+ * lands shows the strike on its first shot: the drone or missile coming down, the thing burning, the place's name.
+ */
+function strikeInHook(beats: Beat[]): Beat[] {
+  const h = beats[0];
+  if (!h || h.kind !== "hook") return beats;
+  const marks = h.marks ?? [];
+  if (marks.some((m) => m.kind === "object" && (m.move === "drop" || m.move === "arc"))) return beats;
+  const thing = marks.findIndex((m) => m.kind === "object" && (m.move === undefined || m.move === "stand"));
+  if (thing < 0) return beats;
+  const o = marks[thing] as Extract<Mark, { kind: "object" }>;
+  for (const b of beats.slice(1)) {
+    if (b.kind !== "map") continue;
+    const strike = b.marks.find((m) => m.kind === "object" && (m.move === "drop" || m.move === "arc") && Math.hypot(m.lon - o.lon, m.lat - o.lat) < 0.5);
+    if (!strike) continue;
+    const burnt = b.marks.find((m) => m.kind === "object" && m.id === o.id && Math.hypot(m.lon - o.lon, m.lat - o.lat) < 0.5 && m.fire !== undefined);
+    const name = b.marks.find((m) => m.kind === "callout" && Math.hypot(m.lon - o.lon, m.lat - o.lat) < 0.5);
+    const next = [...marks];
+    next[thing] = { ...o, fire: burnt && burnt.kind === "object" ? burnt.fire : 12 };
+    next.splice(thing + 1, 0, strike);
+    if (name && name.kind === "callout" && !marks.some((m) => m.kind === "label" && m.t === name.bold)) next.push({ kind: "label", t: name.bold, lon: name.lon, lat: name.lat + 0.12 });
+    return [{ ...h, marks: next }, ...beats.slice(1)];
+  }
+  return beats;
 }
 
 void FPS;

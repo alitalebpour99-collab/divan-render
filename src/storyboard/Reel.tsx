@@ -7,6 +7,9 @@ import React from "react";
 import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { geoContains, geoDistance, geoInterpolate } from "d3-geo";
 import { measureLabelBox, placeCallouts } from "../map-engine/layers";
+import { carry } from "../map-engine/labels";
+import { mix } from "../map-engine/contrast";
+import { worldFor } from "../map-engine/world";
 import { densify, useView, ContextNames, NAMES_FA, PLACES_FA, nameFa, CAPITALS, CometTrail, CountryFill, Callouts, ClaimLine, DashedLine, FlagChip, LANES, MapStage, MeasureLine, PinCluster, PlaceLabels, RegionHatch, DIVAN, country, lookAt, makeView, faNum, type Key, type Look, type CalloutSpec } from "../map-engine";
 import { VAZIR } from "../map-engine/fonts";
 import { LOOP } from "./director";
@@ -71,6 +74,12 @@ function cameraKeys(sb: Storyboard): Key[] {
   if (keys.length) keys.push({ ...keys[keys.length - 1], at: sb.total - LOOP }, { ...keys[0], at: sb.total - LOOP + 20 }, { ...keys[0], at: sb.total - 1 });
   return keys.filter((k, i, all) => i === 0 || k.at > all[i - 1].at);
 }
+
+/** round 5: the look a beat's callouts are placed on: its last shot's, where all its marks are in */
+const refLookOf = (sb: Storyboard, beat: number): Look | undefined => {
+  const own = sb.shots.filter((s) => s.beat === beat && s.motion.look);
+  return own.length ? (own[own.length - 1].motion.look as Look) : undefined;
+};
 
 /** The marks on the map at frame f, each with its clock: the hook's are whole from frame 0 (the event is already there). */
 function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
@@ -182,7 +191,9 @@ const lineBoxesOf = (v: ReturnType<typeof useView>, ms: Mark[]) => {
       const at = [[m.lon, m.lat] as [number, number], ...(m.path && m.path.length > 1 ? [m.path[0], m.path[Math.floor(m.path.length / 2)], m.path[m.path.length - 1]] : [])];
       for (const q of at) {
         const p = v.at(q[0], q[1]);
-        if (p) boxes.push({ x: p[0] - 115, y: p[1] - 130, w: 230, h: 150 });
+        // round 5: a burning object takes its smoke's room too (it rises about 160 px)
+        const burns = m.fire !== undefined && m.fire !== false;
+        if (p) boxes.push(burns ? { x: p[0] - 125, y: p[1] - 300, w: 250, h: 320 } : { x: p[0] - 115, y: p[1] - 130, w: 230, h: 150 });
       }
       continue;
     }
@@ -197,7 +208,7 @@ const lineBoxesOf = (v: ReturnType<typeof useView>, ms: Mark[]) => {
   return boxes;
 };
 
-const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: number; base?: number }[]; f: number; span: number; scale?: boolean }> = ({ list, f, span, scale = false }) => {
+const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: number; base?: number }[]; f: number; span: number; scale?: boolean; /** round 5: the beat's own look, where its callouts are placed once */ refLook?: Look }> = ({ list, f, span, scale = false, refLook }) => {
   const callouts: CalloutSpec[] = [];
   const ts: number[] = [];
   const labels: { t: string; lon: number; lat: number }[] = [];
@@ -259,7 +270,23 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
   // (clear of them and of the lines), then the place names (clear of all of it, the leaders too)
   const sc = scale ? scaleGeom(view) : null;
   const fixed = [...(sc ? [sc.box] : []), ...list.flatMap(({ m, t }) => (m.kind === "measure" && t >= 0 ? [measureLabelBox(view, m.a, m.b)].filter((b): b is NonNullable<typeof b> => Boolean(b)) : []))];
-  const pre = placeCallouts(view, callouts, SAFE, lineBoxesOf(view, list.map((x) => x.m)), fixed);
+  // round 5: placed once on the beat's look, clear of its objects, their smoke and its lanes; then carried with the places
+  const ref = refLook ? makeView(refLook, STAGE, DIVAN, f, "ref") : view;
+  const fixedRef = [...(sc ? [sc.box] : []), ...list.flatMap(({ m, t }) => (m.kind === "measure" && t >= 0 ? [measureLabelBox(ref, m.a, m.b)].filter((b): b is NonNullable<typeof b> => Boolean(b)) : []))];
+  const preRef = placeCallouts(ref, callouts, SAFE, lineBoxesOf(ref, list.map((x) => x.m)), fixedRef);
+  const pre = { fits: preRef.fits, placed: carry(preRef.placed, Object.fromEntries(callouts.map((c) => [c.id, view.at(c.lon, c.lat)])), SAFE) };
+  // what lies under each callout on the beat's look (three points along its words): the colour must read on all of it
+  const groundAt = (x: number, y: number) => {
+    const ll = ref.inv(x, y);
+    if (!ll) return DIVAN.sea;
+    for (const { m } of list) {
+      if (m.kind !== "fill") continue;
+      const g = country(m.a3)?.geo;
+      if (g && geoContains(g, ll)) return mix(m.color, DIVAN.land, fillOpacity(m.color, ref.look.span));
+    }
+    return geoContains(worldFor(ref.look.span).land as never, ll) ? DIVAN.land : DIVAN.sea;
+  };
+  const grounds = Object.fromEntries(preRef.placed.map((p) => [p.id, [0.15, 0.5, 0.85].map((u) => groundAt(p.box.x + p.box.w * u, p.box.y + p.box.h * 0.4))]));
   // the scale is the least of the words: where a callout found no other room than over it, the scale steps aside
   const meet = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
   const showScale = Boolean(sc) && !pre.placed.some((p) => meet(p.box, sc!.box));
@@ -280,7 +307,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
       {objects.filter((o) => !o.drawFirst).map((o) => o.node)}
       {measures}
       <PlaceLabels items={labels} avoid={objBoxes} block={[...fixed, ...calloutBoxes]} />
-      <Callouts items={callouts} ts={ts} safe={SAFE} pre={pre} />
+      <Callouts items={callouts} ts={ts} safe={SAFE} pre={pre} grounds={grounds} />
       {showScale ? <ScaleAndNorth /> : null}
     </>
   );
@@ -796,7 +823,7 @@ export const Reel: React.FC<Props> = (p) => {
       <MapStage look={look} frame={STAGE} theme={DIVAN} f={f} dim={dim} bleed>
         <SeaDetail />
         <Ambient f={f} total={total} look={look} />
-        <MapMarks list={marks} f={f} span={look.span} scale={!inLoop && beat.kind === "map"} />
+        <MapMarks list={marks} f={f} span={look.span} scale={!inLoop && beat.kind === "map"} refLook={refLookOf(sb, shot.beat)} />
       </MapStage>
       {/* the scrims: the map runs under the header and the caption, darkened there so their words read */}
       <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 640, background: "linear-gradient(180deg, rgba(22,32,50,0.94) 0%, rgba(22,32,50,0.72) 55%, rgba(22,32,50,0) 100%)" }} />

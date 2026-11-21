@@ -73,3 +73,20 @@ export function clashes(placed: Placed[], safe: Box): string[] {
   });
   return bad;
 }
+
+/**
+ * Round 5 (the judge: «the callout jumps between shots»): a beat's callouts are placed once, on the beat's own look, and
+ * each keeps that offset from its point for the whole beat; it moves with its place as the camera moves, never jumps.
+ * Kept inside the safe frame.
+ */
+export function carry(ref: Placed[], now: Record<string, [number, number] | null>, safe: Box): Placed[] {
+  return ref.map((p) => {
+    const a = now[p.id];
+    if (!a) return p;
+    const dx = p.box.x - p.anchor[0];
+    const dy = p.box.y - p.anchor[1];
+    const x = Math.min(safe.x + safe.w - p.box.w, Math.max(safe.x, a[0] + dx));
+    const y = Math.min(safe.y + safe.h - p.box.h, Math.max(safe.y, a[1] + dy));
+    return { ...p, box: { ...p.box, x, y }, anchor: a };
+  });
+}

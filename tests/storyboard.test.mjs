@@ -184,3 +184,75 @@ test("pass 3: a crowded label covers other labels before it ever covers the scal
   const meets = p.box.y < scale.y + scale.h && scale.y < p.box.y + p.box.h;
   assert.ok(!meets, `the label stands at y ${p.box.y}, over the scale`);
 });
+
+// ---- round 5 ----
+test("round 5: a callout's colour reads at 4.5:1 on the night sea and the land (Saudi blue, the GBR line)", async () => {
+  const { readable, contrast } = await import("../src/map-engine/contrast.ts");
+  const sea = "#121f35";
+  const land = "#2a3649";
+  const gold = "#ffb020";
+  for (const c of ["#5c7fa8", "#3d8fe0", "#c06cf0", "#ff4d40", "#7fa3cf"]) {
+    const x = readable(c, [sea, land]);
+    assert.ok(contrast(x, sea) >= 4.5 && contrast(x, land) >= 4.5, `${c} → ${x}: ${contrast(x, sea).toFixed(2)} on the sea`);
+  }
+  // a colour that already reads is left alone
+  assert.equal(readable("#ffb020", [sea]), "#ffb020");
+  // on a light ground (Iran's amber), the words go dark
+  assert.ok(contrast(readable("#5c7fa8", [gold]), gold) >= 4.5);
+});
+
+test("round 5: a beat's callouts keep their offset from their points while the camera moves (no jump)", async () => {
+  const { carry } = await import("../src/map-engine/labels.ts");
+  const safe = { x: 64, y: 560, w: 820, h: 840 };
+  const ref = [{ id: "a", box: { x: 300, y: 700, w: 200, h: 80 }, anchor: [520, 760], leader: true, side: "l" }];
+  const a = carry(ref, { a: [500, 800] }, safe)[0];
+  const b = carry(ref, { a: [560, 900] }, safe)[0];
+  assert.deepEqual([a.box.x - a.anchor[0], a.box.y - a.anchor[1]], [b.box.x - b.anchor[0], b.box.y - b.anchor[1]]);
+  // and never leaves the safe frame
+  const c = carry(ref, { a: [20, 1500] }, safe)[0];
+  assert.ok(c.box.x >= safe.x && c.box.y + c.box.h <= safe.y + safe.h);
+});
+
+test("round 5: every later shot of a map beat or the hook brings something new on the map", async () => {
+  const { enrich: en } = await import("../src/storyboard/enrich.ts");
+  for (const name of ["divan-strait", "divan-abqaiq"]) {
+    const c = en(read(name));
+    const sb = direct(c, []);
+    for (const s of sb.shots) {
+      const b = c.beats[s.beat];
+      if (b.kind !== "map" && b.kind !== "hook") continue;
+      const first = sb.shots.find((x) => x.beat === s.beat);
+      if (s === first) continue;
+      assert.ok(s.marks.length > 0, `${name}: shot ${s.n} (beat ${s.beat}) brings nothing new`);
+    }
+  }
+});
+
+test("round 5: abqaiq's hook shows the strike on its first shot", async () => {
+  const { enrich: en } = await import("../src/storyboard/enrich.ts");
+  const c = en(read("divan-abqaiq"));
+  const sb = direct(c, []);
+  const first = sb.shots[0].marks.map((i) => c.beats[0].marks[i]);
+  assert.ok(first.some((m) => m.kind === "object" && (m.move === "drop" || m.move === "arc")), "no drone or missile on the first shot");
+  assert.ok(first.some((m) => m.kind === "object" && m.id === "refinery" && m.fire !== undefined), "the refinery does not burn");
+});
+
+test("round 5: the camera never leaves a beat's main thing", async () => {
+  const { enrich: en } = await import("../src/storyboard/enrich.ts");
+  const { mainObject, claimPoints } = await import("../src/storyboard/director.ts");
+  const { scaleOf } = await import("../src/map-engine/camera.ts");
+  const { geoOrthographic } = await import("d3-geo");
+  for (const name of ["divan-strait", "divan-abqaiq"]) {
+    const c = en(read(name));
+    const sb = direct(c, []);
+    for (const s of sb.shots) {
+      const b = c.beats[s.beat];
+      if (b.kind !== "map" || claimPoints(b.marks)) continue;
+      const p = mainObject(b.marks);
+      const L = s.motion.look;
+      if (!p || !L) continue;
+      const [x, y] = geoOrthographic().rotate([-L.lon, -L.lat, L.roll ?? 0]).scale(scaleOf(L.span, 1080)).translate([540, 960])(p);
+      assert.ok(x >= 64 && x <= 884 && y >= 560 && y <= 1400, `${name} shot ${s.n}: the main thing at ${Math.round(x)},${Math.round(y)}`);
+    }
+  }
+});

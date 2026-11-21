@@ -4,6 +4,25 @@
 // Each shot says what it shows, how it moves, what it writes, what it sounds like, how it leaves, and why it is there.
 import { geoDistance } from "d3-geo";
 import type { Look } from "../map-engine/camera";
+import { CAPITALS } from "../map-engine/capitals";
+import { country } from "../map-engine/world";
+
+/**
+ * Where the first frame looks from when the concept gives no opening and the hook names states out of its frame
+ * («میز ایران و آمریکا کجاست؟» on a frame of Iran): the globe turned to hold them all, so the Reel opens on every
+ * actor and dives to the place (round 2). Null when everything is in the frame (the Reel's own short dive then).
+ */
+export function hookFrom(b: Beat): Look | null {
+  if (b.kind !== "hook" || b.from) return b.kind === "hook" ? (b.from ?? null) : null;
+  const pts = (b.marks ?? []).filter((m) => m.kind === "fill").map((m) => country((m as { a3: string }).a3)?.centroid).filter((p): p is [number, number] => Boolean(p));
+  const far = pts.filter((p) => (geoDistance(p, [b.look.lon, b.look.lat]) * 180) / Math.PI > b.look.span * 0.55);
+  if (!far.length) return null;
+  // the mean direction of the actors and the place, on the sphere
+  const all: [number, number][] = pts.length > 1 ? pts : [...pts, [b.look.lon, b.look.lat]];
+  const r = Math.PI / 180;
+  const v = all.reduce((a, [lon, lat]) => [a[0] + Math.cos(lat * r) * Math.cos(lon * r), a[1] + Math.cos(lat * r) * Math.sin(lon * r), a[2] + Math.sin(lat * r)], [0, 0, 0]);
+  return { lon: Math.atan2(v[1], v[0]) / r, lat: Math.atan2(v[2], Math.hypot(v[0], v[1])) / r, span: 175, tilt: 0 };
+}
 import type { Beat, Mark, ReelContent, Shot, Storyboard, Transition } from "./types";
 
 export const FPS = 30;
@@ -13,7 +32,7 @@ const MAX_SHOT = 60;
 const LEAD = { hook: 2, other: 4 } as const;
 const PAD = 6;
 /** the last frames bring the first picture back (the loop) */
-export const LOOP = 16;
+export const LOOP = 40;
 /** the hook's own shots end within this many frames; a longer first line goes on as the event in detail */
 export const HOOK_MAX = 30;
 
@@ -69,6 +88,48 @@ const centreOf = (marks: Mark[], fallback: Look): [number, number] => {
   return [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
 };
 const lookOfBeat = (b: Beat): Look | null => (b.kind === "hook" || b.kind === "map" || b.kind === "demand" ? b.look : b.kind === "road" && b.look ? b.look : null);
+
+/**
+ * The camera's vocabulary inside a beat (round 2, 21 Nov 2026; the judge: «one framing held for 20 s»). The first
+ * shot of a beat flies to the beat's look (a dive or a pan); every later shot makes the next move of a cycle, started
+ * at a different place for each beat, so two shots in a row never move alike and every 1 to 2 s the picture changes:
+ *   push   in on what this shot brings (60 % of the way to its marks, twice as close)
+ *   pan    across to what this shot brings (or a third of the frame across), a little closer
+ *   pull   back out to the region round the beat (2.4 times its frame), flat
+ *   lean   the map leans back like a table (tilt 24°), a little closer
+ * The beat's own look bounds every move (0.4 to 2.8 of its span), so its marks stay in the frame. Each move is made in
+ * 0.7 s and the camera then creeps on (Reel.tsx cameraKeys): on a sheet of one frame a second, every second is new.
+ */
+const endOf = (marks: Mark[]): [number, number] | null => {
+  for (const m of [...marks].reverse()) if (m.kind === "comet" || m.kind === "dashed" || m.kind === "claim") return m.coords[m.coords.length - 1];
+  return null;
+};
+export const MOVES = ["push", "pan", "pull", "lean"] as const;
+export type Move = (typeof MOVES)[number];
+export function moveLook(move: Move, prev: Look, beat: Look, target: [number, number] | null, k: number): Look {
+  const bound = (span: number) => Math.max(beat.span * 0.4, Math.min(beat.span * 2.8, span));
+  const toward = (share: number): [number, number] => (target ? [prev.lon + (target[0] - prev.lon) * share, prev.lat + (target[1] - prev.lat) * share] : [prev.lon, prev.lat]);
+  switch (move) {
+    case "push": {
+      const [lon, lat] = toward(0.6);
+      return { lon, lat, span: bound(prev.span * 0.5), tilt: 8, roll: 0 };
+    }
+    case "pan": {
+      // a pan travels: to what this shot brings, or a third of the frame across when it brings nothing; no roll (the
+      // judge read a small roll as a wobble)
+      const side = (k % 2 ? 1 : -1) * prev.span * 0.34;
+      const [lon, lat] = target && Math.hypot(target[0] - prev.lon, target[1] - prev.lat) > prev.span * 0.12 ? toward(0.9) : [prev.lon + side, prev.lat];
+      return { lon, lat, span: bound(prev.span * 0.92), tilt: 6, roll: 0 };
+    }
+    case "pull":
+      // out to the context: the whole region round the beat (2.4 times its frame), flat, its names in view
+      return { lon: beat.lon + (prev.lon - beat.lon) * 0.3, lat: beat.lat + (prev.lat - beat.lat) * 0.3, span: bound(Math.max(prev.span * 2, beat.span * 2.4)), tilt: 0, roll: 0 };
+    case "lean": {
+      const [lon, lat] = toward(0.4);
+      return { lon, lat: lat - prev.span * 0.08, span: bound(prev.span * 0.85), tilt: 24, roll: 0 };
+    }
+  }
+}
 const marksOf = (b: Beat): Mark[] => (b.kind === "hook" ? (b.marks ?? []) : b.kind === "map" ? b.marks : b.kind === "demand" || b.kind === "road" ? (b.marks ?? []) : []);
 const isDive = (a: Look | null, b: Look) => !a || Math.max(a.span, b.span) / Math.min(a.span, b.span) > 2.5 || (geoDistance([a.lon, a.lat], [b.lon, b.lat]) * 180) / Math.PI > Math.min(a.span, b.span) * 0.8;
 const wordsIn = (s: string | undefined) => String(s ?? "").replace(/[؟?!.،,؛:«»"()]/g, " ").split(/\s+/).filter(Boolean).length;
@@ -104,6 +165,8 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
   const words: Storyboard["words"] = [];
   let at = 0;
   let lastLook: Look | null = null;
+  const hookBeat = c.beats[0];
+  const homeLook: Look | null = hookBeat && hookBeat.kind === "hook" ? hookBeat.look : null;
   c.beats.forEach((b, bi) => {
     const line = lines.find((l) => l.cue === b.cue);
     const lead = b.kind === "hook" ? LEAD.hook : LEAD.other;
@@ -147,21 +210,42 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
       const wordAt = wi >= 0 ? starts[wi] / fps : null;
       let look: Look | undefined;
       let camera: Shot["motion"]["camera"] = "hold-breathe";
-      if (beatLook) {
+      if (b.kind === "flags" && lastLook) {
+        // a flag stands on its capital: the camera flies to each state in turn (round 2: no row of flags over a dim globe)
+        const a3 = b.a3[Math.min(b.a3.length - 1, Math.floor((k * b.a3.length) / cuts.length))];
+        const [lon, lat] = CAPITALS[a3] ?? [lastLook.lon, lastLook.lat];
+        look = { lon, lat: lat - 6, span: 46, tilt: k % 2 ? 18 : 6, roll: 0 };
+        camera = k === 0 ? (isDive(lastLook, look) ? "dive" : "pan") : "pan";
+        lastLook = look;
+      } else if (b.kind === "poll" && homeLook) {
+        // the close goes home: the hook's own map, a little wider, the question over it; the loop then lands on frame 0
+        look = k === 0 ? { ...homeLook, span: homeLook.span * 1.25, tilt: 12 } : { ...homeLook, span: homeLook.span * (1.25 - 0.125 * k), tilt: Math.max(0, 12 - 6 * k) };
+        camera = k === 0 ? "pull-out" : "push";
+        lastLook = look;
+      } else if (beatLook) {
         if (k === 0) {
-          look = beatLook;
+          look = { ...beatLook, tilt: beatLook.tilt ?? (bi % 2 ? 14 : 0) };
           camera = bi === 0 ? ((b.kind === "hook" && (b.opening as Shot["motion"]["camera"])) || "push") : isDive(lastLook, beatLook) ? "dive" : "pan";
         } else {
           const prev = shots[shots.length - 1].motion.look ?? beatLook;
-          const [lon, lat] = centreOf(mine.map((i) => marks[i]), prev);
-          look = { lon: prev.lon + (lon - prev.lon) * 0.35, lat: prev.lat + (lat - prev.lat) * 0.35, span: prev.span * 0.86 };
-          camera = "push";
+          // what the words of this beat stand on keeps the camera: a demand's capital, the end of a road (its cost is
+          // written there), else what this shot brings, else the beat's marks
+          const own = b.kind === "demand" ? (CAPITALS[b.a3] ?? null) : b.kind === "road" ? endOf(marks) : null;
+          const target = own ?? (mine.length ? centreOf(mine.map((i) => marks[i]), prev) : marks.length ? centreOf(marks, prev) : null);
+          const move = MOVES[(k - 1 + bi) % MOVES.length];
+          look = moveLook(move, prev, beatLook, target, k);
+          camera = move === "pull" ? "pull-out" : move === "push" ? "push-close" : "pan";
         }
+        // a beat whose words stand on the map (a label, a measure, a demand, a road's cost) is seen flat: a leaning map
+        // moved the labels off their points and past the frame's edge (pass D, «میز» 13–29 s). It leans only when no
+        // word is on it; its pull then stands in for the lean.
+        const speaks = b.kind === "demand" || b.kind === "road" || marks.some((m) => m.kind === "callout" || m.kind === "measure");
+        if (speaks && look) look = { ...look, tilt: 0 };
         lastLook = look;
       } else if (lastLook) {
         // a picture over the map: the map steps back to the region and drifts, so it stays alive and quiet behind
-        const back = { ...lastLook, span: Math.max(lastLook.span * 1.6, 18) };
-        look = { ...back, lon: back.lon + (k % 2 ? -1 : 1) * back.span * 0.06 * (k + 1) };
+        const back = { ...lastLook, span: Math.max(lastLook.span * 1.6, 18), tilt: 0 };
+        look = { ...back, lon: back.lon + (back.span > 100 ? 14 * (k + 1) : (k % 2 ? -1 : 1) * back.span * 0.12 * (k + 1)) };
         camera = k === 0 ? "pull-out" : "pan";
       } else camera = b.kind === "chart" ? "pen" : "push";
       const layer: Shot["picture"]["layer"] = b.kind === "hook" || b.kind === "map" || b.kind === "demand" ? "map" : b.kind;
@@ -176,7 +260,7 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         at_word: word,
         word_at: wordAt,
         picture: { layer, asset: assetOf(b), beat: bi, view: String(view) },
-        motion: { camera, ...(look ? { look } : {}), ...(bi === 0 && k === 0 && b.kind === "hook" && b.from ? { from: b.from } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : "draw", ...(word ? { at_word: word } : {}) })) },
+        motion: { camera, ...(look ? { look } : {}), ...(bi === 0 && k === 0 && hookFrom(b) ? { from: hookFrom(b)! } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : "draw", ...(word ? { at_word: word } : {}) })) },
         text: tail ? { chips: [], caption_keyword: word ?? undefined } : textOf(b, view, k),
         sound: k === 0 || mine.length ? { sfx: k === 0 ? SFX_OF[b.kind] : "pop", ...(word ? { at_word: word } : {}), ...(bi === 0 && k === 0 ? { music: "bed-in" } : {}) } : {},
         transition_out: tOut,

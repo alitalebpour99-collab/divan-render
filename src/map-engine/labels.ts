@@ -6,17 +6,17 @@ export type Want = { id: string; x: number; y: number; w: number; h: number; pri
 export type Placed = { id: string; box: Box; anchor: [number, number]; leader: boolean; side: "r" | "l" };
 
 /** About how wide a Persian line is: Vazirmatn's letters average half their size. */
-export const textWidth = (s: string, size: number) => Math.ceil(String(s).length * size * 0.52) + 8;
+export const textWidth = (s: string, size: number) => Math.ceil(String(s).length * size * 0.58) + 8;
 
 const meets = (a: Box, b: Box, pad = 8) => a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
 const inside = (a: Box, safe: Box) => a.x >= safe.x && a.y >= safe.y && a.x + a.w <= safe.x + safe.w && a.y + a.h <= safe.y + safe.h;
 
-export function place(wants: Want[], safe: Box, taken: Box[] = []): Placed[] {
+export function place(wants: Want[], safe: Box, taken: Box[] = [], gap = 18): Placed[] {
   const out: Placed[] = [];
   const used = [...taken];
   const order = [...wants].sort((a, b) => (b.prio ?? 0) - (a.prio ?? 0));
   for (const w of order) {
-    const g = 18;
+    const g = gap;
     // right, left, above, below, and the four corners: a Persian label reads best to the left of its point
     const tries: [number, number, "r" | "l"][] = [
       [w.x - g - w.w, w.y - w.h / 2, "l"],

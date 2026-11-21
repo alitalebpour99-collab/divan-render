@@ -23,19 +23,23 @@ export type Theme = {
 };
 export type Role = "iran" | "us" | "russia" | "china" | "gulf" | "europe" | "other" | "red";
 
-/** Divan: the navy situation room, amber for Iran and Divan's own marks (bible v3). */
+/**
+ * Divan: the navy situation room, amber for Iran and Divan's own marks (bible v3). Round 2 (21 Nov 2026, the judge:
+ * «the map must be darker, only Iran in amber»): a night map. The sea is near-navy, the land one step lighter, the
+ * borders a hairline; every other state stays this dark unless a beat fills it, and then only as a tint (Reel.tsx).
+ */
 export const DIVAN: Theme = {
-  sky: "#0d1322",
-  skyGlow: "#1b2a44",
-  sea: "#14233a",
-  seaLight: "#1d3352",
-  land: "#2a3546",
-  landEdge: "#3b4a60",
-  border: "#55657c",
-  graticule: "#1f3150",
+  sky: "#18233a",
+  skyGlow: "#24375a",
+  sea: "#121f35",
+  seaLight: "#182a45",
+  land: "#2a3649",
+  landEdge: "#56698a",
+  border: "#43546e",
+  graticule: "#17263f",
   label: "#a3afbd",
   ink: "#f3efe6",
-  halo: "#0d1322",
+  halo: "#0b111d",
   accent: "#ffb020",
   actors: {
     iran: "#ffb020",

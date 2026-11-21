@@ -6,6 +6,7 @@ import { useView } from "./MapStage";
 import { country, km } from "./world";
 import { VAZIR } from "./fonts";
 import { place, textWidth, type Box } from "./labels";
+import { flagArt, flagAspect } from "./flags";
 
 const clamp01 = (u: number) => (u < 0 ? 0 : u > 1 ? 1 : u);
 const out3 = (u: number) => 1 - (1 - clamp01(u)) ** 3;
@@ -44,7 +45,7 @@ const line = (pts: ([number, number] | null)[]) => {
 };
 
 /** A state or region filling with its colour: a disc that opens from its centre (0.4 s), with a glow inside its edge. */
-export const CountryFill: React.FC<{ a3: string; color: string; t: number; dur?: number; opacity?: number; edge?: boolean }> = ({ a3, color, t, dur = 12, opacity = 0.62, edge = true }) => {
+export const CountryFill: React.FC<{ a3: string; color: string; t: number; dur?: number; opacity?: number; edge?: boolean; /** breathe while it is the beat's subject */ pulse?: boolean }> = ({ a3, color, t, dur = 12, opacity = 0.62, edge = true, pulse = false }) => {
   const v = useView();
   const c = country(a3);
   if (!c || t < 0) return null;
@@ -62,7 +63,7 @@ export const CountryFill: React.FC<{ a3: string; color: string; t: number; dur?:
         </clipPath>
       </defs>
       <g clipPath={`url(#${id})`}>
-        <path d={d} fill={color} opacity={opacity} />
+        <path d={d} fill={color} opacity={opacity * (pulse ? 1 + 0.35 * Math.sin(t / 7) : 1)} />
         {edge ? <path d={d} fill="none" stroke={color} strokeWidth={10} opacity={0.55} filter={`url(#${v.uid}-glow)`} /> : null}
         <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.35} strokeWidth={1.5} />
       </g>
@@ -154,7 +155,7 @@ export const DashedLine: React.FC<{ coords: [number, number][]; color: string; t
  * Something on the move (a ship, a convoy, money between states): a bright head on a great-circle path with a tail of
  * fading points, glowing. `progress` 0…1 is where the head is; a looping comet passes `loop` frames per trip.
  */
-export const CometTrail: React.FC<{ coords: [number, number][]; color: string; t: number; dur?: number; loop?: number; tail?: number; head?: number; width?: number }> = ({ coords, color, t, dur = 40, loop, tail = 0.22, head = 9, width = 5 }) => {
+export const CometTrail: React.FC<{ coords: [number, number][]; color: string; t: number; dur?: number; loop?: number; tail?: number; head?: number; width?: number; /** the line it leaves behind on the map (round 2: a road reads as a line on the map, not a card) */ route?: boolean }> = ({ coords, color, t, dur = 40, loop, tail = 0.22, head = 9, width = 5, route = false }) => {
   const v = useView();
   const pts = React.useMemo(() => densify(coords, 0.05), [coords]);
   if (t < 0) return null;
@@ -175,13 +176,18 @@ export const CometTrail: React.FC<{ coords: [number, number][]; color: string; t
   }
   const H = v.at(...pts[Math.min(n, Math.round(hi))]);
   const fade = loop ? Math.min(1, Math.min(p, 1 - p) * 8) : 1;
+  // the route: the whole way drawn up to the head, a steady line under the comet that stays when it has passed
+  const trace = route ? line(pts.slice(0, Math.max(1, Math.round(loop ? n : hi)) + 1).map(([a, b]) => v.at(a, b))) : "";
   return (
     <g style={{ mixBlendMode: "screen" }} opacity={fade}>
+      {trace ? <path d={trace} fill="none" stroke={color} strokeWidth={width * 2.6} opacity={0.22} filter={`url(#${v.uid}-glow)`} strokeLinecap="round" /> : null}
+      {trace ? <path d={trace} fill="none" stroke={color} strokeWidth={Math.max(2.5, width * 0.5)} opacity={0.75} strokeLinecap="round" strokeLinejoin="round" /> : null}
+      <g filter={`url(#${v.uid}-glow)`} opacity={0.8}>{seg}</g>
       <g filter={`url(#${v.uid}-soft)`}>{seg}</g>
       {seg}
       {H ? (
         <g>
-          <circle cx={H[0]} cy={H[1]} r={head * 2.6} fill={color} opacity={0.35} filter={`url(#${v.uid}-glow)`} />
+          <circle cx={H[0]} cy={H[1]} r={head * 3.4} fill={color} opacity={0.5} filter={`url(#${v.uid}-glow)`} />
           <circle cx={H[0]} cy={H[1]} r={head} fill="#fffaf0" />
         </g>
       ) : null}
@@ -203,6 +209,8 @@ export const PinCluster: React.FC<{ points: { lon: number; lat: number }[]; colo
         return (
           <g key={i}>
             {ring ? <circle cx={at[0]} cy={at[1]} r={r + pulse * r * 2.4} fill="none" stroke={color} strokeWidth={3} opacity={(1 - pulse) * 0.8} /> : null}
+            {/* the landing: one wide shock ring in the first 0.6 s */}
+            {t - i * gap < 18 ? <circle cx={at[0]} cy={at[1]} r={r + out3((t - i * gap) / 18) * r * 9} fill="none" stroke={color} strokeWidth={6 * (1 - out3((t - i * gap) / 18))} opacity={1 - out3((t - i * gap) / 18)} /> : null}
             <circle cx={at[0]} cy={at[1]} r={r * k} fill={color} stroke="#ffffff" strokeWidth={3} />
           </g>
         );
@@ -215,7 +223,7 @@ export const PinCluster: React.FC<{ points: { lon: number; lat: number }[]; colo
 export const pinsIn = (n: number, t: number, gap = 2.4) => Math.max(0, Math.min(n, Math.floor(t / gap) + 1));
 
 /** A measure between two points, its length read from the data: «۵۴ کیلومتر». */
-export const MeasureLine: React.FC<{ a: [number, number]; b: [number, number]; t: number; color?: string; size?: number; label?: string }> = ({ a, b, t, color, size = 52, label }) => {
+export const MeasureLine: React.FC<{ a: [number, number]; b: [number, number]; t: number; color?: string; size?: number; label?: string }> = ({ a, b, t, color, size = 64, label }) => {
   const v = useView();
   if (t < 0) return null;
   const A = v.at(...a);
@@ -247,7 +255,7 @@ export const MeasureLine: React.FC<{ a: [number, number]; b: [number, number]; t
   );
 };
 
-export type CalloutSpec = { id: string; lon: number; lat: number; bold: string; sub?: string; color?: string; size?: number };
+export type CalloutSpec = { id: string; lon: number; lat: number; bold: string; sub?: string; color?: string; size?: number; /** whose claim it is: its flag beside the words */ a3?: string };
 
 /**
  * Labels with leader lines: one bold word and one line under it, placed so no two meet and none leaves the safe frame
@@ -258,12 +266,13 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
   const v = useView();
   const wants = items.map((c, i) => {
     const at = v.at(c.lon, c.lat) ?? [-999, -999];
-    const size = c.size ?? 46;
-    const w = Math.max(textWidth(c.bold, size), c.sub ? textWidth(c.sub, size * 0.72) : 0) + 34;
+    const size = c.size ?? 60;
+    const w = Math.max(textWidth(c.bold, size), c.sub ? textWidth(c.sub, size * 0.72) : 0) + 34 + (c.a3 && flagArt(c.a3) ? size * 1.3 : 0);
     const h = size * 1.35 + (c.sub ? size * 0.95 : 0) + 18;
     return { id: c.id, x: at[0], y: at[1], w, h, prio: items.length - i };
   });
-  const placed = place(wants, safe, taken);
+  // round 2: a label stands 56 px off its point on a leader, so it never lies on the coast or the line it names
+  const placed = place(wants, safe, taken, 56);
   return (
     <g>
       {items.map((c, i) => {
@@ -273,7 +282,7 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
         const at = v.at(c.lon, c.lat);
         if (!p || !at) return null;
         const col = c.color ?? v.theme.ink;
-        const size = c.size ?? 46;
+        const size = c.size ?? 60;
         const k = out3(t / 10);
         const bx = p.box.x;
         const by = p.box.y;
@@ -290,6 +299,11 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
               <text x={ex - 22} y={by + size * 1.08} textAnchor="start" direction="rtl" fill={col} fontFamily={VAZIR} fontWeight={800} fontSize={size}>
                 {c.bold}
               </text>
+              {c.a3 && flagArt(c.a3) ? (
+                <svg x={bx + 14} y={by + p.box.h / 2 - size * 0.42} width={size * 0.84 * flagAspect(c.a3)} height={size * 0.84} viewBox={`0 0 ${c.a3 === "IRN" ? 200 * flagAspect(c.a3) : 300} 200`} preserveAspectRatio="none">
+                  {flagArt(c.a3)}
+                </svg>
+              ) : null}
               {c.sub ? (
                 <text x={ex - 22} y={by + size * 1.08 + size * 0.95} textAnchor="start" direction="rtl" fill={v.theme.label} fontFamily={VAZIR} fontWeight={600} fontSize={size * 0.72}>
                   {c.sub}
@@ -303,7 +317,38 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
   );
 };
 
-/** Quiet place names (seas, straits, states), never under 40 px, each on a dark halo. */
+/**
+ * The ground's own names (round 2, the judge: «Oman and the UAE are not named», «no names beyond Iran»): the seas,
+ * cities and states whose point is in the frame, quiet and small, nearest the centre first, never within 150 px of a
+ * mark that speaks (`avoid`) nor of each other. At most `max`; none on the whole globe but the states.
+ */
+export const ContextNames: React.FC<{ avoid: [number, number][]; max?: number; places: { t: string; lon: number; lat: number }[]; states: { t: string; lon: number; lat: number }[] }> = ({ avoid, max = 5, places, states }) => {
+  const v = useView();
+  const cx = v.frame.x + v.frame.w / 2;
+  const cy = v.frame.y + v.frame.h / 2;
+  const zone = { x0: 90, x1: 990, y0: 640, y1: 1360 };
+  const taken: [number, number][] = avoid.map(([lon, lat]) => v.at(lon, lat)).filter((p): p is [number, number] => Boolean(p));
+  const pool = (v.look.span > 70 ? states : [...places, ...states]).map((p) => ({ ...p, at: v.at(p.lon, p.lat) })).filter((p) => p.at && p.at[0] > zone.x0 && p.at[0] < zone.x1 && p.at[1] > zone.y0 && p.at[1] < zone.y1) as { t: string; at: [number, number] }[];
+  pool.sort((a, b) => Math.hypot(a.at[0] - cx, a.at[1] - cy) - Math.hypot(b.at[0] - cx, b.at[1] - cy));
+  const out: { t: string; at: [number, number] }[] = [];
+  for (const p of pool) {
+    if (out.length >= max) break;
+    if (taken.some((q) => Math.hypot(q[0] - p.at[0], q[1] - p.at[1]) < 150)) continue;
+    out.push(p);
+    taken.push(p.at);
+  }
+  return (
+    <g opacity={0.82}>
+      {out.map((l, i) => (
+        <text key={i} x={l.at[0]} y={l.at[1] + 15} textAnchor="middle" direction="rtl" fill={v.theme.label} fontFamily={VAZIR} fontWeight={600} fontSize={44} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 8, strokeLinejoin: "round" }}>
+          {l.t}
+        </text>
+      ))}
+    </g>
+  );
+};
+
+/** Quiet place names (seas, straits, states), never under 50 px (round 2: the judge could not read 40 px), each on a dark halo. */
 export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: number; size?: number; color?: string }[]; opacity?: number }> = ({ items, opacity = 1 }) => {
   const v = useView();
   return (
@@ -312,7 +357,7 @@ export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: numbe
         const at = v.at(l.lon, l.lat);
         if (!at) return null;
         return (
-          <text key={i} x={at[0]} y={at[1]} textAnchor="middle" direction="rtl" fill={l.color ?? v.theme.label} fontFamily={VAZIR} fontWeight={700} fontSize={Math.max(40, l.size ?? 40)} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 9, strokeLinejoin: "round" }}>
+          <text key={i} x={at[0]} y={at[1]} textAnchor="middle" direction="rtl" fill={l.color ?? v.theme.label} fontFamily={VAZIR} fontWeight={700} fontSize={Math.max(50, l.size ?? 52)} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 9, strokeLinejoin: "round" }}>
             {l.t}
           </text>
         );

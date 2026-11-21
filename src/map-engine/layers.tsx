@@ -245,8 +245,8 @@ export const MeasureLine: React.FC<{ a: [number, number]; b: [number, number]; t
       <line x1={A[0]} y1={A[1]} x2={x2} y2={y2} stroke={c} strokeWidth={5} />
       <line x1={A[0] - nx} y1={A[1] - ny} x2={A[0] + nx} y2={A[1] + ny} stroke={c} strokeWidth={5} />
       {k > 0.98 ? <line x1={B[0] - nx} y1={B[1] - ny} x2={B[0] + nx} y2={B[1] + ny} stroke={c} strokeWidth={5} /> : null}
-      <g opacity={tk} transform={`translate(${mx + nx * 3.2} ${my + ny * 3.2})`}>
-        <rect x={-textWidth(text, size) / 2 - 14} y={-size * 0.9} width={textWidth(text, size) + 28} height={size * 1.45} rx={size * 0.3} fill={v.theme.halo} opacity={0.88} stroke={c} strokeWidth={2} />
+      {/* bare words with a soft shadow, no box (the owner's decision on map labels, 21 Nov 2026) */}
+      <g opacity={tk} transform={`translate(${mx + nx * 3.2} ${my + ny * 3.2})`} style={{ filter: "drop-shadow(0 3px 10px rgba(5,9,16,0.95)) drop-shadow(0 0 3px rgba(5,9,16,0.9))" }}>
         <text x={0} y={size * 0.28} textAnchor="middle" direction="rtl" fill={c} fontFamily={VAZIR} fontWeight={800} fontSize={size}>
           {text}
         </text>
@@ -318,11 +318,10 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
           <g key={c.id} opacity={k}>
             {lead ? <path d={`M${at[0]} ${at[1]} L${ex + 6} ${ey}`} stroke={col} strokeWidth={3} pathLength={1} strokeDasharray={`${k} 1`} fill="none" /> : null}
             <circle cx={at[0]} cy={at[1]} r={7} fill={col} />
-            <g transform={`translate(0 ${(1 - k) * 14})`}>
-              <rect x={bx} y={by} width={p.box.w} height={p.box.h} rx={14} fill={v.theme.halo} opacity={0.5} />
-              <rect x={ex - 8} y={by + 10} width={6} height={p.box.h - 20} rx={3} fill={col} />
+            {/* the owner's decision (21 Nov 2026), as on @atlynxmaps: bare words with a soft shadow on a leader line, never a box */}
+            <g transform={`translate(0 ${(1 - k) * 14})`} style={{ filter: "drop-shadow(0 3px 10px rgba(5,9,16,0.95)) drop-shadow(0 0 3px rgba(5,9,16,0.9))" }}>
               {lines.map((l, j) => (
-                <text key={j} x={ex - 22} y={by + size * 1.08 + j * line} textAnchor="start" direction="rtl" fill={col} fontFamily={VAZIR} fontWeight={800} fontSize={size} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 10, strokeLinejoin: "round" }}>
+                <text key={j} x={ex - 22} y={by + size * 1.08 + j * line} textAnchor="start" direction="rtl" fill={col} fontFamily={VAZIR} fontWeight={800} fontSize={size}>
                   {l}
                 </text>
               ))}
@@ -332,7 +331,7 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
                 </svg>
               ) : null}
               {c.sub ? (
-                <text x={ex - 22} y={by + size * 1.08 + (lines.length - 1) * line + size * 0.95} textAnchor="start" direction="rtl" fill={v.theme.ink} fontFamily={VAZIR} fontWeight={700} fontSize={size * 0.72} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 8, strokeLinejoin: "round" }}>
+                <text x={ex - 22} y={by + size * 1.08 + (lines.length - 1) * line + size * 0.95} textAnchor="start" direction="rtl" fill={v.theme.ink} fontFamily={VAZIR} fontWeight={700} fontSize={size * 0.72}>
                   {c.sub}
                 </text>
               ) : null}

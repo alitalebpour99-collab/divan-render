@@ -213,3 +213,11 @@ the score less than the judge's own noise. What the judge asks for in every roun
    road's own place (Doha, Washington) is used when the writer names it.
 5. **Throughput:** a pass is about 17 minutes of render on GitHub; a voice and a source of positions would move the
    score more than another pass of polish.
+
+## The owner's decision on map labels (21 Nov 2026)
+
+The judge contradicted itself on labels (pass 3D: one run wanted a solid backing, the other «remove the opaque black
+boxes»). The owner chose: **bare text with a soft shadow and a leader line, as on @atlynxmaps; no solid boxes.** The
+callouts and the measure's length are now words with a soft double drop shadow, their colour in the words, the
+leader and the dot; no backing, no bar. Iterations pause until the ElevenLabs narrator is back (27 Nov 2026); the next
+round is judged with the voice.

@@ -49,8 +49,14 @@ export function place(wants: Want[], safe: Box, taken: Box[] = [], gap = 18): Pl
         }
     }
     if (!done) {
-      const box = { x: Math.min(safe.x + safe.w - w.w, Math.max(safe.x, w.x - w.w / 2)), y: Math.min(safe.y + safe.h - w.h, Math.max(safe.y, w.y - w.h / 2)), w: w.w, h: w.h };
-      done = { id: w.id, box, anchor: [w.x, w.y], leader: true, side: "l" };
+      // round 4: no free place: the one that covers least (of the other labels, the objects, the lines), never just the point
+      const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+      const cands: Box[] = [];
+      for (const [x, y] of tries) cands.push({ x, y, w: w.w, h: w.h });
+      for (let r = 120; r <= 520; r += 80) for (const dy of [-r, r, -r * 0.6, r * 0.6]) cands.push({ x: Math.min(safe.x + safe.w - w.w, Math.max(safe.x, w.x - w.w / 2)), y: w.y + dy - w.h / 2, w: w.w, h: w.h });
+      const fit = (b: Box): Box => ({ ...b, x: Math.min(safe.x + safe.w - b.w, Math.max(safe.x, b.x)), y: Math.min(safe.y + safe.h - b.h, Math.max(safe.y, b.y)) });
+      const best = cands.map(fit).map((b) => ({ b, cost: used.reduce((n, u) => n + area(u, b), 0) + Math.hypot(b.x + b.w / 2 - w.x, b.y + b.h / 2 - w.y) * 2 })).sort((a, z) => a.cost - z.cost)[0].b;
+      done = { id: w.id, box: best, anchor: [w.x, w.y], leader: true, side: "l" };
     }
     used.push(done.box);
     out.push(done);

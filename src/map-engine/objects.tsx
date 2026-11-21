@@ -1032,3 +1032,28 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** t
     </g>
   );
 };
+
+/**
+ * Where an object is on the screen at its clock, as a box (round 4: a place name yields to an object passing under it).
+ * The same motion as MapObject, without drawing: a ship's point along its way, an aircraft's on its circle, a standing
+ * thing on its point. Null when it is not on the map now.
+ */
+export function objectBox(o: ObjectSpec, t: number, life: number, base: number | undefined, v: { at: (lon: number, lat: number) => [number, number] | null; look: { span: number } }): { x: number; y: number; w: number; h: number } | null {
+  if (t < 0) return null;
+  const zoom = base ? Math.max(0.55, Math.min(1, base / v.look.span)) : 1;
+  const sc = SCALE[o.id] * (o.size ?? 1) * zoom;
+  const move = o.move ?? "stand";
+  let p: [number, number] | null = v.at(o.lon, o.lat);
+  if ((move === "sail" || move === "fly" || move === "approach") && o.path && o.path.length >= 2) {
+    const pts = densify(o.path, 0.03).map(([a, b]) => v.at(a, b)).filter(Boolean) as [number, number][];
+    if (pts.length >= 2) {
+      const span = move === "approach" ? Math.max(20, o.arrive ?? 60) : Math.max(60, life);
+      const q = move === "approach" ? 1 - (1 - clamp01(t / span)) ** 2 : 0.06 + 0.86 * clamp01(t / span);
+      const h = along(pts, q);
+      p = [h.x, h.y];
+    }
+  }
+  if (move === "drop" || move === "arc") return null;
+  if (!p) return null;
+  return { x: p[0] - 135 * sc, y: p[1] - 120 * sc, w: 270 * sc, h: 140 * sc };
+}

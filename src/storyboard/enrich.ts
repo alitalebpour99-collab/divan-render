@@ -38,7 +38,8 @@ export function groundFor(look: Look, have: Mark[], want: number): Mark[] {
     const lane = LANES.find((l) => l.path.filter((p) => inView(look, p, 0.6)).length >= 2);
     if (lane) {
       const pts = lane.path.filter((p) => inView(look, p, 0.9));
-      if (pts.length >= 2) out.push({ kind: "comet", coords: pts, color: "#ffd88a" });
+      // traffic on the lane, not a story: it loops, so the camera never follows it away from the beat (round 4)
+      if (pts.length >= 2) out.push({ kind: "comet", coords: pts, color: "#ffd88a", loop: true });
     }
   }
   const places = Object.values(PLACES_FA)

@@ -305,6 +305,8 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
         const p = placed.find((x) => x.id === c.id);
         const at = v.at(c.lon, c.lat);
         if (!p || !at) return null;
+        // round 4: a callout whose point is off the frame is not drawn (a label floating far from its place misleads)
+        if (at[0] < v.frame.x - 20 || at[0] > v.frame.x + v.frame.w + 20 || at[1] < v.frame.y - 20 || at[1] > v.frame.y + v.frame.h + 20) return null;
         const col = c.color ?? v.theme.ink;
         const { size, lines } = fits[i];
         const line = size * 1.2;
@@ -375,17 +377,27 @@ export const ContextNames: React.FC<{ avoid: [number, number][]; max?: number; p
 };
 
 /** Quiet place names (seas, straits, states), never under 50 px (round 2: the judge could not read 40 px), each on a dark halo. */
-export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: number; size?: number; color?: string }[]; opacity?: number }> = ({ items, opacity = 1 }) => {
+export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: number; size?: number; color?: string }[]; opacity?: number; /** boxes the names keep clear of (objects on the map): a name over one moves above it */ avoid?: Box[] }> = ({ items, opacity = 1, avoid = [] }) => {
   const v = useView();
   return (
     <g opacity={opacity}>
       {items.map((l, i) => {
         const at = v.at(l.lon, l.lat);
         if (!at) return null;
+        const size = Math.max(50, l.size ?? 52);
+        const w = textWidth(l.t, size);
+        let y = at[1];
+        // round 4: a name never lies on an object: it rises above the object's box (and its leader keeps the place)
+        for (const b of avoid) if (at[0] + w / 2 > b.x && at[0] - w / 2 < b.x + b.w && y > b.y - 6 && y - size < b.y + b.h) y = b.y - 10;
+        const moved = y !== at[1];
         return (
-          <text key={i} x={at[0]} y={at[1]} textAnchor="middle" direction="rtl" fill={l.color ?? v.theme.label} fontFamily={VAZIR} fontWeight={700} fontSize={Math.max(50, l.size ?? 52)} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 9, strokeLinejoin: "round" }}>
+          <g key={i}>
+            {moved ? <path d={`M${at[0]} ${at[1]} L${at[0]} ${y + 6}`} stroke={l.color ?? v.theme.label} strokeWidth={2} opacity={0.7} /> : null}
+            {moved ? <circle cx={at[0]} cy={at[1]} r={5} fill={l.color ?? v.theme.label} /> : null}
+          <text x={at[0]} y={y} textAnchor="middle" direction="rtl" fill={l.color ?? v.theme.label} fontFamily={VAZIR} fontWeight={700} fontSize={Math.max(50, l.size ?? 52)} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 9, strokeLinejoin: "round" }}>
             {l.t}
           </text>
+          </g>
         );
       })}
     </g>

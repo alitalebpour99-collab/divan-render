@@ -121,6 +121,15 @@ const lineOf = (marks: Mark[]): [number, number][] | null => {
   let best: [number, number][] | null = null;
   let len = 0;
   for (const m of marks) {
+    // round 4: a pipeline laid on its route, a ship on its lane, an aircraft on its way are lines the camera follows too
+    if (m.kind === "object" && m.path && m.path.length >= 2 && (m.move === "pipe" || m.move === "sail" || m.move === "fly" || m.move === "approach")) {
+      const d = geoDistance(m.path[0], m.path[m.path.length - 1]);
+      if (d > len) {
+        len = d;
+        best = m.path;
+      }
+      continue;
+    }
     if (m.kind !== "comet" && m.kind !== "dashed" && m.kind !== "claim") continue;
     // a looping comet is traffic on a lane, not a story: the camera never follows it out to sea (round 3A, 7.5–9 s)
     if (m.kind === "comet" && m.loop) continue;

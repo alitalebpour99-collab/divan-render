@@ -10,7 +10,7 @@ import { densify, useView, ContextNames, NAMES_FA, PLACES_FA, nameFa, CAPITALS, 
 import { VAZIR } from "../map-engine/fonts";
 import { LOOP } from "./director";
 import { RoadObject } from "./objects";
-import { MapObject, ObjectDefs } from "../map-engine/objects";
+import { MapObject, ObjectDefs, objectBox } from "../map-engine/objects";
 import { SeaDetail, ScaleAndNorth } from "../map-engine/detail";
 import { SEA_PLACES_FA } from "../map-engine/names";
 import type { Beat, ChartSpec, Mark, ReelContent, Shot, Storyboard } from "./types";
@@ -203,6 +203,8 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
   const labels: { t: string; lon: number; lat: number }[] = [];
   // a missile and its burst draw under what stands: a ship it hits is never hidden by the flash (pass 3)
   const objects: { drawFirst: boolean; node: React.ReactNode }[] = [];
+  const view = useView();
+  const objBoxes = list.flatMap(({ m, t, life, base }) => (m.kind === "object" ? [objectBox(m, t, life ?? 90, base, view)].filter((b): b is NonNullable<typeof b> => Boolean(b)) : []));
   const measures: React.ReactNode[] = [];
   const body = list.map(({ m, t, own, life, base }, i) => {
     switch (m.kind) {
@@ -261,7 +263,7 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: numb
       {objects.filter((o) => o.drawFirst).map((o) => o.node)}
       {objects.filter((o) => !o.drawFirst).map((o) => o.node)}
       {measures}
-      <PlaceLabels items={labels} />
+      <PlaceLabels items={labels} avoid={objBoxes} />
       <LineBoxes ms={list.map((x) => x.m)}>{(boxes) => <Callouts items={callouts} ts={ts} safe={SAFE} taken={boxes} />}</LineBoxes>
     </>
   );

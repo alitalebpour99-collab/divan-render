@@ -281,3 +281,6 @@ real things the narrator talks about, never an abstract shape.
   kept; unsupported lines are rewritten or cut, and the log goes with the Reel (`factcheck`).
 - **Length follows the content** (`director.ts` `readFrames`, `checks.ts` `LENGTH`): a beat stays until its words can be
   read at 2.75 words a second plus a second to look at its map; a Reel runs 15–90 s (YouTube up to 600 s).
+- Round 4, pass 2: the ground's lane comet loops (the camera never chases traffic away from the story); the camera
+  follows a pipeline's route or a ship's lane; a callout whose place is off the frame is not drawn; a label with no
+  free place takes the one that covers least; a place name rises above an object passing under it, on a leader.

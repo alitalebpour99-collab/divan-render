@@ -31,9 +31,9 @@ export const SeaDetail: React.FC = () => {
       <g opacity={k}>
         {/* shallow water (the shelf, under 200 m) a step lighter; the 200 m line like a chart's; the deep sea as it was */}
         <path d={v.path(BOX as never) ?? ""} fill="#1d3557" />
-        <path d={v.path(d200) ?? ""} fill="#162a47" />
-        <path d={v.path(d200) ?? ""} fill="none" stroke="#2f5584" strokeWidth={1.3} strokeDasharray="6 5" opacity={0.75} />
-        <path d={v.path(d1000) ?? ""} fill="#121f35" />
+        {/* Natural Earth cuts its depth bands into tiles: a stroke of the fill's own colour hides the seams */}
+        <path d={v.path(d200) ?? ""} fill="#162a47" stroke="#162a47" strokeWidth={2} />
+        <path d={v.path(d1000) ?? ""} fill="#121f35" stroke="#121f35" strokeWidth={2} />
       </g>
       <path d={v.path(world.land) ?? ""} fill={v.theme.land} stroke={v.theme.landEdge} strokeWidth={1.4} />
       {s < 14

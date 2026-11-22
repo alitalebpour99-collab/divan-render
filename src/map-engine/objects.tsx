@@ -8,10 +8,12 @@
 import { objectZoom } from "./objscale";
 import { isLand, coastKm } from "./water";
 import React from "react";
+import { geoDistance } from "d3-geo";
 import { useView } from "./MapStage";
 import { densify } from "./layers";
 import { VAZIR } from "./fonts";
-import type { MapObjectId, ObjectMove } from "./object-ids";
+import { HULL_PROBES, HOUSE_KM, type MapObjectId, type ObjectMove } from "./object-ids";
+export { HULL_PROBES, HOUSE_KM };
 import { countBadge, kmPerFrame, pointAt, wayOf, type Way } from "./ships";
 
 const INK = "#0b121c";
@@ -844,6 +846,8 @@ export type ObjectSpec = {
   lane?: string;
   s0?: number;
   f0?: number;
+  /** pass 4: a pipeline whose oil stops (the line says the output went): frames after it lands */
+  stop?: number;
 };
 
 /** Things that float: their picture is drawn only where its hull lies on the water (round 8). */
@@ -854,9 +858,38 @@ export const FLOATING = new Set<MapObjectId>(["tanker", "cargo", "lng", "warship
  * when it only just does, 0 when any of it is on land or its point is within a kilometre of the coast. On a wide shot (a
  * dive from the region) a ship whose picture would cover a coast is not drawn; it fades in as the camera comes close.
  */
-export function wetK(v: { inv: (x: number, y: number) => [number, number] | null }, p: [number, number], sc: number): number {
+/**
+ * Pass 3: how a ship on its way is drawn here: its side view turns with the way (full length when it runs across the
+ * screen, narrower as it heads up or down: `turn`, signed by its heading) and leans with it (`ang`, ±16°).
+ */
+export type Pose = { turn: number; ang: number };
+export function shipPose(v: { at: (lon: number, lat: number) => [number, number] | null }, way: Way, s: number): Pose | null {
+  const ahead = v.at(...pointAt(way, s + 3));
+  const behind = v.at(...pointAt(way, s - 3));
+  if (!ahead || !behind) return null;
+  const dx = ahead[0] - behind[0];
+  const dy = ahead[1] - behind[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const sx = Math.max(-1, Math.min(1, dx / len / 0.45));
+  const turn = Math.sign(sx || 1) * Math.max(0.3, Math.abs(sx));
+  const ang = Math.max(-16, Math.min(16, (Math.atan2(dy * Math.sign(turn), Math.abs(dx) + 1e-6) * 180) / Math.PI));
+  return { turn, ang };
+}
+/** where a point of a ship's art (its own units) is drawn on the screen: at p, art scale sc, in its pose (or level) */
+export function artPoint(p: [number, number], sc: number, ax: number, ay: number, pose?: Pose | null): [number, number] {
+  if (!pose) return [p[0] + ax * sc * 1.1, p[1] + ay * sc * 1.1];
+  // the art's own wobble (±1.2°) and bob are inside a 5 % margin
+  const a = ((pose.ang * Math.sign(pose.turn)) * Math.PI) / 180;
+  const x = (Math.cos(a) * ax - Math.sin(a) * ay) * sc * 1.05;
+  const y = (Math.sin(a) * ax + Math.cos(a) * ay) * sc * 1.05;
+  return [p[0] + x * pose.turn, p[1] + y];
+}
+export function wetK(v: { inv: (x: number, y: number) => [number, number] | null }, p: [number, number], sc: number, id?: MapObjectId, pose?: Pose | null): number {
   const g0 = v.inv(p[0], p[1]);
   if (!g0 || isLand(g0) || coastKm(g0) < 1) return 0;
+  // pass 3 (owner: «روساخت نفتکش‌ها به ساحل قشم و ایران می‌ساید»): a ship's house, its bow and its waterline all clear of
+  // every coast by HOUSE_KM, not only its waterline off the land
+  if (id && SHIP_IDS.has(id) && !hullClear(v, p, sc, HOUSE_KM, pose)) return 0;
   // eleven points along the waterline (a small island between two samples is still seen), at the hull's length and a third more
   const ok = (k: number) => [-110, -88, -66, -44, -22, 0, 22, 44, 66, 88, 110].every((dx) => {
     const g = v.inv(p[0] + dx * sc * k, p[1] + 4 * sc);
@@ -864,6 +897,25 @@ export function wetK(v: { inv: (x: number, y: number) => [number, number] | null
   });
   const one = ok(1);
   return one && ok(1.3) ? 1 : one ? 0.5 : 0;
+}
+
+/** Pass 3: the ship's probes (object-ids.ts HULL_PROBES); the art is a little wider (×1.1) for the lean of a turn (±16°). */
+/** The whole picture of a ship standing at p (screen) at art scale sc on open water, every probe HOUSE_KM off the coast. */
+export function hullClear(v: { inv: (x: number, y: number) => [number, number] | null }, p: [number, number], sc: number, km = HOUSE_KM, pose?: Pose | null): boolean {
+  // a ship whose point is further from every coast than its whole picture reaches is clear without probing it
+  const g0 = v.inv(p[0], p[1]);
+  const g1 = v.inv(p[0] + 160 * sc * 1.1, p[1]);
+  if (g0 && g1 && !isLand(g0)) {
+    const reach = geoDistance(g0, g1) * 6371.0088;
+    if (coastKm(g0) > reach + km + 0.5) return true;
+  }
+  for (const [ax, ay] of HULL_PROBES) {
+    const q = artPoint(p, sc, ax, ay, pose);
+    const g = v.inv(q[0], q[1]);
+    if (!g) continue;
+    if (isLand(g) || coastKm(g) < km) return false;
+  }
+  return true;
 }
 
 /**
@@ -884,7 +936,7 @@ export function clearOfPanels(b: PanelBox, panels: PanelBox[]): number {
 /** the widest column of ships drawn one by one; more are one ship with the count on a badge (round 8: up to six) */
 export const COLUMN_MAX = 6;
 /** round 8 (owner: «N کشتی کوچک»): a column's ships are drawn small, about 85 px each, so six fit along a strait's lane */
-export const COLUMN_SCALE = 0.32;
+export const COLUMN_SCALE = 0.4;
 /** the art's own scale of a type (the box and the checks size a thing with it) */
 export const artScale = (id: MapObjectId) => SCALE[id];
 /**
@@ -898,7 +950,7 @@ export function columnOf(o: ObjectSpec, base: number | undefined, span: number) 
   const baseSpan = base ?? span;
   const pxPerKmBase = 1080 / (baseSpan * 111.32);
   const hullKm = (260 * k * (n > 1 ? COLUMN_SCALE / k : objectZoom(1, k, o.main))) / pxPerKmBase;
-  return { n, zoom, gapKm: hullKm * (n > 1 ? 1.45 : 1.5), wakeKm: hullKm * 1.2 };
+  return { n, zoom, gapKm: hullKm * (n > 1 ? 1.2 : 1.5), wakeKm: hullKm * 1.2 };
 }
 const WAYS = new WeakMap<object, Way>();
 const wayFor = (path: [number, number][]) => {
@@ -1034,16 +1086,9 @@ const ClockShip: React.FC<{ o: ObjectSpec; base?: number; panels?: PanelBox[] }>
         const here = sailAt(o, f, i * gapKm);
         if (!here) return null;
         const at = v.at(here.p[0], here.p[1]);
-        const ahead = v.at(...pointAt(here.way, here.s + 3));
-        const behind = v.at(...pointAt(here.way, here.s - 3));
-        if (!at || !ahead || !behind) return null;
-        const dx = ahead[0] - behind[0];
-        const dy = ahead[1] - behind[1];
-        const len = Math.hypot(dx, dy) || 1;
-        // the side view turns with the way: full length when it runs across the screen, narrower as it heads up or down
-        const sx = Math.max(-1, Math.min(1, dx / len / 0.45));
-        const turn = Math.sign(sx || 1) * Math.max(0.3, Math.abs(sx));
-        const ang = Math.max(-16, Math.min(16, (Math.atan2(dy * Math.sign(turn), Math.abs(dx) + 1e-6) * 180) / Math.PI));
+        const pose = shipPose(v, here.way, here.s);
+        if (!at || !pose) return null;
+        const { turn, ang } = pose;
         // the wake: water behind it, widening and fading
         const trail: [number, number][] = [];
         for (let k = 16; k >= 0; k -= 1) {
@@ -1052,7 +1097,7 @@ const ClockShip: React.FC<{ o: ObjectSpec; base?: number; panels?: PanelBox[] }>
         }
         const bob = Math.sin((f + i * 17) / 9) * 2;
         const s1 = SCALE[o.id] * (o.size ?? 1) * zoom;
-        const wk = (FLOATING.has(o.id) ? wetK(v, at, s1) : 1) * clearOfPanels({ x: at[0] - 135 * s1, y: at[1] - 120 * s1, w: 270 * s1, h: 140 * s1 }, panels);
+        const wk = (FLOATING.has(o.id) ? wetK(v, at, s1, o.id, pose) : 1) * clearOfPanels({ x: at[0] - 135 * s1, y: at[1] - 120 * s1, w: 270 * s1, h: 140 * s1 }, panels);
         if (!wk) return null;
         return (
           <g key={i} opacity={wk}>
@@ -1108,7 +1153,7 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** t
   const move = o.move ?? "stand";
   const pts = route ? (route.map(([a, b]) => v.at(a, b)).filter(Boolean) as [number, number][]) : [];
   const at = v.at(o.lon, o.lat);
-  const zoom = objectZoom(base ? Math.max(0.55, Math.min(1, base / v.look.span)) : 1, SCALE[o.id] * (o.size ?? 1), o.main);
+  const zoom = objectZoom(base ? Math.max(0.55, Math.min(1, base / v.look.span)) : 1, SCALE[o.id], o.main) /* pass 3: o.size shrinks it past the clamp */;
   const k = pop(t / 10) * zoom;
   const air = o.id === "jet" || o.id === "drone";
   if ((move === "sail" || move === "fly" || move === "approach") && pts.length >= 2) {
@@ -1134,7 +1179,7 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** t
       trail.push([q.x, q.y]);
     }
     const bob = top ? 0 : Math.sin(f / 9) * 2;
-    const wk = FLOATING.has(o.id) ? wetK(v, [h.x, h.y], SCALE[o.id] * (o.size ?? 1) * zoom) : 1;
+    const wk = FLOATING.has(o.id) ? wetK(v, [h.x, h.y], SCALE[o.id] * (o.size ?? 1) * zoom, o.id) : 1;
     if (!wk) return null;
     return (
       <g opacity={out3(t / 8) * wk}>
@@ -1147,17 +1192,19 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** t
     const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join("");
     const kk = out3(t / 30);
     const c = o.color && o.color !== "#ffd88a" ? o.color : FLAME;
+    const flow = o.stop !== undefined && t > o.stop ? Math.max(0, 1 - (t - o.stop) / 14) : 1;
     return (
       <g>
         <path d={d} fill="none" stroke={INK} strokeWidth={18} pathLength={1} strokeDasharray={`${kk} 1`} strokeLinecap="round" strokeLinejoin="round" />
         <path d={d} fill="none" stroke={STEEL_D} strokeWidth={12} pathLength={1} strokeDasharray={`${kk} 1`} strokeLinecap="round" strokeLinejoin="round" />
         <path d={d} fill="none" stroke={STEEL} strokeWidth={3.5} pathLength={1} strokeDasharray={`${kk} 1`} strokeLinecap="round" transform="translate(0 -3)" />
-        {kk > 0.98 ? <path d={d} fill="none" stroke={c} strokeWidth={5} strokeDasharray="10 34" strokeDashoffset={-f * 3} strokeLinecap="round" opacity={0.95} /> : null}
+        {/* pass 4: when the line says the output went, the oil slows to a stop and drains out of the line (14 frames) */}
+        {kk > 0.98 && flow > 0 ? <path d={d} fill="none" stroke={c} strokeWidth={5} strokeDasharray="10 34" strokeDashoffset={-(o.stop !== undefined && t > o.stop ? (f - (t - o.stop)) * 3 + (t - o.stop) * 3 * flow : f * 3)} strokeLinecap="round" opacity={0.95 * flow} /> : null}
         {/* the two ends: where the oil goes in and where it comes out */}
         {[pts[0], pts[pts.length - 1]].map((p, i) => (
           <g key={i} opacity={kk}>
             <circle cx={p[0]} cy={p[1]} r={14} fill={STEEL} stroke={INK} strokeWidth={3} />
-            <circle cx={p[0]} cy={p[1]} r={6} fill={i ? c : INK} />
+            <circle cx={p[0]} cy={p[1]} r={6} fill={i ? (flow < 1 ? STEEL_D : c) : INK} />
           </g>
         ))}
         {at ? <Art o={{ ...o, id: "pipeline" }} x={at[0]} y={at[1]} angle={0} flip={false} k={k} f={f} t={t} topView={false} /> : null}
@@ -1219,7 +1266,7 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** t
   // stand: it lands on its point (a pop and a ring on the water or the ground) and keeps its own small motion
   const ship = o.id === "tanker" || o.id === "cargo" || o.id === "lng" || o.id === "warship" || o.id === "boats" || o.id === "mine" || o.id === "rig";
   const ring = (f % 50) / 50;
-  const wk = FLOATING.has(o.id) ? wetK(v, at, SCALE[o.id] * (o.size ?? 1) * k) : 1;
+  const wk = FLOATING.has(o.id) ? wetK(v, at, SCALE[o.id] * (o.size ?? 1) * k, o.id) : 1;
   if (!wk) return null;
   return (
     <g opacity={wk}>
@@ -1240,7 +1287,7 @@ export function objectBox(o: ObjectSpec, t: number, life: number, base: number |
 /** Round 8: where an object stands on the frame now (its waterline point), its art's scale there, and its box. */
 export function objectPoint(o: ObjectSpec, t: number, life: number, base: number | undefined, v: { at: (lon: number, lat: number) => [number, number] | null; look: { span: number } }, f?: number): { p: [number, number]; sc: number; box: { x: number; y: number; w: number; h: number } } | null {
   if (t < 0) return null;
-  const zoom = objectZoom(base ? Math.max(0.55, Math.min(1, base / v.look.span)) : 1, SCALE[o.id] * (o.size ?? 1), o.main);
+  const zoom = objectZoom(base ? Math.max(0.55, Math.min(1, base / v.look.span)) : 1, SCALE[o.id], o.main) /* pass 3: o.size shrinks it past the clamp */;
   const sc = SCALE[o.id] * (o.size ?? 1) * zoom;
   const move = o.move ?? "stand";
   let p: [number, number] | null = v.at(o.lon, o.lat);

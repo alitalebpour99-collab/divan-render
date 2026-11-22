@@ -63,3 +63,19 @@ export const MAP_OBJECTS: ObjectMeta[] = [
 export const OBJECT_IDS = MAP_OBJECTS.map((o) => o.id);
 export const isShip = (id: MapObjectId) => id === "tanker" || id === "cargo" || id === "lng" || id === "warship" || id === "boats";
 export const isAircraft = (id: MapObjectId) => id === "jet" || id === "drone";
+
+/**
+ * Pass 3: the points of a merchant ship's picture (its own units: bow to +x, waterline at y = 0, about 260 long) that must
+ * lie on open water: the waterline, a row through the house and the deck gear, the top of the bridge and funnel, the bow
+ * and the foremast. Both ends are tried for the house (a ship turns), so the rows run the whole length.
+ */
+export const HULL_PROBES: [number, number][] = [
+  ...[-130, -104, -78, -52, -26, 0, 26, 52, 78, 104, 130].map((x) => [x, 4] as [number, number]),
+  // the deck gear amidships (pipe rack, hose cranes, containers) up to about 40 above the waterline
+  ...[-52, -26, 0, 26, 52].map((x) => [x, -40] as [number, number]),
+  // the house at either end (a ship turns): its decks, the bridge, the funnel's top
+  ...[-124, -100, -76, 76, 100, 124].flatMap((x) => [[x, -50], [x, -95]] as [number, number][]),
+  [134, -31], [-134, -31], [118, -62], [-118, -62],
+];
+/** km a ship's house, bow and waterline keep off every coast */
+export const HOUSE_KM = 1.5;

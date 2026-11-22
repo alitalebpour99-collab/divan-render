@@ -5,7 +5,7 @@ import { direct } from "./storyboard/director";
 import { enrich } from "./storyboard/enrich";
 import { storyboardChecks } from "./storyboard/checks";
 import { fromDecision } from "./storyboard/fromDecision";
-import { Reel, ReelCover } from "./storyboard/Reel";
+import { Reel, ReelCover, shipClocks } from "./storyboard/Reel";
 import { RoomStory, storyDuration } from "./storyboard/RoomStory";
 import type { ReelContent } from "./storyboard/types";
 import type { DecisionProps } from "./decision/types";
@@ -26,9 +26,11 @@ const reelMeta = ({ props }: { props: In }) => {
   const content = contentOf(props);
   const storyboard = direct(content, props.voiceIn ?? []);
   const qc = storyboardChecks(content, storyboard);
+  // pass 3: the ships' clocks (a column's place on its lane is searched once, here) travel with the storyboard
+  const clocks = Object.fromEntries(shipClocks(content, storyboard));
   return {
     durationInFrames: storyboard.total,
-    props: { ...content, voiceIn: props.voiceIn, music: props.music, storyboard, qc, drone: true, voice: storyboard.voice.map((v) => ({ file: v.file, from: v.from, frames: v.frames })) },
+    props: { ...content, voiceIn: props.voiceIn, music: props.music, storyboard: { ...storyboard, clocks }, qc, drone: true, voice: storyboard.voice.map((v) => ({ file: v.file, from: v.from, frames: v.frames })) },
   };
 };
 

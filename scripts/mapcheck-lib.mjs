@@ -1,12 +1,15 @@
 // Round 8: the pre-delivery check's rules (scripts/mapcheck.mjs runs them on a sample; tests/legend.test.mjs on both topics).
 import { enrich } from "../src/storyboard/enrich.ts";
-import { direct } from "../src/storyboard/director.ts";
+import { direct, LOOP } from "../src/storyboard/director.ts";
 import { frameScene, CHROME } from "../src/storyboard/Reel.tsx";
 import { isLand, coastKm, landAt } from "../src/map-engine/water.ts";
+import { HULL_PROBES, HOUSE_KM, artPoint } from "../src/map-engine/objects.tsx";
 
 /** a thing's hull must be this far off the coast (km), a disc of a sea event this far */
 export const HULL_KM = 1;
 export const DISC_KM = 2;
+/** pass 3: the ships whose picture has a house and a bow (their whole picture is tested, not only the waterline) */
+const MERCHANT = new Set(["tanker", "cargo", "lng", "warship"]);
 
 const meet = (a, b, pad = 0) => a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
 const onScreen = (b) => b.x + b.w > 0 && b.x < 1080 && b.y + b.h > 0 && b.y < 1920;
@@ -59,6 +62,24 @@ export function checkReel(content, every = 2) {
       const g0 = t.geo ?? view.inv(t.p[0], t.p[1]);
       const ck = g0 ? (isLand(g0) ? 0 : coastKm(g0)) : Infinity;
       if (bad.length || ck < HULL_KM) fail(f, "object-on-land", `${t.id} at ${g0?.map((x) => x.toFixed(3)).join(",")} hull on land at ${bad.join("/") || "-"}, ${ck.toFixed(1)} km off the coast`);
+      // pass 3 (owner: the small tankers' houses grazed Qeshm and the Iranian coast): a row through the house and deck gear,
+      // the bridge's top, the bow and the foremast, each HOUSE_KM (1.5 km) off every coast, both ends (a ship turns)
+      if (MERCHANT.has(t.id)) {
+        let worst = Infinity;
+        let at = null;
+        for (const [ax, ay] of HULL_PROBES) {
+          // as drawn: a sailing ship in its pose (turned and leaning with its way), a standing one level
+          const pq = artPoint(t.p, t.sc, ax, ay, t.pose);
+          const g = view.inv(pq[0], pq[1]);
+          if (!g) continue;
+          const km = isLand(g) ? 0 : coastKm(g);
+          if (km < worst) {
+            worst = km;
+            at = [ax, ay];
+          }
+        }
+        if (worst < HOUSE_KM) fail(f, "house-near-coast", `${t.id} at ${g0?.map((x) => x.toFixed(3)).join(",")}: its picture at (${at}) ${worst.toFixed(1)} km off the coast`);
+      }
       if (t.badge) {
         for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0.5]]) {
           const gb = view.inv(t.badge.x + t.badge.w * a, t.badge.y + t.badge.h * b);
@@ -71,6 +92,10 @@ export function checkReel(content, every = 2) {
     }
     for (let i = 0; i < things.length; i += 1)
       for (let j = i + 1; j < things.length; j += 1) if (onScreen(things[i].box) && (things[i].col === undefined || things[i].col !== things[j].col) && meet(things[i].box, things[j].box, -6)) fail(f, "object-over-object", `${things[i].id} × ${things[j].id}`);
+    // --- a column the line counts: all of it is drawn once the camera has arrived on its own beat ---
+    const shot = sb.shots.find((z) => f >= Math.round(z.start * sb.fps) && f < Math.round((z.start + z.dur) * sb.fps));
+    const arriving = shot && (shot.motion.camera === "dive" || (shot.beat === 0 && shot.n === 1));
+    for (const col of sc.cols ?? []) if (col.own && col.drawn < col.n && !arriving && f < sb.total - LOOP) fail(f, "column-thinned", `${col.drawn} of ${col.n} ships drawn`);
     // --- discs ---
     for (const d of discs) {
       if (d.xy[1] < 0 || d.xy[1] > 1920 || d.xy[0] < 0 || d.xy[0] > 1080) continue;

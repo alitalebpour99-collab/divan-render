@@ -27,7 +27,7 @@ export const Disc: React.FC<{ x: number; y: number; n: number; r?: number; hit?:
   </g>
 );
 
-export const MapMarker: React.FC<{ lon: number; lat: number; n: number; hit?: boolean; t: number }> = ({ lon, lat, n, hit = false, t }) => {
+export const MapMarker: React.FC<{ lon: number; lat: number; n: number; hit?: boolean; t: number; /** pass 4: the shot turns to this disc (its legend row lights) */ focus?: number }> = ({ lon, lat, n, hit = false, t, focus }) => {
   const v = useView();
   if (t < 0) return null;
   const at = v.at(lon, lat);
@@ -39,7 +39,9 @@ export const MapMarker: React.FC<{ lon: number; lat: number; n: number; hit?: bo
       {hit ? <Burst x={at[0]} y={at[1]} t={t} /> : null}
       {/* a slow ring: the place is live, the eye finds it */}
       <circle cx={at[0]} cy={at[1]} r={DISC_R + 6 + ring * 26} fill="none" stroke={hit ? DISC_HIT : DISC_RING} strokeWidth={2.5} opacity={(1 - ring) * 0.55 * k} />
-      <Disc x={at[0]} y={at[1]} n={n} hit={hit} k={0.6 + 0.4 * k} />
+      {/* pass 4: the disc the shot turns to: an amber halo that swells in as the camera leans to it */}
+      {focus !== undefined && focus >= 0 ? <circle cx={at[0]} cy={at[1]} r={DISC_R + 10} fill="none" stroke="#ffb020" strokeWidth={5} opacity={Math.min(1, focus / 10)} /> : null}
+      <Disc x={at[0]} y={at[1]} n={n} hit={hit} k={(0.6 + 0.4 * k) * (focus !== undefined && focus >= 0 ? 1 + 0.15 * Math.min(1, focus / 10) : 1)} />
     </g>
   );
 };

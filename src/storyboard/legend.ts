@@ -14,7 +14,7 @@ import { geoDistance } from "d3-geo";
 import type { Look } from "../map-engine/camera";
 import { LANES, ROUTES } from "../map-engine/lanes";
 import { isLand, coastKm, landOn } from "../map-engine/water";
-import { isShip, type MapObjectId } from "../map-engine/object-ids";
+import { isShip, HULL_PROBES, type MapObjectId } from "../map-engine/object-ids";
 import { smooth } from "../map-engine/ships";
 import { textWidth } from "../map-engine/labels";
 import type { Beat, Mark, ReelContent } from "./types";
@@ -158,63 +158,104 @@ const fromPx = (look: Look, x: number, y: number): [number, number] => {
 };
 /** a thing's room around its point (px) at art scale 0.95 (a main ship): its hull and house; smaller things in proportion */
 const ROOM = { x0: -150, x1: 150, y0: -150, y1: 34 };
+/** pass 3: a mine's own room (its ball and horns, its chain under the water): it stands right by its disc */
+// pass 4: as wide as the mine is drawn (its box measured 157 px on the frame)
+const MINE_ROOM = { x0: -80, x1: 80, y0: -62, y1: 40 };
 /** the art scale a thing is drawn at on a beat with discs (objscale: about 185 px, a mine smaller) */
 const artOf = (id: MapObjectId) => (id === "mine" ? 0.62 : 0.95);
-const roomAt = (q: [number, number], sc = 0.95): Box => {
-  const k = sc / 0.95;
-  return { x: q[0] + ROOM.x0 * k, y: q[1] + ROOM.y0 * k, w: (ROOM.x1 - ROOM.x0) * k, h: (ROOM.y1 - ROOM.y0) * k };
+const roomOf = (id: MapObjectId) => {
+  if (id === "mine") return MINE_ROOM;
+  const k = artOf(id) / 0.95;
+  return { x0: ROOM.x0 * k, x1: ROOM.x1 * k, y0: ROOM.y0 * k, y1: ROOM.y1 * k };
+};
+const roomAt = (q: [number, number], sc: number | MapObjectId = 0.95): Box => {
+  const R = typeof sc === "string" ? roomOf(sc) : { x0: (ROOM.x0 * sc) / 0.95, x1: (ROOM.x1 * sc) / 0.95, y0: (ROOM.y0 * sc) / 0.95, y1: (ROOM.y1 * sc) / 0.95 };
+  return { x: q[0] + R.x0, y: q[1] + R.y0, w: R.x1 - R.x0, h: R.y1 - R.y0 };
 };
 const meet = (a: Box, b: Box, pad = 0) => a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
 const discBox = (q: [number, number], pad = 10): Box => ({ x: q[0] - MARKER_R - pad, y: q[1] - MARKER_R - pad, w: 2 * (MARKER_R + pad), h: 2 * (MARKER_R + pad) });
 
 /**
  * A standing thing beside the numbered disc of its incident, not on it: the disc stays exactly at the place, the thing
- * (a burning tanker, a mine, a refinery) takes the nearest spot whose room clears every disc and every thing already
- * placed, on the water with its whole footprint when it floats. Tried in order: just above the disc (the disc reads at
- * its waterline), beside it, below it, then further out.
+ * (a burning tanker, a mine, a refinery) takes a spot right by it whose room clears every disc and every thing already
+ * placed, on the water with its whole picture when it floats. Pass 3 (owner: the mine stood 30–40 km from its disc, the
+ * burning tanker against Larak and Qeshm): the spots are tried in rings round the disc, the nearest ring first, and in a
+ * ring the one with the most open water round the picture wins; a mine has a mine's room, so it stands just beside.
  */
-function besideDiscs(look: Look, o: Extract<Mark, { kind: "object" }>, discs: [number, number][], placed: Box[]): [number, number] | "drop" | null {
-  const sc = artOf(o.id);
-  const k = sc / 0.95;
+function besideDiscs(look: Look, o: Extract<Mark, { kind: "object" }>, discs: [number, number][], placed: Box[]): { at: [number, number]; size?: number } | "drop" | null {
+  const R0 = roomOf(o.id);
+  const roomAt = (q: [number, number], size: number): Box => ({ x: q[0] + R0.x0 * size, y: q[1] + R0.y0 * size, w: (R0.x1 - R0.x0) * size, h: (R0.y1 - R0.y0) * size });
   const at = toPx(look, [o.lon, o.lat]);
-  const near = discs.filter((d) => meet(roomAt(at, sc), discBox(d)));
-  if (!near.length && !placed.some((b) => meet(roomAt(at, sc), b, 6))) return null;
+  const near = discs.filter((d) => meet(roomAt(at, 1), discBox(d)));
+  if (!near.length && !placed.some((b) => meet(roomAt(at, 1), b, 6))) return null;
   // round from the disc it belongs to (the nearest), so a mine or a burning ship stays by its incident
   const own = [...discs].sort((a, z) => Math.hypot(a[0] - at[0], a[1] - at[1]) - Math.hypot(z[0] - at[0], z[1] - at[1]))[0];
   const anchor = near[0] ?? (own && Math.hypot(own[0] - at[0], own[1] - at[1]) < 420 ? own : null);
   // a thing on another thing with no incident of its own goes (it would stand at a place nobody named)
   if (!anchor) return "drop";
   const d0 = anchor;
-  // just clear of the disc: above it (the disc at its waterline), beside it, below it; then a little further out
-  const gap = MARKER_R + 16;
-  const offs: [number, number][] = [];
-  for (const m of [1, 1.25, 1.55])
-    offs.push([0, -(ROOM.y1 * k + gap) * m], [-(ROOM.x1 * k + gap) * m, 0], [(ROOM.x1 * k + gap) * m, 0], [0, (-ROOM.y0 * k + gap) * m], [-(ROOM.x1 * k + gap) * m, -(ROOM.y1 * k + gap) * m], [(ROOM.x1 * k + gap) * m, -(ROOM.y1 * k + gap) * m], [-(ROOM.x1 * k + gap) * m, (-ROOM.y0 * k + gap) * m], [(ROOM.x1 * k + gap) * m, (-ROOM.y0 * k + gap) * m]);
+  // pass 4: a mine keeps a little more room from its disc (its horns touched the disc as the camera settled)
+  const gap = MARKER_R + (o.id === "mine" ? 26 : 16);
   const sea = floats(o);
-  for (const [dx, dy] of offs) {
-    const q: [number, number] = [d0[0] + dx, d0[1] + dy];
-    const r = roomAt(q, sc);
-    if (discs.some((d) => meet(r, discBox(d)))) continue;
-    if (placed.some((b) => meet(r, b, 6))) continue;
-    // its hull's waterline on the water (eleven points, as the renderer's wetK), its point 2 km off the coast
-    if (sea && !hullOk(look, q, sc)) continue;
-    const g = fromPx(look, q[0], q[1]);
-    return [Number(g[0].toFixed(4)), Number(g[1].toFixed(4))];
+  const ship = isShip(o.id);
+  // pass 3: a ship that finds no open water right by its incident at its full size stands smaller (down to half, about
+  // 95 px, still twice a column's ship) rather than far from its place: every size and spot is scored by how far its
+  // point is from the disc, a smaller picture counting as a little further
+  const sizes = ship && sea ? [1, 0.82, 0.65, 0.5] : [1];
+  let best: { q: [number, number]; size: number; score: number; open: number } | null = null;
+  for (const size of sizes) {
+    const R = { x0: R0.x0 * size, x1: R0.x1 * size, y0: R0.y0 * size, y1: R0.y1 * size };
+    const sc = artOf(o.id) * size;
+    for (const m of [1, 1.25, 1.55, 1.9]) {
+      // the ring: above the disc (the disc at its waterline), beside it, below it, and the four corners
+      for (const sx of [-1, 0, 1])
+        for (const sy of [-1, 0, 1]) {
+          if (!sx && !sy) continue;
+          const dx = sx ? sx * ((sx < 0 ? R.x1 : -R.x0) + gap) * m : 0;
+          const dy = sy < 0 ? -(R.y1 + gap) * m : sy > 0 ? (-R.y0 + gap) * m : 0;
+          const q: [number, number] = [d0[0] + dx, d0[1] + dy];
+          const score = Math.hypot(dx, dy) + (1 - size) * 160;
+          if (best && score > best.score + 40) continue;
+          const r = roomAt(q, size);
+          if (discs.some((d) => meet(r, discBox(d)))) continue;
+          if (placed.some((b) => meet(r, b, 6))) continue;
+          // afloat: its whole picture on open water (a ship: its waterline, house and bow 2 km off every coast)
+          const open = sea ? openKm(look, q, sc, ship) : 1;
+          if (open <= 0) continue;
+          // among spots about as near, the one with the most open water round it
+          if (!best || score + 40 < best.score || (score < best.score + 40 && (open > best.open + 1 || (open >= best.open - 1 && score < best.score)))) best = { q, size, score, open };
+        }
+    }
   }
-  // no room by its incident: it is not drawn (the legend still says it); never far from its place
-  return "drop";
+  if (!best) return "drop";
+  const g = fromPx(look, best.q[0], best.q[1]);
+  return { at: [Number(g[0].toFixed(4)), Number(g[1].toFixed(4))], ...(best.size < 1 ? { size: best.size } : {}) };
 }
-/** the waterline of a thing whose picture is drawn at art scale sc, standing at q on the frame of a look, all on water */
-function hullOk(look: Look, q: [number, number], sc: number): boolean {
+/**
+ * How open the water is round a thing standing at q on the frame of a look, drawn at art scale sc: the km from its
+ * picture's nearest point to the nearest coast (capped at 15), or 0 when a part of it is within 2 km of one. A ship is
+ * probed through its waterline, deck gear, house and bow (objects.tsx HULL_PROBES); a mine along its waterline.
+ */
+function openKm(look: Look, q: [number, number], sc: number, ship: boolean): number {
   const g0 = fromPx(look, q[0], q[1]);
-  if (isLand(g0) || coastKm(g0) < 2) return false;
-  for (let dx = -110; dx <= 110; dx += 22) if (isLand(fromPx(look, q[0] + dx * sc * 1.15, q[1] + 4 * sc))) return false;
-  return true;
+  if (isLand(g0) || coastKm(g0) < 2) return 0;
+  const pts: [number, number][] = ship ? HULL_PROBES : [-52, -26, 0, 26, 52].map((x) => [x, 8] as [number, number]);
+  let worst = 15;
+  for (const [ax, ay] of pts) {
+    const g = fromPx(look, q[0] + ax * sc * 1.15, q[1] + ay * sc * 1.15);
+    const km = isLand(g) ? 0 : coastKm(g);
+    if (km < 2) return 0;
+    worst = Math.min(worst, km);
+  }
+  return worst;
 }
 
 /** The real sea lanes in view of a look (the Hormuz TSS both ways, the Red Sea route): what a lane line may draw. */
 export function lanesInView(look: Look): { id: string; coords: [number, number][] }[] {
-  return ROUTES.filter((r) => r.kind === "sea-lane" && r.path.filter((p) => inView(look, p, 0.9)).length >= 2).map((r) => ({ id: r.id, coords: SCHEME[r.id] ? clipLon(r.path, ...SCHEME[r.id]) : r.path }));
+  // pass 3: and only a lane whose drawn part (the scheme between its ends) is itself in view
+  return ROUTES.filter((r) => r.kind === "sea-lane" && r.path.filter((p) => inView(look, p, 0.9)).length >= 2)
+    .map((r) => ({ id: r.id, coords: SCHEME[r.id] ? clipLon(r.path, ...SCHEME[r.id]) : r.path }))
+    .filter((l) => l.coords.length >= 2 && l.coords.some((p) => inView(look, p, 0.9)));
 }
 /**
  * The separation scheme proper (round 8, owner: «خطوط مسیر نباید همدیگر را قطع کنند»): the Hormuz lanes are drawn only
@@ -241,6 +282,32 @@ export function clipLon(path: [number, number][], lo: number, hi: number): [numb
   return out;
 }
 
+/**
+ * Pass 3: the middle of the shipping lane nearest a point: the point on the nearer of the scheme's two ways closest to
+ * it, and half-way across to the other way (the separation zone). Null without two lanes in view.
+ */
+export function laneMiddle(lanes: { coords: [number, number][] }[], p: [number, number]): [number, number] | null {
+  if (lanes.length < 2) return null;
+  const near = (path: [number, number][], q: [number, number]): [number, number] => {
+    let best: [number, number] = path[0];
+    let d = Infinity;
+    for (let i = 0; i + 1 < path.length; i += 1)
+      for (let k = 0; k <= 20; k += 1) {
+        const r: [number, number] = [path[i][0] + ((path[i + 1][0] - path[i][0]) * k) / 20, path[i][1] + ((path[i + 1][1] - path[i][1]) * k) / 20];
+        const dd = Math.hypot((r[0] - q[0]) * Math.cos((q[1] * Math.PI) / 180), r[1] - q[1]);
+        if (dd < d) {
+          d = dd;
+          best = r;
+        }
+      }
+    return best;
+  };
+  const [a, b] = [...lanes].sort((x, z) => pathKm(p, x.coords) - pathKm(p, z.coords));
+  const qa = near(a.coords, p);
+  const qb = near(b.coords, qa);
+  return [Number(((qa[0] + qb[0]) / 2).toFixed(4)), Number(((qa[1] + qb[1]) / 2).toFixed(4))];
+}
+
 /** a writer's line that is a ship's way at sea (both ends on water), or a looping traffic comet */
 const seaComet = (m: Mark) => m.kind === "comet" && (Boolean(m.loop) || (!isLand(m.coords[0]) && !isLand(m.coords[m.coords.length - 1])));
 
@@ -248,6 +315,60 @@ const seaComet = (m: Mark) => m.kind === "comet" && (Boolean(m.loop) || (!isLand
 const ON_LAND = new Set<MapObjectId>(["refinery", "pumpjack", "nuclear", "parliament", "tank", "troops", "barrel", "money", "treaty", "padlock"]);
 
 /** One beat with its callouts as numbered discs and a legend, its lanes real, its strikes impact points. */
+/** a pipeline's end circle (objects.tsx: r 14 px) */
+const END_R = 14;
+/**
+ * Pass 4: a numbered disc that would sit on the end circle of a line (a pipeline's start or end) moves just off it, to the
+ * side of the line (or beyond its end), about a disc and a half from the circle: on land for a place on land, on open
+ * water for a sea event, clear of the line itself and of the discs already placed. Measured on the beat's widest shot.
+ */
+function offEnds(look: Look, at: [number, number], pipes: [number, number][][], sea: boolean, span: number, discs: [number, number][]): [number, number] {
+  const P = toPx(look, at);
+  const lineDist = (q: [number, number], path: [number, number][]) => {
+    let best = Infinity;
+    for (let i = 0; i + 1 < path.length; i += 1) {
+      const a = toPx(look, path[i]);
+      const b = toPx(look, path[i + 1]);
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
+      const t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+      best = Math.min(best, Math.hypot(a[0] + dx * t - q[0], a[1] + dy * t - q[1]));
+    }
+    return best;
+  };
+  for (const path of pipes) {
+    for (const [e, prev] of [[path[0], path[1]], [path[path.length - 1], path[path.length - 2]]] as [[number, number], [number, number]][]) {
+      const E = toPx(look, e);
+      if (Math.hypot(E[0] - P[0], E[1] - P[1]) > MARKER_R + END_R + 12) continue;
+      const Q = toPx(look, prev);
+      const L = Math.hypot(E[0] - Q[0], E[1] - Q[1]) || 1;
+      const u = [(E[0] - Q[0]) / L, (E[1] - Q[1]) / L];
+      // beside the line first (either side), then beyond its end, then the corners between
+      const dirs: [number, number][] = [[-u[1], u[0]], [u[1], -u[0]], [u[0], u[1]], [u[0] - u[1], u[1] + u[0]], [u[0] + u[1], u[1] - u[0]]];
+      let best: { q: [number, number]; score: number } | null = null;
+      for (const d of [MARKER_R + END_R + 22, MARKER_R + END_R + 36, MARKER_R + END_R + 54])
+        for (const [dx0, dy0] of dirs) {
+          const n = Math.hypot(dx0, dy0);
+          const q: [number, number] = [E[0] + (dx0 / n) * d, E[1] + (dy0 / n) * d];
+          if (pipes.some((pp) => lineDist(q, pp) < MARKER_R + 12)) continue;
+          if (discs.some((x) => Math.hypot(x[0] - q[0], x[1] - q[1]) < 2 * MARKER_R + 20)) continue;
+          const g = fromPx(look, q[0], q[1]);
+          const ok = sea ? !isLand(g) && coastKm(g) >= clearKm(span) : isLand(g);
+          if (!ok) continue;
+          // the side with the most room from the other discs
+          const room = discs.length ? Math.min(...discs.map((x) => Math.hypot(x[0] - q[0], x[1] - q[1]))) : 999;
+          const score = d - Math.min(room, 300) * 0.05;
+          if (!best || score < best.score) best = { q, score };
+        }
+      if (best) {
+        const g = fromPx(look, best.q[0], best.q[1]);
+        return [Number(g[0].toFixed(4)), Number(g[1].toFixed(4))];
+      }
+    }
+  }
+  return at;
+}
+
 export function legendBeat(b: Extract<Beat, { kind: "hook" | "map" }>): Extract<Beat, { kind: "hook" | "map" }> {
   const look = b.look;
   const span = look.span;
@@ -264,17 +385,28 @@ export function legendBeat(b: Extract<Beat, { kind: "hook" | "map" }>): Extract<
   const ways = marks0.filter((m): m is Extract<Mark, { kind: "object" }> => m.kind === "object" && m.move === "sail" && Boolean(m.path) && isShip(m.id)).map((m) => m.path!);
   const wayKm = ways.length ? (MARKER_R + 60) / (1080 / (span * WIDE * 111.32)) : 0;
   const markerOf = new Map<Mark, Mark>();
+  const pipes = marks0.filter((m): m is Extract<Mark, { kind: "object" }> => m.kind === "object" && m.move === "pipe" && Boolean(m.path) && m.path!.length >= 2).map((m) => m.path!);
   callouts.forEach((c, i) => {
     const p: [number, number] = [c.lon, c.lat];
     // an event at sea: its place is water, or a thing that floats is part of it (a mine, a ship that was hit)
-    const sea = !isLand(p) || floating.some((o) => deg([o.lon, o.lat], p) < span * 0.25);
+    // pass 3: a place well inland (Abqaiq) stays on its land whatever floats near it; a coastal one (Khasab) is a sea event
+    // when a mine or a struck ship is part of it
+    const sea = !isLand(p) || (coastKm(p) < 12 && floating.some((o) => deg([o.lon, o.lat], p) < span * 0.25));
     let at: [number, number] = p;
-    if (sea) {
+    const struck = strikes.some((s) => deg([s.lon, s.lat], p) < span * 0.1) || marks0.some((m) => m.kind === "pins" && m.points.some((q) => deg([q.lon, q.lat], p) < span * 0.06)) || floating.some((o) => o.move !== "sail" && deg([o.lon, o.lat], p) < span * 0.25);
+    const mid = sea && !struck ? laneMiddle(lanesInView(look), p) : null;
+    if (mid) {
+      // pass 3 (owner: «دایرهٔ ۱ یک منطقه را نشان می‌دهد و به ساحل ایران نزدیک است»): a claim about the waters of a strait
+      // («۶ نفتکش، ۷ روز»), not a point, is numbered in the middle of the shipping lane, between its two ways
+      at = waterPoint(mid, clearKm(span)) ?? p;
+    } else if (sea) {
       let found: [number, number] | null = null;
       // in and around a strait the water clear of both coasts and of the ships' way may lie a little further out
       for (const k of [1, 0.75, 0.5, 0.25, 0]) if ((found = waterPoint(p, clearKm(span), ways, wayKm * k, k ? 120 : 80))) break;
       at = found ?? p;
     }
+    // pass 4 (the judge: «discs ① and ② on the pipeline's end circles read as busy»): a disc stands just off a line's end
+    at = offEnds(wide, at, pipes, sea, span, discs);
     const hit = strikes.some((s) => deg([s.lon, s.lat], p) < span * 0.1) || marks0.some((m) => m.kind === "pins" && m.color.toLowerCase() === "#ff4d40" && m.points.some((q) => deg([q.lon, q.lat], p) < span * 0.06));
     markerOf.set(c, { kind: "marker", n: i + 1, lon: at[0], lat: at[1], sea, ...(hit ? { hit: true } : {}) } as Mark);
     legend.push({ n: i + 1, text: itemText(c.bold, c.sub) });
@@ -330,12 +462,12 @@ export function legendBeat(b: Extract<Beat, { kind: "hook" | "map" }>): Extract<
         const q = besideDiscs(wide, o, discs, placed);
         if (q === "drop") continue;
         if (q) {
-          let moved: Extract<Mark, { kind: "object" }> = { ...o, lon: q[0], lat: q[1] };
+          let moved: Extract<Mark, { kind: "object" }> = { ...o, lon: q.at[0], lat: q.at[1], ...(q.size ? { size: q.size } : {}) };
           // a ship that was coming in lies by its disc instead: its way in would pass over the disc and the things there
           if (o.move === "approach") moved = { ...moved, move: "stand", path: undefined };
           o = moved;
         }
-        placed.push(roomAt(toPx(wide, [o.lon, o.lat]), artOf(o.id)));
+        placed.push(roomAt(toPx(wide, [o.lon, o.lat]), o.id === "mine" ? "mine" : artOf(o.id) * (o.size ?? 1)));
       }
       out.push(o);
       continue;

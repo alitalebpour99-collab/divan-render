@@ -60,15 +60,50 @@ export function isLand(p: [number, number]): boolean {
   }
   return false;
 }
-/** Inside a polygon's outer ring and outside its holes (even-odd over all its rings). */
-function inRings(rings: [number, number][][], x: number, y: number): boolean {
-  let inside = false;
+/**
+ * Inside a polygon's outer ring and outside its holes (even-odd over all its rings). Pass 3: the edges are kept by bands
+ * of latitude (0.05°), so a test walks only the edges that span its own latitude (the same answer, a continent's
+ * outline no longer walked whole for every point).
+ */
+const BAND = 0.05;
+type Bands = { y0: number; rows: Float64Array[] };
+const BANDS = new WeakMap<object, Bands>();
+function bandsOf(rings: [number, number][][]): Bands {
+  let b = BANDS.get(rings);
+  if (b) return b;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (const r of rings) for (const q of r) {
+    y0 = Math.min(y0, q[1]);
+    y1 = Math.max(y1, q[1]);
+  }
+  const n = Math.max(1, Math.ceil((y1 - y0) / BAND) + 1);
+  const lists: number[][] = Array.from({ length: n }, () => []);
   for (const r of rings)
     for (let i = 0, j = r.length - 1; i < r.length; j = i, i += 1) {
       const [xi, yi] = r[i];
       const [xj, yj] = r[j];
-      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+      if (yi === yj) continue;
+      const a = Math.floor((Math.min(yi, yj) - y0) / BAND);
+      const z = Math.floor((Math.max(yi, yj) - y0) / BAND);
+      for (let k = a; k <= z; k += 1) lists[k].push(xi, yi, xj, yj);
     }
+  b = { y0, rows: lists.map((l) => Float64Array.from(l)) };
+  BANDS.set(rings, b);
+  return b;
+}
+function inRings(rings: [number, number][][], x: number, y: number): boolean {
+  const b = bandsOf(rings);
+  const row = b.rows[Math.floor((y - b.y0) / BAND)];
+  if (!row) return false;
+  let inside = false;
+  for (let k = 0; k < row.length; k += 4) {
+    const xi = row[k];
+    const yi = row[k + 1];
+    const xj = row[k + 2];
+    const yj = row[k + 3];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
   return inside;
 }
 

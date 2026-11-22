@@ -88,8 +88,15 @@ export function enrich(content: ReelContent): ReelContent {
     beats: done.beats.map((b): Beat => {
       if (b.kind !== "map") return b;
       const own = (m: Mark) => counts(m) && m.kind !== "hatch" && m.kind !== "lane" && !(m.kind === "object" && m.move !== "drop" && m.move !== "arc");
-      const short = Math.max(marksWanted(b), shotsOf(b)) - b.marks.filter(own).length;
-      const extra = short > 0 ? groundFor(b.look, b.marks, short).filter((m) => m.kind === "label") : [];
+      // pass 3: a thing that stands by a later disc lands on that disc's shot (director.ts withPairs), so it no longer
+      // fills a shot of its own: the ground gives one more name for each
+      const discs = b.marks.filter((m): m is Extract<Mark, { kind: "marker" }> => m.kind === "marker");
+      const near = (m: Extract<Mark, { kind: "object" }>) => discs.reduce((a, d) => (Math.hypot(d.lon - m.lon, d.lat - m.lat) < Math.hypot(a.lon - m.lon, a.lat - m.lat) ? d : a), discs[0]);
+      const riders = discs.length > 1 ? b.marks.filter((m) => m.kind === "object" && (m.move === undefined || m.move === "stand") && near(m) !== discs[0]).length : 0;
+      const short = Math.max(marksWanted(b), shotsOf(b)) - b.marks.filter(own).length + riders;
+      let extra = short > 0 ? groundFor(b.look, b.marks, short).filter((m) => m.kind === "label") : [];
+      // the rider's name may come from a little wider round the beat (its pull-out shot shows that much)
+      if (riders && extra.length < short) extra = groundFor({ ...b.look, span: b.look.span * 1.25 }, b.marks, short).filter((m) => m.kind === "label");
       return extra.length ? { ...b, marks: [...b.marks, ...extra] } : b;
     }),
   };

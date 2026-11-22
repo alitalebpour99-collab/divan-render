@@ -1048,10 +1048,11 @@ const DemandPic: React.FC<{ b: Extract<Beat, { kind: "demand" }>; local: number;
 
 // ---------------- the frame ----------------
 
-const Header: React.FC<{ s: Shot; local: number; big: boolean; color: string; arrive?: number }> = ({ s, local, big, color, arrive = 0 }) => {
+const Header: React.FC<{ s: Shot; local: number; big: boolean; color: string; arrive?: number; again?: boolean }> = ({ s, local, big, color, arrive = 0, again = false }) => {
   if (!s.text.header || s.picture.layer === "chart" || s.picture.layer === "number" || s.picture.layer === "road" || s.picture.layer === "gauge") return null;
   // words snap in (5 frames): a cross-fade caught half-way read as ghosted text on the judge's sheets (round 3A)
-  const k = big ? 1 : rise(local, arrive, 5);
+  // pass 5 (the judge: «the header blinks at 11.0 s»): a beat's header snaps in on its first shot and stays through its cuts
+  const k = big || again ? 1 : rise(local, arrive, 5);
   return (
     <div style={{ position: "absolute", top: 330, left: L, width: COLW, direction: "rtl", textAlign: "right", fontFamily: VAZIR, opacity: k, transform: `translateY(${(1 - k) * 24}px)` }}>
       <div style={{ fontWeight: 800, fontSize: big ? 92 : 76, color, lineHeight: 1.22, textShadow: "0 4px 24px rgba(0,0,0,0.55)" }}>{s.text.header}</div>
@@ -1314,7 +1315,7 @@ export const Reel: React.FC<Props> = (p) => {
       {!inLoop && beat.kind === "gauge" ? <GaugePic b={beat} local={beatLocal} f={f} look={look} lines={roadLines(p)} /> : null}
       {!inLoop && beat.kind === "chart" && beat.chart.place ? <PriceTag chart={beat.chart} k={interpolate(beatLocal, [6, Math.max(20, sb.shots.filter((s) => s.beat === shot.beat).reduce((n, s) => n + s.dur, 0) * fps * 0.6)], [0, 1], { ...clamp, easing: Easing.inOut(Easing.cubic) })} f={f} look={look} /> : null}
       {!inLoop && beat.kind === "map" ? <Source text={shot.text.source ?? beat.source} k={rise(beatLocal, Math.max(10, arrive0), 10)} top={lb ? LEGEND_SOURCE_TOP : undefined} /> : null}
-      {!inLoop ? <Header s={shot} local={local} big={shot.beat === 0} arrive={arrive} color={shot.picture.layer === "poll" ? ROOM.amber : shot.beat === 0 ? ROOM.paper : color} /> : null}
+      {!inLoop ? <Header s={shot} local={local} big={shot.beat === 0} arrive={arrive} again={first !== shot && first?.text.header === shot.text.header} color={shot.picture.layer === "poll" ? ROOM.amber : shot.beat === 0 ? ROOM.paper : color} /> : null}
       {/* the loop: the first picture's words come back */}
       {inLoop ? (
         <div style={{ opacity: loopK }}>

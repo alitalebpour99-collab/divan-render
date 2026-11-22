@@ -325,6 +325,13 @@
      "lon": 37.9,
      "lat": 23.85,
      "move": "stand"
+    },
+    {
+     "kind": "object",
+     "id": "refinery",
+     "lon": 49.68,
+     "lat": 25.94,
+     "move": "stand"
     }
    ]
   },

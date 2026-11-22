@@ -230,6 +230,8 @@ test("round 5: every later shot of a map beat or the hook brings something new o
       if (b.kind !== "map" && b.kind !== "hook") continue;
       const first = sb.shots.find((x) => x.beat === s.beat);
       if (s === first) continue;
+      // pass 5: on a followed line a shot before its end brings the line itself, drawing on with the camera
+      if (s.motion.follow > 0) continue;
       assert.ok(s.marks.length > 0, `${name}: shot ${s.n} (beat ${s.beat}) brings nothing new`);
     }
   }

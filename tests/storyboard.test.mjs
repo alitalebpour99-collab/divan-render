@@ -257,6 +257,8 @@ test("round 5: the camera never leaves a beat's main thing", async () => {
     for (const s of sb.shots) {
       const b = c.beats[s.beat];
       if (b.kind !== "map" || claimPoints(b.marks)) continue;
+      // pass 5: a followed line's first shots travel with the line, before its end and the thing there are reached
+      if (s.motion.follow > 0) continue;
       const p = mainObject(b.marks);
       const L = s.motion.look;
       if (!p || !L) continue;

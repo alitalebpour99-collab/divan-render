@@ -101,7 +101,8 @@ const lookFrames = (b: Beat, fps: number) => {
 };
 export const readFrames = (b: Beat, fps = FPS) => (b.kind === "hook" ? 0 : Math.round((screenWords(b) / READ_WPS) * fps) + lookFrames(b, fps));
 /** The least a beat lasts without a narrator, in frames. */
-const floorOf = (b: Beat) => Math.max(b.kind === "hook" ? 45 : b.kind === "chart" ? 105 : b.kind === "poll" ? 3 * 32 + LOOP : viewsOf(b) * 40, readFrames(b));
+// pass 5 (the judge: «the hook's title vanishes at 1 s»): the hook holds its title at least 2.5 s
+const floorOf = (b: Beat) => Math.max(b.kind === "hook" ? 75 : b.kind === "chart" ? 105 : b.kind === "poll" ? 3 * 32 + LOOP : viewsOf(b) * 40, readFrames(b));
 
 /** Words of a line said at about 13 letters a second, when no narrator read it (samples, a Reel held without voice). */
 export function guessWords(text: string, fps = FPS): { text: string; from: number; frames: number }[] {
@@ -367,6 +368,10 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
     const discIdx = marks.map((m, i) => (m.kind === "marker" ? i : -1)).filter((i) => i >= 0);
     const landed = new Set<number>();
     let focusI = 0;
+    // pass 5 (the judge: «راهی بی‌هرمز holds one frame for 6.5 s»): a beat whose story is a long line (a pipeline across a
+    // country) with one numbered place at its far end is followed: the line draws from its start as the camera travels
+    // with it, its middle, then its end, where the place's disc, its things and its legend row land; then the whole line
+    const flw = b.kind === "map" && beatLook && cuts.length >= 3 && discIdx.length === 1 ? followOf(marks, beatLook, cuts.length) : null;
     cuts.forEach((s, k) => {
       const e = k + 1 < cuts.length ? cuts[k + 1] : at + len;
       const view = Math.min(need - 1, Math.floor((k * need) / cuts.length));
@@ -405,8 +410,9 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
       const paired = [...firsts1, ...rest1].filter((i) => !isDisc(i) && marks[i].kind === "object" && b.kind !== "hook" && discsIn.length > 1 && nearestDisc(i) !== discsIn[0]);
       const firsts = firsts2.filter((i) => !paired.includes(i));
       const rest = discsIn.length && b.kind !== "hook" ? [...discsIn.slice(1).flatMap((d) => [d, ...paired.filter((i) => nearestDisc(i) === d)]), ...rest1.filter((i) => !isDisc(i) && !paired.includes(i))] : rest1;
-      const mine =
-        b.kind !== "hook"
+      const mine = flw
+        ? flw.marks[k]
+        : b.kind !== "hook"
           ? [...(k === 0 ? firsts : []), ...withPairs(discsAfterFirst(stagger(rest, cuts.length, (i) => marks[i].kind === "callout" || marks[i].kind === "marker"), firsts.some(isDisc), isDisc), new Map(paired.map((i) => [i, nearestDisc(i)])))[k]]
           : !tailShots
             ? (k === 0 ? marks.map((_, i) => i) : [])
@@ -438,6 +444,17 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         // the close goes home: the hook's own map, a little wider, the question over it; the loop then lands on frame 0
         look = k === 0 ? { ...homeLook, span: homeLook.span * 1.25, tilt: 12 } : { ...homeLook, span: homeLook.span * (1.25 - 0.125 * k), tilt: Math.max(0, 12 - 6 * k) };
         camera = k === 0 ? "pull-out" : "push";
+        lastLook = look;
+      } else if (beatLook && flw) {
+        // pass 5: the followed line: its start, its middle, its end, then the whole of it
+        const at0 = flw.looks[k];
+        look = { ...at0, tilt: 0, roll: 0 };
+        camera = k === 0 ? (isDive(lastLook, look) ? "dive" : "pan") : k === cuts.length - 1 && k > flw.end ? "pull-out" : "pan";
+        // the discs and things already on the map stay inside the band
+        const on = new Set([...landed, ...mine]);
+        const discs = marks.flatMap((m, i) => (m.kind === "marker" && on.has(i) ? [[m.lon, m.lat] as [number, number]] : []));
+        const things = marks.flatMap((m, i) => (m.kind === "object" && (m.move === undefined || m.move === "stand") && on.has(i) && Math.hypot(m.lon - look!.lon, m.lat - look!.lat) < look!.span * 0.6 ? [[m.lon, m.lat] as [number, number]] : []));
+        if (discs.length || things.length) look = fitPoints(look, discs, things, bandBottom(b.legend) - 40, beatLook.span * 1.3);
         lastLook = look;
       } else if (beatLook) {
         if (k === 0) {
@@ -527,8 +544,9 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         at_word: word,
         word_at: wordAt,
         picture: { layer, asset: assetOf(b), beat: bi, view: String(view) },
-        motion: { camera, ...(look ? { look } : {}), ...(focus ? { focus: focus.n } : {}), ...(bi === 0 && k === 0 && hookFrom(b) ? { from: hookFrom(b)! } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : marks[i].kind === "object" ? `${(marks[i] as { move?: string }).move ?? "stand"} ${(marks[i] as { id: string }).id}` : "draw", ...(word ? { at_word: word } : {}) })) },
-        text: tail ? { chips: [], caption_keyword: word ?? undefined } : textOf(b, view, k),
+        motion: { camera, ...(look ? { look } : {}), ...(focus ? { focus: focus.n } : {}), ...(flw ? { follow: Math.round(cuts[Math.min(flw.end, cuts.length - 1)] - s) } : {}), ...(bi === 0 && k === 0 && hookFrom(b) ? { from: hookFrom(b)! } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : marks[i].kind === "object" ? `${(marks[i] as { move?: string }).move ?? "stand"} ${(marks[i] as { id: string }).id}` : "draw", ...(word ? { at_word: word } : {}) })) },
+        // pass 5: the hook's title stays on through the whole first beat, its detail shots too
+        text: tail ? { ...textOf(b, view, k), caption_keyword: word ?? undefined } : textOf(b, view, k),
         sound: k === 0 || mine.length ? { sfx: k === 0 ? SFX_OF[b.kind] : "pop", ...(word ? { at_word: word } : {}), ...(bi === 0 && k === 0 ? { music: "bed-in" } : {}) } : {},
         transition_out: tOut,
         meaning: tail ? `the event in detail, on the hook's map${mine.length ? ` (${mine.map((i) => marks[i].kind).join(", ")})` : ""}` : meaningOf(b, view, mine.map((i) => marks[i])),
@@ -551,6 +569,59 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
     shots,
     checks: { max_static_s: 2.0, max_words_on_screen: 12, max_words_per_shot: 8, sync_tolerance_s: 0.2, end_after_last_word_s: 1.6 },
   };
+}
+
+/** A point a share t (0…1) of the way along a polyline, by length. */
+function alongPath(path: [number, number][], t: number): [number, number] {
+  const seg = path.slice(1).map((p, i) => geoDistance(path[i], p));
+  const total = seg.reduce((a, x) => a + x, 0);
+  let left = t * total;
+  for (let i = 0; i < seg.length; i += 1) {
+    if (left <= seg[i] || i === seg.length - 1) return geoInterpolate(path[i], path[i + 1])(seg[i] ? Math.min(1, left / seg[i]) : 0) as [number, number];
+    left -= seg[i];
+  }
+  return path[path.length - 1];
+}
+/**
+ * Pass 5: how a beat follows its line, when it has one: a pipeline longer than half the beat's frame with its one disc
+ * at its far end. Marks: the line and what stands at its start on the first shot; the disc and what stands by it on
+ * the end shot (the third); the names round the shots between and after. Looks: the start, the middle, the end (each at
+ * about half the beat's span), then the beat's whole frame.
+ */
+export function followOf(marks: Mark[], beat: Look, n: number): { marks: number[][]; looks: Look[]; end: number } | null {
+  const li = marks.findIndex((m) => m.kind === "object" && m.move === "pipe" && Boolean(m.path) && m.path!.length >= 2);
+  if (li < 0) return null;
+  const path = (marks[li] as Extract<Mark, { kind: "object" }>).path!;
+  const a = path[0];
+  const z = path[path.length - 1];
+  const long = (geoDistance(a, z) * 180) / Math.PI;
+  if (long < beat.span * 0.5) return null;
+  const disc = marks.find((m) => m.kind === "marker") as Extract<Mark, { kind: "marker" }> | undefined;
+  if (!disc || Math.hypot(disc.lon - z[0], disc.lat - z[1]) > long * 0.2) return null;
+  const end = Math.min(2, n - 1);
+  const near = (m: Mark, p: [number, number]) => "lon" in m && Math.hypot((m as { lon: number }).lon - p[0], (m as { lat: number }).lat - p[1]) < long * 0.2;
+  const out: number[][] = Array.from({ length: n }, () => []);
+  const names: number[] = [];
+  marks.forEach((m, i) => {
+    if (i === li) out[0].push(i);
+    else if (m.kind === "label") names.push(i);
+    else if (m.kind === "marker" || (m.kind === "object" && near(m, z))) out[end].push(i);
+    else out[0].push(i);
+  });
+  const half = Math.max(beat.span * 0.55, long * 0.45);
+  const looks: Look[] = Array.from({ length: n }, (_, k) => {
+    if (k > end) return { ...beat };
+    const [lon, lat] = alongPath(path, k === 0 ? 0.14 : k === end ? 0.86 : 0.5);
+    return { lon, lat, span: half };
+  });
+  // each name on the shot between or after the end whose frame it is in (a name off every frame waits for the last)
+  const free = out.map((x, k) => (k === 0 || k === end ? -1 : k)).filter((k) => k >= 0);
+  for (const i of names) {
+    const m = marks[i] as Extract<Mark, { kind: "label" }>;
+    const fit = free.filter((k) => Math.abs(m.lon - looks[k].lon) < looks[k].span * 0.4 && Math.abs(m.lat - looks[k].lat) < looks[k].span * 0.5);
+    out[fit.length ? fit.reduce((a2, k) => (out[k].length < out[a2].length ? k : a2), fit[0]) : n - 1].push(i);
+  }
+  return { marks: out, looks, end };
 }
 
 function assetOf(b: Beat): string {

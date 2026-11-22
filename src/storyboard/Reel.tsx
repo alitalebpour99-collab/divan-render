@@ -69,7 +69,8 @@ function cameraKeys(sb: Storyboard): Key[] {
     } else {
       // pass 4: into a new beat the camera whips (its header and marks land as it arrives); inside a beat it glides
       const into = sb.shots.find((z) => z.beat === s.beat) === s && s.beat > 0;
-      const travel = s.motion.camera === "dive" ? Math.min(len, into ? TRAVEL.dive : 40) : Math.min(len, into ? TRAVEL.pan : 22);
+      // pass 5: along a followed line the camera glides the whole shot, with the line as it draws
+      const travel = s.motion.follow !== undefined && !into ? len : s.motion.camera === "dive" ? Math.min(len, into ? TRAVEL.dive : 40) : Math.min(len, into ? TRAVEL.pan : 22);
       if (keys[keys.length - 1].at < a) keys.push({ at: a, ...prev });
       keys.push({ at: a + travel, ...look, ease: "inOut" });
       // after the move the camera keeps creeping the same way (a tenth further), so the frame is never still
@@ -325,6 +326,8 @@ export function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boole
           const own = sb.shots.filter((z) => z.beat === s.beat);
           const zi = si >= 0 ? own.findIndex((z) => z.marks.includes(si)) : -1;
           if (zi >= 0 && own[zi + 1]) mm = { ...mm, stop: Math.round(own[zi + 1].start * sb.fps) + 3 - at };
+          // pass 5: a followed line draws from its start until its end shot, the camera travelling with it
+          if (s.motion.follow) mm = { ...mm, draw: Math.max(30, Math.round(s.start * sb.fps) + s.motion.follow - at) };
         }
         // round 6: the beat's main thing is drawn a size larger
         const mp = mainObject(marks);

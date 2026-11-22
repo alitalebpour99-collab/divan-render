@@ -22,6 +22,10 @@ const STEEL_D = "#8d99a8";
 const FLAME = "#ffb020";
 const clamp01 = (u: number) => (u < 0 ? 0 : u > 1 ? 1 : u);
 const out3 = (u: number) => 1 - (1 - clamp01(u)) ** 3;
+const inOut3 = (u: number) => {
+  const x = clamp01(u);
+  return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
+};
 const pop = (u: number) => {
   const x = clamp01(u);
   return x < 0.7 ? (x / 0.7) * 1.15 : 1.15 - ((x - 0.7) / 0.3) * 0.15;
@@ -848,6 +852,8 @@ export type ObjectSpec = {
   f0?: number;
   /** pass 4: a pipeline whose oil stops (the line says the output went): frames after it lands */
   stop?: number;
+  /** pass 5: a followed pipeline draws over this many frames (the camera travels with it) */
+  draw?: number;
 };
 
 /** Things that float: their picture is drawn only where its hull lies on the water (round 8). */
@@ -1190,7 +1196,7 @@ export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** t
   }
   if (move === "pipe" && pts.length >= 2) {
     const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join("");
-    const kk = out3(t / 30);
+    const kk = o.draw ? inOut3(t / o.draw) : out3(t / 30);
     const c = o.color && o.color !== "#ffd88a" ? o.color : FLAME;
     const flow = o.stop !== undefined && t > o.stop ? Math.max(0, 1 - (t - o.stop) / 14) : 1;
     return (

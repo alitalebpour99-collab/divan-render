@@ -546,7 +546,8 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         picture: { layer, asset: assetOf(b), beat: bi, view: String(view) },
         motion: { camera, ...(look ? { look } : {}), ...(focus ? { focus: focus.n } : {}), ...(flw ? { follow: Math.round(cuts[Math.min(flw.end, cuts.length - 1)] - s) } : {}), ...(bi === 0 && k === 0 && hookFrom(b) ? { from: hookFrom(b)! } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : marks[i].kind === "object" ? `${(marks[i] as { move?: string }).move ?? "stand"} ${(marks[i] as { id: string }).id}` : "draw", ...(word ? { at_word: word } : {}) })) },
         // pass 5: the hook's title stays on through the whole first beat, its detail shots too
-        text: tail ? { ...textOf(b, view, k), caption_keyword: word ?? undefined } : textOf(b, view, k),
+        // (until 3 s at most: checks.ts hook-short, the hook gives way within 3 s)
+        text: tail ? (e / fps <= 3.0 ? { ...textOf(b, view, k), caption_keyword: word ?? undefined } : { chips: [], caption_keyword: word ?? undefined }) : textOf(b, view, k),
         sound: k === 0 || mine.length ? { sfx: k === 0 ? SFX_OF[b.kind] : "pop", ...(word ? { at_word: word } : {}), ...(bi === 0 && k === 0 ? { music: "bed-in" } : {}) } : {},
         transition_out: tOut,
         meaning: tail ? `the event in detail, on the hook's map${mine.length ? ` (${mine.map((i) => marks[i].kind).join(", ")})` : ""}` : meaningOf(b, view, mine.map((i) => marks[i])),

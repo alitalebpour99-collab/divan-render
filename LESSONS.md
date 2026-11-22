@@ -221,3 +221,16 @@ boxes»). The owner chose: **bare text with a soft shadow and a leader line, as 
 callouts and the measure's length are now words with a soft double drop shadow, their colour in the words, the
 leader and the dot; no backing, no bar. Iterations pause until the ElevenLabs narrator is back (27 Nov 2026); the next
 round is judged with the voice.
+
+## Nothing blinks (owner, 22 Nov 2026)
+
+The owner: «نوشته‌های روی نقشه و جاها و بعضی وقت‌ها آبجکت‌ها یهو ناپدید و دوباره تولید میشن». Measured on the round-8
+samples: 22 blinks in divan-strait and 24 in divan-abqaiq (a word or thing gone for 1 to 27 frames, then back). Causes:
+every frame placed its words on its own (the ground's names greedy, nearest the centre, five at most: a newcomer pushed
+an old name out for a few frames); a beat's things belonged to that beat only and the next beat drew the same tanker or
+refinery afresh 3 frames after the cut; a ship whose hull touched a coast or a panel for a few frames went out and came
+back. Now: the same thing on two beats is one thing (`markKey`, carried on with its clock, sliding when the new beat
+moves it a little); a thing whose story ends fades out over 9 frames; the Reel is walked once in order (`reelTrack`):
+names on the frame before keep their place first, a blink under 15 frames is never drawn, the shorter side of a gap
+under 30 frames is dropped, and every word and thing fades in and out. mapcheck's rule `blink` fails any Reel where
+something is gone for 1 to 30 frames and back.

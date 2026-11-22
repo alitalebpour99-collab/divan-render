@@ -1,6 +1,6 @@
 // Round 8: the pre-delivery check's rules (scripts/mapcheck.mjs runs them on a sample; tests/legend.test.mjs on both topics).
 import { enrich } from "../src/storyboard/enrich.ts";
-import { direct, LOOP } from "../src/storyboard/director.ts";
+import { direct, LOOP, arriveOf } from "../src/storyboard/director.ts";
 import { frameScene, CHROME } from "../src/storyboard/Reel.tsx";
 import { isLand, coastKm, landAt } from "../src/map-engine/water.ts";
 import { HULL_PROBES, HOUSE_KM, artPoint } from "../src/map-engine/objects.tsx";
@@ -11,6 +11,36 @@ export const DISC_KM = 2;
 /** pass 3: the ships whose picture has a house and a bow (their whole picture is tested, not only the waterline) */
 const MERCHANT = new Set(["tanker", "cargo", "lng", "warship"]);
 
+/** round 8 (owner, 22 Nov 2026: «یهو ناپدید و دوباره تولید میشن»): a word or thing gone for this many frames or fewer, then back, is a blink */
+export const BLINK_FRAMES = 30;
+
+/**
+ * Round 8: what is on the map on frame f, by identity across frames: every word (a callout by its bold line), every thing
+ * (each ship of a column on its own), every numbered disc at its place.
+ */
+export function presence(sc) {
+  const out = new Set();
+  for (const w of sc.words) out.add(w.kind === "callout" ? `callout «${sc.layout?.callouts?.find((c) => c.id === w.t)?.bold ?? w.t}»` : `${w.kind} «${w.t}»`);
+  for (const t of sc.things) out.add(`thing ${t.key ?? t.id}`);
+  for (const d of sc.discs) out.add(`disc ${d.n} at ${d.geo.map((x) => x.toFixed(2)).join(",")}`);
+  return out;
+}
+
+/** the blinks of a Reel: present on frame a, absent on 1 to BLINK_FRAMES frames, present again (the loop's last frames excepted) */
+export function blinks(frames, upTo) {
+  const out = [];
+  const last = new Map();
+  frames.forEach((set, f) => {
+    if (f >= upTo) return;
+    for (const k of set) {
+      const l = last.get(k);
+      if (l !== undefined && f - l > 1 && f - l - 1 <= BLINK_FRAMES) out.push({ k, from: l + 1, to: f - 1, n: f - l - 1 });
+      last.set(k, f);
+    }
+  });
+  return out;
+}
+
 const meet = (a, b, pad = 0) => a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
 const onScreen = (b) => b.x + b.w > 0 && b.x < 1080 && b.y + b.h > 0 && b.y < 1920;
 
@@ -19,8 +49,12 @@ export function checkReel(content, every = 2) {
   const sb = direct(c, []);
   const fails = [];
   const fail = (f, rule, what) => fails.push({ f, s: +(f / sb.fps).toFixed(2), rule, what });
-  for (let f = 0; f < sb.total; f += every) {
+  const seen = [];
+  for (let f = 0; f < sb.total; f += 1) {
     const sc = frameScene(c, sb, f);
+    // round 8: what is on the map, on every frame (a blink of one frame is a blink)
+    seen.push(presence(sc));
+    if (f % every) continue;
     const { words, things, discs, lanes, view, beat } = sc;
     // the loop's last frames fly home under the hook's words: the same rules hold
     const panels = [...CHROME, ...(sc.over ?? [])];
@@ -94,7 +128,8 @@ export function checkReel(content, every = 2) {
       for (let j = i + 1; j < things.length; j += 1) if (onScreen(things[i].box) && (things[i].col === undefined || things[i].col !== things[j].col) && meet(things[i].box, things[j].box, -6)) fail(f, "object-over-object", `${things[i].id} × ${things[j].id}`);
     // --- a column the line counts: all of it is drawn once the camera has arrived on its own beat ---
     const shot = sb.shots.find((z) => f >= Math.round(z.start * sb.fps) && f < Math.round((z.start + z.dur) * sb.fps));
-    const arriving = shot && (shot.motion.camera === "dive" || (shot.beat === 0 && shot.n === 1));
+    // round 8: a column carried on from the beat before flies with the camera to the new look; under the panels meanwhile
+    const arriving = shot && (shot.motion.camera === "dive" || (shot.beat === 0 && shot.n === 1) || f - Math.round(shot.start * sb.fps) < arriveOf(sb.shots, shot, sb.fps));
     for (const col of sc.cols ?? []) if (col.own && col.drawn < col.n && !arriving && f < sb.total - LOOP) fail(f, "column-thinned", `${col.drawn} of ${col.n} ships drawn`);
     // --- discs ---
     for (const d of discs) {
@@ -138,6 +173,8 @@ export function checkReel(content, every = 2) {
         }
     }
   }
+  // --- round 8: nothing blinks: a word, a thing or a disc gone and back within 1 s (BLINK_FRAMES) fails the Reel ---
+  for (const b of blinks(seen, sb.total - LOOP)) fail(b.from, "blink", `${b.k} gone on frames ${b.from}–${b.to} (${b.n}) and back`);
   return { c, sb, fails };
 }
 

@@ -1079,7 +1079,7 @@ const Trail: React.FC<{ pts: [number, number][]; air: boolean; k: number }> = ({
  * (ships.ts), so it never jumps between beats nor slides; its bow follows the way, and on a turn across the screen's
  * vertical it swings round (its side view narrows and widens again) instead of flipping; a wake widens behind it.
  */
-const ClockShip: React.FC<{ o: ObjectSpec; base?: number; panels?: PanelBox[] }> = ({ o, base, panels = [] }) => {
+const ClockShip: React.FC<{ o: ObjectSpec; base?: number; panels?: PanelBox[]; vis?: number[] }> = ({ o, base, panels = [], vis }) => {
   const v = useView();
   const f = v.f;
   // a column keeps a ship's length and a half between hulls, and the wake is 1.2 hull lengths: both measured once on the
@@ -1103,7 +1103,7 @@ const ClockShip: React.FC<{ o: ObjectSpec; base?: number; panels?: PanelBox[] }>
         }
         const bob = Math.sin((f + i * 17) / 9) * 2;
         const s1 = SCALE[o.id] * (o.size ?? 1) * zoom;
-        const wk = (FLOATING.has(o.id) ? wetK(v, at, s1, o.id, pose) : 1) * clearOfPanels({ x: at[0] - 135 * s1, y: at[1] - 120 * s1, w: 270 * s1, h: 140 * s1 }, panels);
+        const wk = (FLOATING.has(o.id) ? wetK(v, at, s1, o.id, pose) : 1) * clearOfPanels({ x: at[0] - 135 * s1, y: at[1] - 120 * s1, w: 270 * s1, h: 140 * s1 }, panels) * (vis?.[i] ?? 1);
         if (!wk) return null;
         return (
           <g key={i} opacity={wk}>
@@ -1144,9 +1144,10 @@ const CountBadge: React.FC<{ o: ObjectSpec; zoom: number }> = ({ o, zoom }) => {
  * incident's point and stops there when the incident lands; an aircraft flies its path with contrails; a missile arcs
  * over its path and bursts where it lands; a missile or a drone dives onto its point from the sky (no launch site).
  */
-export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** the span its beat looks at: wider than that, the object shrinks with the map (to 0.55), so an opening dive never shows a ship as big as a coast */ base?: number; opacity?: number; /** round 8: the panels over the map it never lies under */ panels?: PanelBox[] }> = ({ o, t, life, base, opacity = 1, panels = [] }) => {
+export const MapObject: React.FC<{ o: ObjectSpec; t: number; life: number; /** the span its beat looks at: wider than that, the object shrinks with the map (to 0.55), so an opening dive never shows a ship as big as a coast */ base?: number; opacity?: number; /** round 8: the panels over the map it never lies under */ panels?: PanelBox[]; /** round 8: its track on this frame, ship by ship (Reel.tsx thingTrack): a thing fades, it never blinks */ vis?: number[] }> = ({ o, t, life, base, opacity = 1, panels = [], vis }) => {
   const v = useView();
-  if (o.move === "sail" && o.f0 !== undefined && t >= 0) return <g opacity={opacity}><ClockShip o={o} base={base} panels={panels} /></g>;
+  if (o.move === "sail" && o.f0 !== undefined && t >= 0) return <g opacity={opacity}><ClockShip o={o} base={base} panels={panels} vis={vis} /></g>;
+  if (vis && vis[0] !== undefined && vis[0] < 1) return vis[0] > 0 ? <g opacity={vis[0]}><MapObject o={o} t={t} life={life} base={base} opacity={opacity} panels={panels} /></g> : null;
   // round 8: a standing or moving thing fades off a panel too (its box, as objectBox measures it)
   if (panels.length && t >= 0) {
     const bx = objectBox(o, t, life, base, v, v.f);

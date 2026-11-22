@@ -389,7 +389,7 @@ export function placeCallouts(v: { at: (lon: number, lat: number) => [number, nu
   return { fits, placed: place(wants, safe, [...taken, ...hard], 56, hard) };
 }
 
-export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box; taken?: Box[]; pre?: ReturnType<typeof placeCallouts>; /** round 5: the grounds each callout lies on (its colour is brought up to read on them) */ grounds?: Record<string, string[]> }> = ({ items, ts, safe, taken = [], pre, grounds = {} }) => {
+export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box; taken?: Box[]; pre?: ReturnType<typeof placeCallouts>; /** round 5: the grounds each callout lies on (its colour is brought up to read on them) */ grounds?: Record<string, string[]>; /** round 8: each callout's opacity on this frame (its story's end, its track) */ ops?: number[] }> = ({ items, ts, safe, taken = [], pre, grounds = {}, ops }) => {
   const v = useView();
   const { fits, placed } = pre ?? placeCallouts(v, items, safe, taken);
   return (
@@ -410,7 +410,8 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
         const { size, lines, sub, subK } = fits[i];
         const halo = { paintOrder: "stroke" as const, stroke: v.theme.halo, strokeWidth: Math.round(size * 0.16), strokeLinejoin: "round" as const };
         const line = size * 1.2;
-        const k = out3(t / 10);
+        const k = out3(t / 10) * (ops?.[i] ?? 1);
+        if (k <= 0) return null;
         const bx = p.box.x;
         const by = p.box.y;
         const ex = p.box.x + p.box.w;
@@ -454,13 +455,14 @@ export const Callouts: React.FC<{ items: CalloutSpec[]; ts: number[]; safe: Box;
  * mark that speaks (`avoid`) nor of each other. At most `max`; none on the whole globe but the states.
  */
 /** The ground's names a frame writes, and the box of each (pure: the word layout and its test use it too). */
-export function pickNames(v: { at: (lon: number, lat: number) => [number, number] | null; frame: { x: number; y: number; w: number; h: number }; look: { span: number } }, avoid: [number, number][], places: { t: string; lon: number; lat: number }[], states: { t: string; lon: number; lat: number }[], max = 5, boxes: Box[] = []): { t: string; at: [number, number]; box: Box }[] {
+export function pickNames(v: { at: (lon: number, lat: number) => [number, number] | null; frame: { x: number; y: number; w: number; h: number }; look: { span: number } }, avoid: [number, number][], places: { t: string; lon: number; lat: number }[], states: { t: string; lon: number; lat: number }[], max = 5, boxes: Box[] = [], /** round 8: the names on the frame before: they keep their place first (a name never gives way to a newcomer and comes back) */ prefer: string[] = []): { t: string; at: [number, number]; box: Box }[] {
   const cx = v.frame.x + v.frame.w / 2;
   const cy = v.frame.y + v.frame.h / 2;
   const zone = { x0: 90, x1: 990, y0: 640, y1: 1360 };
   const taken: [number, number][] = avoid.map(([lon, lat]) => v.at(lon, lat)).filter((p): p is [number, number] => Boolean(p));
   const pool = (v.look.span > 70 ? states : [...places, ...states]).map((p) => ({ ...p, at: v.at(p.lon, p.lat) })).filter((p) => p.at && p.at[0] > zone.x0 && p.at[0] < zone.x1 && p.at[1] > zone.y0 && p.at[1] < zone.y1) as { t: string; at: [number, number] }[];
-  pool.sort((a, b) => Math.hypot(a.at[0] - cx, a.at[1] - cy) - Math.hypot(b.at[0] - cx, b.at[1] - cy));
+  const held = new Set(prefer);
+  pool.sort((a, b) => (held.has(a.t) ? 0 : 1) - (held.has(b.t) ? 0 : 1) || Math.hypot(a.at[0] - cx, a.at[1] - cy) - Math.hypot(b.at[0] - cx, b.at[1] - cy));
   const out: { t: string; at: [number, number]; box: Box }[] = [];
   const used: Box[] = [...boxes];
   for (const p of pool) {
@@ -478,13 +480,13 @@ export function pickNames(v: { at: (lon: number, lat: number) => [number, number
   return out;
 }
 
-export const ContextNames: React.FC<{ avoid: [number, number][]; max?: number; places: { t: string; lon: number; lat: number }[]; states: { t: string; lon: number; lat: number }[]; /** pass 3: words already on the map (a measure, the callouts and their leaders, the scale): a name never meets one */ boxes?: Box[]; /** round 7: the names already picked by the frame's word layout */ picked?: { t: string; at: [number, number] }[] }> = ({ avoid, max = 5, places, states, boxes = [], picked }) => {
+export const ContextNames: React.FC<{ avoid: [number, number][]; max?: number; places: { t: string; lon: number; lat: number }[]; states: { t: string; lon: number; lat: number }[]; /** pass 3: words already on the map (a measure, the callouts and their leaders, the scale): a name never meets one */ boxes?: Box[]; /** round 7: the names already picked by the frame's word layout */ picked?: { t: string; at: [number, number] }[]; /** round 8: each name's opacity on this frame (its track: it fades, never pops) */ ops?: number[] }> = ({ avoid, max = 5, places, states, boxes = [], picked, ops }) => {
   const v = useView();
   const out = picked ?? pickNames(v, avoid, places, states, max, boxes);
   return (
     <g opacity={0.82}>
-      {out.map((l, i) => (
-        <text key={i} x={l.at[0]} y={l.at[1] + 15} textAnchor="middle" direction="rtl" fill={v.theme.label} fontFamily={VAZIR} fontWeight={600} fontSize={44} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 8, strokeLinejoin: "round" }}>
+      {out.map((l, i) => (ops?.[i] ?? 1) <= 0 ? null : (
+        <text key={i} opacity={ops?.[i] ?? 1} x={l.at[0]} y={l.at[1] + 15} textAnchor="middle" direction="rtl" fill={v.theme.label} fontFamily={VAZIR} fontWeight={600} fontSize={44} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 8, strokeLinejoin: "round" }}>
           {l.t}
         </text>
       ))}
@@ -509,7 +511,7 @@ export function placeLabel(v: { at: (lon: number, lat: number) => [number, numbe
 }
 
 /** Quiet place names (seas, straits, states), never under 50 px (round 2: the judge could not read 40 px), each on a dark halo. */
-export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: number; size?: number; color?: string }[]; opacity?: number; /** boxes the names keep clear of (objects on the map): a name over one moves above it */ avoid?: Box[]; /** pass 3: words a name may not meet at all (a measure, the scale): it gives way */ block?: Box[]; /** round 7: where the frame's word layout put each (null: it waits) */ placed?: ({ at: [number, number]; y: number } | null)[] }> = ({ items, opacity = 1, avoid = [], block = [], placed }) => {
+export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: number; size?: number; color?: string }[]; opacity?: number; /** boxes the names keep clear of (objects on the map): a name over one moves above it */ avoid?: Box[]; /** pass 3: words a name may not meet at all (a measure, the scale): it gives way */ block?: Box[]; /** round 7: where the frame's word layout put each (null: it waits) */ placed?: ({ at: [number, number]; y: number } | null)[]; /** round 8: each label's opacity on this frame */ ops?: number[] }> = ({ items, opacity = 1, avoid = [], block = [], placed, ops }) => {
   const v = useView();
   const taken: Box[] = [...block];
   return (
@@ -517,12 +519,12 @@ export const PlaceLabels: React.FC<{ items: { t: string; lon: number; lat: numbe
       {items.map((l, i) => {
         let pl = placed ? placed[i] : placeLabel(v, l, avoid, taken);
         if (!placed && pl) taken.push(pl.box);
-        if (!pl) return null;
+        if (!pl || (ops?.[i] ?? 1) <= 0) return null;
         const { at, y } = pl;
         const moved = y !== at[1];
         pl = null;
         return (
-          <g key={i}>
+          <g key={i} opacity={ops?.[i] ?? 1}>
             {moved ? <path d={`M${at[0]} ${at[1]} L${at[0]} ${y + 6}`} stroke={l.color ?? v.theme.label} strokeWidth={2} opacity={0.7} /> : null}
             {moved ? <circle cx={at[0]} cy={at[1]} r={5} fill={l.color ?? v.theme.label} /> : null}
             <text x={at[0]} y={y} textAnchor="middle" direction="rtl" fill={l.color ?? v.theme.label} fontFamily={VAZIR} fontWeight={700} fontSize={Math.max(50, l.size ?? 52)} style={{ paintOrder: "stroke", stroke: v.theme.halo, strokeWidth: 9, strokeLinejoin: "round" }}>

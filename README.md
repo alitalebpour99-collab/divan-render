@@ -354,3 +354,27 @@ crossing the coast, a tanker on the Bandar Abbas coast). The map now carries no 
    `node --import ./tests/register.mjs scripts/mapcheck.mjs samples/divan-strait.json --every 2`
    The camera keeps a beat's discs and their things inside the band between the header and the legend on every shot,
    and pulls out no further than 1.3 of the beat's span (`legend.ts fitPoints`).
+
+### Round 8, pass 3 (22 Nov 2026): the pass-2 review (both videos 7/10)
+
+1. **A ship's whole picture on open water** (`object-ids.ts HULL_PROBES`, `objects.tsx hullClear`, `shipPose`): not only its
+   waterline but a row through the deck gear, the house and the bridge's top at either end, the bow and the foremast, each
+   1.5 km (`HOUSE_KM`) off every coast, measured in the pose the ship is drawn in (its side view turned and leaning with its
+   way). The renderer does not draw a ship that fails it; mapcheck tests it on its own (`house-near-coast`) and fails a
+   column the line counts when fewer of it are drawn than it says once the camera has arrived (`column-thinned`).
+2. **The hook's column sails the open lane** (`Reel.tsx openWater`): where along its lane a counted column is at the
+   hook is searched once (Root.tsx puts the clocks in the storyboard) so every ship of it is whole, on open water, clear of
+   the header, the legend and the beat's discs, on every frame of the beats it sails in. Its ships are drawn at 0.25 and
+   1.2 hull lengths apart (a shorter column), and the camera does not push in past 0.85 of such a beat's frame.
+3. **A claim about a strait's waters** («۶ نفتکش، ۷ روز», no pin, no strike) is numbered in the middle of the shipping
+   lane, between its two ways (`legend.ts laneMiddle`).
+4. **Things beside their disc** (`besideDiscs`): spots in rings round the disc, the nearest first; a mine has a mine's
+   room, so it stands right beside; a ship's whole picture must be 2 km off every coast, and a ship that finds no such
+   spot at full size stands smaller (to half) rather than far away. `objectZoom` now keeps a thing's own `size`.
+5. **A place well inland** (Abqaiq) is never moved to the sea because a ship floats near it.
+6. **A thing by a later disc lands on its disc's shot** (`director.ts withPairs`), never before or after it; a shot the
+   pairing empties takes a free mark from its neighbour, and the ground adds a name for each such rider.
+7. **The legend box grows** with its rows (each row eases in over 8 frames; the rows above slide up).
+8. `isLand` walks only the edges in its latitude band (same answers, about ten times faster).
+9. Abqaiq's share beat (sample): the processing plant at Abqaiq (①), the pipeline to Ras Tanura, the export terminal (②)
+   with a tanker at it, and the share's row, on a closer look (span 3). The site's writer should ask for the same marks.

@@ -7,6 +7,8 @@ import type { Look } from "../map-engine/camera";
 import { CAPITALS } from "../map-engine/capitals";
 import { PLACES_FA } from "../map-engine/names";
 import { country } from "../map-engine/world";
+import { textWidth } from "../map-engine/labels";
+import { bandBottom, fitPoints, WIDE } from "./legend";
 
 /**
  * Where the first frame looks from when the concept gives no opening and the hook names states out of its frame
@@ -62,8 +64,24 @@ export const viewsOf = (b: Beat): number => {
       return 3;
   }
 };
+/**
+ * Reading time (owner, 21 Nov 2026: «زمان ویدیو برای توضیح بیشتر وجود داشته باشه اگه لازمه»): a beat stays until its
+ * words can be read at 2.75 words a second, plus the time to look at its map (a second, and a little more for each
+ * incident or thing on it). The length of a Reel follows its content, not a fixed short time; the hook is the exception
+ * (its title is the first two seconds and the cut is what holds the eye).
+ */
+export const READ_WPS = 2.75;
+const screenWords = (b: Beat): number => {
+  const marks = b.kind === "hook" || b.kind === "map" || b.kind === "demand" || b.kind === "road" ? (b.marks ?? []) : [];
+  const own = b.kind === "map" ? [b.caption] : b.kind === "number" ? [b.big, b.unit, b.text] : b.kind === "chart" ? [b.chart.title] : b.kind === "road" ? [b.road.title, b.road.cost] : b.kind === "demand" ? [b.wants] : b.kind === "flags" ? [b.title] : b.kind === "poll" ? [b.q, ...b.options.map((o) => o.title)] : [];
+  // round 8: a beat's legend is read like its callouts were
+  const legend = b.kind === "map" || b.kind === "hook" ? (b.legend ?? []).map((x) => x.text) : [];
+  return [...own, ...legend, ...marks.flatMap((m) => (m.kind === "callout" ? [m.bold, m.sub] : m.kind === "label" ? [m.t] : []))].reduce((n, s) => n + wordsIn(s), 0);
+};
+const lookFrames = (b: Beat, fps: number) => (b.kind === "map" || b.kind === "demand" || b.kind === "road" ? fps + Math.round(0.4 * fps * (b.marks ?? []).filter((m) => m.kind === "object" || m.kind === "pins" || m.kind === "marker").length) : 0);
+export const readFrames = (b: Beat, fps = FPS) => (b.kind === "hook" ? 0 : Math.round((screenWords(b) / READ_WPS) * fps) + lookFrames(b, fps));
 /** The least a beat lasts without a narrator, in frames. */
-const floorOf = (b: Beat) => (b.kind === "hook" ? 45 : b.kind === "chart" ? 105 : b.kind === "poll" ? 3 * 32 + LOOP : viewsOf(b) * 40);
+const floorOf = (b: Beat) => Math.max(b.kind === "hook" ? 45 : b.kind === "chart" ? 105 : b.kind === "poll" ? 3 * 32 + LOOP : viewsOf(b) * 40, readFrames(b));
 
 /** Words of a line said at about 13 letters a second, when no narrator read it (samples, a Reel held without voice). */
 export function guessWords(text: string, fps = FPS): { text: string; from: number; frames: number }[] {
@@ -80,7 +98,7 @@ export function guessWords(text: string, fps = FPS): { text: string; from: numbe
 const centreOf = (marks: Mark[], fallback: Look): [number, number] => {
   const pts: [number, number][] = [];
   for (const m of marks) {
-    if (m.kind === "callout" || m.kind === "label" || m.kind === "flag") pts.push([m.lon, m.lat]);
+    if (m.kind === "callout" || m.kind === "label" || m.kind === "flag" || m.kind === "object") pts.push([m.lon, m.lat]);
     else if (m.kind === "pins") pts.push(...m.points.map((p) => [p.lon, p.lat] as [number, number]));
     else if (m.kind === "measure") pts.push(m.a, m.b);
     else if (m.kind === "claim" || m.kind === "dashed" || m.kind === "comet") pts.push(m.coords[Math.floor(m.coords.length / 2)]);
@@ -107,6 +125,17 @@ const lineOf = (marks: Mark[]): [number, number][] | null => {
   let best: [number, number][] | null = null;
   let len = 0;
   for (const m of marks) {
+    // round 4: a pipeline laid on its route, a ship on its lane, an aircraft on its way are lines the camera follows too
+    // round 7: a ship on a lane sails the Reel's clock along the whole lane: its way is not this beat's line to follow
+    if (m.kind === "object" && m.lane) continue;
+    if (m.kind === "object" && m.path && m.path.length >= 2 && (m.move === "pipe" || m.move === "sail" || m.move === "fly" || m.move === "approach")) {
+      const d = geoDistance(m.path[0], m.path[m.path.length - 1]);
+      if (d > len) {
+        len = d;
+        best = m.path;
+      }
+      continue;
+    }
     if (m.kind !== "comet" && m.kind !== "dashed" && m.kind !== "claim") continue;
     // a looping comet is traffic on a lane, not a story: the camera never follows it out to sea (round 3A, 7.5–9 s)
     if (m.kind === "comet" && m.loop) continue;
@@ -118,6 +147,82 @@ const lineOf = (marks: Mark[]): [number, number][] | null => {
   }
   return best && len > 0.02 ? best : null;
 };
+/** A claim beat (round 4 pass 3): two or more states' callouts on one map. Their points, or null. */
+/**
+ * The beat's marks shared out over its shots, at most one new callout a shot (round 6, the judge: «two incidents close
+ * together crowd one shot»): a second callout waits for the next shot; the last shot takes what is left.
+ */
+/** round 8: when the first shot brings a disc, no other disc comes on that shot: it waits for the next one */
+export function discsAfterFirst(sl: number[][], firstHasDisc: boolean, isDisc: (i: number) => boolean): number[][] {
+  if (!firstHasDisc || sl.length < 2) return sl;
+  const out = sl.map((x) => [...x]);
+  const moved = out[0].filter(isDisc);
+  out[0] = out[0].filter((i) => !isDisc(i));
+  out[1] = [...moved, ...out[1]];
+  return out;
+}
+export function stagger(rest: number[], n: number, isCallout: (i: number) => boolean): number[][] {
+  const sl = Array.from({ length: n }, (_, k) => rest.slice(Math.floor((k * rest.length) / n), Math.floor(((k + 1) * rest.length) / n)));
+  for (let k = 0; k + 1 < n; k += 1) {
+    while (sl[k].filter(isCallout).length > 1) {
+      const last = [...sl[k]].reverse().find(isCallout)!;
+      sl[k] = sl[k].filter((i) => i !== last);
+      sl[k + 1] = [last, ...sl[k + 1]];
+    }
+  }
+  return sl;
+}
+export const claimPoints = (marks: Mark[]): [number, number][] | null => {
+  const cs = marks.filter((m): m is Extract<Mark, { kind: "callout" }> => m.kind === "callout" && Boolean((m as { a3?: string }).a3));
+  return new Set(cs.map((m) => (m as { a3?: string }).a3)).size >= 2 ? cs.map((m) => [m.lon, m.lat] as [number, number]) : null;
+};
+/**
+ * The look that holds every claim point inside the labels' safe frame (x 140–820, y 620–1340 of 1080×1920), with room
+ * for the words: a narrative left off the screen is a narrative the viewer never hears (abqaiq «سه روایت», pass 2).
+ * Each later shot breathes a little wider and drifts, so the picture still changes every shot.
+ */
+export function frameAll(pts: [number, number][], k: number, beat: Look): Look {
+  const lons = pts.map((p) => p[0]);
+  const lats = pts.map((p) => p[1]);
+  const midLon = (Math.min(...lons) + Math.max(...lons)) / 2;
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const cos = Math.cos((midLat * Math.PI) / 180);
+  const need = Math.max(((Math.max(...lons) - Math.min(...lons)) * cos * 1080) / 680, ((Math.max(...lats) - Math.min(...lats)) * 1080) / 720) * 1.18;
+  const span = Math.max(need, beat.span * 0.8) * (1 + 0.07 * (k % 3));
+  // the safe frame's middle is 60 px left of and 20 px under the screen's
+  const lon = midLon + (60 * span) / (1080 * cos) + (k % 2 ? 1 : -1) * span * 0.02 * (k > 0 ? 1 : 0);
+  const lat = midLat + (20 * span) / 1080;
+  return { lon, lat, span, tilt: 0, roll: 0 };
+}
+/** Where a share's bar is (Reel.tsx shareBox): as wide as its words, 318 px over its thing. */
+export const shareWidth = (label: string) => Math.min(820, Math.max(360, textWidth(label, 40)));
+/** Where its thing may stand (from the screen's middle) so the whole bar is inside the safe frame (x 64–884, y 560–1400). */
+export function shareBounds(label: string) {
+  const w = shareWidth(label);
+  let x0 = 64 + w / 2 + 24 - 540;
+  let x1 = 884 - w / 2 - 24 - 540;
+  if (x0 > x1) x0 = x1 = (x0 + x1) / 2;
+  return { x0, x1, y0: 560 + 318 + 24 - 960, y1: 380 };
+}
+/** The beat's main thing: its first object that stands at its point (not one that sails, flies or falls, not a pipeline). */
+export const mainObject = (marks: Mark[]): [number, number] | null => {
+  const o = marks.find((m) => m.kind === "object" && (m.move === undefined || m.move === "stand" || m.move === "approach"));
+  return o && o.kind === "object" ? [o.lon, o.lat] : null;
+};
+/**
+ * The look moved as little as it must for the point to stand inside the labels' safe frame (x 140–820, y 620–1340 of
+ * 1080×1920). Round 5 (the judge: «the camera follows a comet away, the refinery drops off the left edge»).
+ */
+export function keepInFrame(look: Look, p: [number, number], b = { x0: -400, x1: 280, y0: -340, y1: 380 }): Look {
+  const cos = Math.cos((p[1] * Math.PI) / 180);
+  const px = 1080 / look.span;
+  const dx = (p[0] - look.lon) * cos * px;
+  const dy = -(p[1] - look.lat) * px;
+  const cx = Math.max(b.x0, Math.min(b.x1, dx));
+  const cy = Math.max(b.y0, Math.min(b.y1, dy));
+  if (cx === dx && cy === dy) return look;
+  return { ...look, lon: p[0] - cx / (cos * px), lat: p[1] + cy / px };
+}
 const endOf = (marks: Mark[]): [number, number] | null => {
   for (const m of [...marks].reverse()) if (m.kind === "comet" || m.kind === "dashed" || m.kind === "claim") return m.coords[m.coords.length - 1];
   return null;
@@ -177,6 +282,16 @@ export function cutBeat(from: number, to: number, wordStarts: number[], need: nu
 
 const SFX_OF: Partial<Record<Beat["kind"], Shot["sound"]["sfx"]>> = { hook: "hit", map: "whoosh", chart: "tick", number: "rise", flags: "pop", demand: "whoosh", road: "swish", gauge: "tick", poll: "rise" };
 
+/** How many shots direct() cuts a beat into when it has no recorded line (round 5: enrich.ts fills each with a mark). */
+export function shotsFor(b: Beat, fps = FPS): number {
+  const lead = b.kind === "hook" ? LEAD.hook : LEAD.other;
+  const ws = guessWords(b.say ?? "", fps);
+  const spoken = ws.length ? ws[ws.length - 1].from + ws[ws.length - 1].frames : 0;
+  const need = viewsOf(b);
+  const len = Math.max(floorOf(b), spoken ? lead + spoken + PAD : 0, need * MIN_SHOT);
+  return Math.min(Math.max(1, Math.floor(len / MIN_SHOT)), Math.max(need, Math.ceil(len / MAX_SHOT)));
+}
+
 export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Storyboard {
   const shots: Shot[] = [];
   const voice: Storyboard["voice"] = [];
@@ -208,13 +323,35 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
       // a long first line: the hook is its first shots (under 2.5 s, the title on screen, the ground marks whole from
       // frame 0); the rest of the line follows on the same map as the event in detail, its other marks coming in one by one
       const tail = b.kind === "hook" && s - at >= HOOK_MAX;
-      const ground = (m: Mark) => m.kind === "fill" || m.kind === "hatch" || m.kind === "label" || m.kind === "pins";
+      // the hook's objects too: the thing of the story is on the first frame, and so on the loop's last
       const tailShots = b.kind === "hook" ? cuts.filter((x) => x - at >= HOOK_MAX).length : 0;
+      // round 5: a hook whose marks are all ground keeps its names for the second shot, so that shot brings something new
+      const namesLate = b.kind === "hook" && tailShots > 0 && marks.every((m) => m.kind === "fill" || m.kind === "hatch" || m.kind === "label" || m.kind === "pins" || m.kind === "object") && marks.some((m) => m.kind === "label");
+      const ground = (m: Mark) => m.kind === "fill" || m.kind === "hatch" || (m.kind === "label" && !namesLate) || m.kind === "pins" || m.kind === "object";
       const later = marks.map((m, i) => (ground(m) ? -1 : i)).filter((i) => i >= 0);
       const ti = tail ? cuts.filter((x) => x - at >= HOOK_MAX).indexOf(s) : -1;
+      // pass 3: a beat's objects are there from its first shot (a missile still comes on its own shot, with its pin)
+      const early = (m: Mark) => m.kind === "object" && m.move !== "drop" && m.move !== "arc";
+      const firsts0 = marks.map((m, i) => (early(m) ? i : -1)).filter((i) => i >= 0);
+      const rest0 = marks.map((m, i) => (early(m) ? -1 : i)).filter((i) => i >= 0);
+      // round 5: when the beat has more shots than marks of its own, its other standing things come in one by one
+      // (the barrel after the refinery), so every later shot brings something new
+      const stage = rest0.length < cuts.length && firsts0.length > 1;
+      const firsts1 = stage ? firsts0.slice(0, 1) : firsts0;
+      const rest1 = stage ? [...firsts0.slice(1), ...rest0] : rest0;
+      // round 8: an incident's disc comes with its things on the first shot, the next disc on the next shot (the burst,
+      // the fire and the legend's row land together, never seconds after the burning ship)
+      const isDisc = (i: number) => marks[i].kind === "marker";
+      const discsIn = rest1.filter(isDisc);
+      const firsts = discsIn.length && b.kind !== "hook" ? [...firsts1, discsIn[0]] : firsts1;
+      // a later disc brings the things that stand by it (the pumpjack with Khurais' disc), in the disc's order
+      const ll = (i: number): [number, number] => [(marks[i] as { lon: number }).lon, (marks[i] as { lat: number }).lat];
+      const nearestDisc = (i: number) => discsIn.reduce((a, d) => (Math.hypot(ll(d)[0] - ll(i)[0], ll(d)[1] - ll(i)[1]) < Math.hypot(ll(a)[0] - ll(i)[0], ll(a)[1] - ll(i)[1]) ? d : a), discsIn[0]);
+      const paired = rest1.filter((i) => !isDisc(i) && marks[i].kind === "object" && discsIn.length > 1 && nearestDisc(i) !== discsIn[0]);
+      const rest = discsIn.length && b.kind !== "hook" ? [...discsIn.slice(1).flatMap((d) => [d, ...paired.filter((i) => nearestDisc(i) === d)]), ...rest1.filter((i) => !isDisc(i) && !paired.includes(i))] : rest1;
       const mine =
         b.kind !== "hook"
-          ? Array.from({ length: m1 - m0 }, (_, i) => m0 + i)
+          ? [...(k === 0 ? firsts : []), ...discsAfterFirst(stagger(rest, cuts.length, (i) => marks[i].kind === "callout" || marks[i].kind === "marker"), firsts.some(isDisc), isDisc)[k]]
           : !tailShots
             ? (k === 0 ? marks.map((_, i) => i) : [])
             : k === 0
@@ -273,8 +410,29 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         // a beat whose words stand on the map (a label, a measure, a demand, a road's cost) is seen flat: a leaning map
         // moved the labels off their points and past the frame's edge (pass D, «میز» 13–29 s). It leans only when no
         // word is on it; its pull then stands in for the lean.
-        const speaks = b.kind === "demand" || b.kind === "road" || b.kind === "chart" || marks.some((m) => m.kind === "callout" || m.kind === "measure");
+        // pass 3: on a claim beat every claim stays in the frame, whatever move the cycle asked for
+        const claims = b.kind === "map" ? claimPoints(marks) : null;
+        if (claims && look) look = frameAll(claims, k, beatLook);
+        // round 5: the camera never leaves the beat's main thing (a standing object: a refinery, a mine, a ship lying at its point)
+        const main = mainObject(marks);
+        if (!claims && main && look) look = keepInFrame(look, main);
+        // round 7: a share's bar stands over its thing; the camera, not a clamp, keeps the whole bar in the safe frame
+        const share = marks.find((m) => m.kind === "share");
+        if (!claims && share && share.kind === "share" && look) look = keepInFrame(look, [share.lon, share.lat], shareBounds(share.label));
+        const speaks = b.kind === "demand" || b.kind === "road" || b.kind === "chart" || marks.some((m) => m.kind === "callout" || m.kind === "measure" || m.kind === "marker");
         if (speaks && look) look = { ...look, tilt: 0 };
+        // round 8: every numbered place and every thing standing at one stays inside the map band (under the header,
+        // over the legend), on every shot of its beat, whatever move the cycle asked for
+        if (look && (b.kind === "map" || b.kind === "hook")) {
+          const discs = marks.filter((m) => m.kind === "marker").map((m) => [(m as { lon: number }).lon, (m as { lat: number }).lat] as [number, number]);
+          const things = discs.length || (b.legend ?? []).length ? marks.filter((m) => m.kind === "object" && (m.move === undefined || m.move === "stand" || m.move === "approach")).map((m) => [(m as { lon: number }).lon, (m as { lat: number }).lat] as [number, number]) : [];
+          // the camera never pulls out past 1.3 of the beat's span here: a disc keeps its coast clearance (legend.ts clearKm)
+          if (discs.length || things.length) {
+            // a disc at sea keeps the coast clearance measured on the beat's widest shot; on land only the band counts
+            const atSea = marks.some((m) => m.kind === "marker" && (m as { sea?: boolean }).sea);
+            look = fitPoints({ ...look, span: Math.min(look.span, beatLook ? beatLook.span * (atSea ? 1.1 : 1.6) : look.span) }, discs, things, bandBottom(b.legend) - 40, beatLook && atSea ? beatLook.span * WIDE : Infinity);
+          }
+        }
         lastLook = look;
       } else if (lastLook) {
         // a picture over the map: the map steps back to the region and drifts, so it stays alive and quiet behind
@@ -294,7 +452,7 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         at_word: word,
         word_at: wordAt,
         picture: { layer, asset: assetOf(b), beat: bi, view: String(view) },
-        motion: { camera, ...(look ? { look } : {}), ...(bi === 0 && k === 0 && hookFrom(b) ? { from: hookFrom(b)! } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : "draw", ...(word ? { at_word: word } : {}) })) },
+        motion: { camera, ...(look ? { look } : {}), ...(bi === 0 && k === 0 && hookFrom(b) ? { from: hookFrom(b)! } : {}), object: mine.map((i) => ({ id: `${b.kind}-${bi}-mark-${i}`, do: marks[i].kind === "fill" ? "fill" : marks[i].kind === "pins" ? "pop" : marks[i].kind === "object" ? `${(marks[i] as { move?: string }).move ?? "stand"} ${(marks[i] as { id: string }).id}` : "draw", ...(word ? { at_word: word } : {}) })) },
         text: tail ? { chips: [], caption_keyword: word ?? undefined } : textOf(b, view, k),
         sound: k === 0 || mine.length ? { sfx: k === 0 ? SFX_OF[b.kind] : "pop", ...(word ? { at_word: word } : {}), ...(bi === 0 && k === 0 ? { music: "bed-in" } : {}) } : {},
         transition_out: tOut,
@@ -369,7 +527,7 @@ export function textOf(b: Beat, view: number, k: number): Shot["text"] {
 }
 
 function meaningOf(b: Beat, view: number, marks: Mark[]): string {
-  const what = marks.map((m) => (m.kind === "callout" ? `callout «${m.bold}»` : m.kind === "fill" ? `fill ${m.a3}` : m.kind)).join(", ");
+  const what = marks.map((m) => (m.kind === "callout" ? `callout «${m.bold}»` : m.kind === "fill" ? `fill ${m.a3}` : m.kind === "object" ? `${m.id} (${m.move ?? "stand"})` : m.kind)).join(", ");
   switch (b.kind) {
     case "hook":
       return `the hook: the event on the map from frame 0${what ? ` (${what})` : ""}`;

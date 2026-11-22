@@ -46,7 +46,7 @@ export const DIVAN: Theme = {
     us: "#3d8fe0",
     russia: "#6fa57a",
     china: "#c8564c",
-    gulf: "#5c7fa8",
+    gulf: "#7fa3cf",
     europe: "#4f6fb8",
     other: "#7d8b9c",
     red: "#ff4d40",

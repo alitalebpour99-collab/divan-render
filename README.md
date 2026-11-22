@@ -227,3 +227,130 @@ After the owner's template review:
 - **Assets**: every new set piece is a file of its own with an entry in
   `src/set/props/manifest.json` (name in English and Persian, what it shows,
   tags, how it was made, licence, origin) for Ahura's shared asset library.
+
+## The topic's objects on the map (21 November 2026)
+
+The owner: «آبجکت‌های خاص همون موضوع برای دیوان درست بشه، مثلاً کشتی یا هر چیزی که بحث میشه». Every map now shows the
+real things the narrator talks about, never an abstract shape.
+
+- `src/map-engine/object-ids.ts` and `objects.tsx`: twenty objects drawn in code (SVG, about 200 px on the finished
+  frame, outlined for the night map): tanker, container ship, LNG carrier, warship, fast boats, naval mine, missile,
+  drone, fighter jet, offshore rig, refinery, pipeline, oil barrel, nuclear site, tank, troops, parliament, money,
+  signed agreement, sanctions padlock. Ships are seen from the side, aircraft from above. Each moves in its own way:
+  `sail` (along a line, with its wake), `fly` (with its shadow), `orbit`, `arc` (a missile between the writer's two
+  places, a burst where it lands), `drop` (a missile coming down onto the writer's pin; no launch site is drawn),
+  `pipe` (a pipeline laid along a line, the flow running) and `stand` (lands, then keeps a flame, steam or a flag
+  moving); `fire` sets a ship burning after it is hit. Registered for Ahura's asset library in
+  `objects.manifest.json`.
+- `src/storyboard/topics.ts`: a keyword classifier in Persian and English (whole words; «همین» is not a mine) names
+  the objects of each beat, in the order the line says them, and places them where the story already is: the n-th
+  sentence that names an object goes on the writer's n-th pin (a burning tanker, a mine beside it, a missile coming
+  down), a ship sails the beat's own comet or the sea lane in view, a parliament, money or the padlock stand on the
+  capital of the beat's state, talks on their venue, a nuclear site on a town the line names (city level only). A beat
+  that names nothing shows the Reel's main thing; a Reel that names nothing falls back on its template's object. It
+  runs inside `enrich()`, before the ground labels; pure and idempotent. A road drawn on the map carries its road
+  object (a tanker sails its line, a barrel or a signed text stands under its cost).
+- Labels keep clear of the objects (`LineBoxes`), and an object of the first frame runs back to where it stood, so
+  the loop still ends on the first picture.
+- Pass 3 rules (`topics.ts` `settle`, the director, `Reel.tsx`): what floats stands and sails only on water with its
+  whole hull (Natural Earth land, nearest sea point); no object stands on or sails through a place name the writer
+  put on the map; two standing objects never overlap; a beat's objects are there from its first shot, and a ship that
+  is hit catches fire only when its pin or the missile lands; a missile's burst is short and draws under the ship.
+  Pass 4: a name keeps its room on the widest frame a beat is seen in (the opening dive too), and objects shrink with
+  the map when the camera is wider than their beat (to 0.55 of their size).
+
+### Round 4 (owner, 21 Nov 2026: detail, accuracy, text, length)
+
+- **Objects as illustrations** (`objects.tsx`, shared paints `ObjectDefs`): a VLCC with its aft house, pipe rack and
+  manifold cranes; a container ship with its bays; a Moss LNG carrier; a destroyer with its gun, cells, radar panel and
+  mast; types by name (`variant`: Shahed-type or MALE drone, F-35 or Su-35, ballistic or cruise missile, Iran's Majlis
+  or the Capitol); a waterline and foam, wakes, contrails, exhaust plumes, smoke that drifts with the wind, lifeboats
+  pulling away from a burning ship. One scale for all (a destroyer about 0.8 of a VLCC).
+- **Real routes** (`data/routes.json`, GeoJSON with a source and an accuracy on each): the Hormuz traffic separation
+  scheme's outbound (south) and inbound (north) lanes, the Red Sea route, and the Goreh–Jask, East–West and
+  Habshan–Fujairah pipelines. Ships sail the real lane in its own direction; a pipeline a line names is laid on its
+  route. The test checks every sea lane is water on the 1:50m and 1:10m coasts.
+- **Events in order**: a ship sails in along its lane, lies at the reported point when the incident lands, then burns;
+  a missile or a drone comes down on the point (never from a launch site); the time or date the line or the source gives
+  joins the callout on its leader line; a place the source calls approximate is an area, not a pin.
+- **Map detail** (`detail.tsx`, data `sea-detail.json` from Natural Earth 1:10m by `scripts/build-sea-detail.mjs`): the
+  200 m and 1000 m depth bands, the 1:10m coasts and small islands of Hormuz, islands and ports named small on close
+  maps, a scale bar and a north arrow on map beats.
+- **Text** (`storyboard/textcheck.ts`, the check `text`): no filler, clean Persian spelling, no named place far from its
+  mark. On the site, `lib/agents/factcheck.ts` checks every line against the reports with Claude before a draft is
+  kept; unsupported lines are rewritten or cut, and the log goes with the Reel (`factcheck`).
+- **Length follows the content** (`director.ts` `readFrames`, `checks.ts` `LENGTH`): a beat stays until its words can be
+  read at 2.75 words a second plus a second to look at its map; a Reel runs 15–90 s (YouTube up to 600 s).
+- Round 4, pass 2: the ground's lane comet loops (the camera never chases traffic away from the story); the camera
+  follows a pipeline's route or a ship's lane; a callout whose place is off the frame is not drawn; a label with no
+  free place takes the one that covers least; a place name rises above an object passing under it, on a leader.
+- Round 4, pass 3: a claim beat (two or more states' callouts) frames every claim point in every shot, and a claim is
+  never hidden off the frame; all words on the map are placed against each other (scale and measures, then callouts
+  and their leaders, then place names); the flag stands where a callout's words begin; the north arrow sits beside
+  the scale, not on it; a callout that only repeats the headline is dropped; the clipped 1:10m coasts lose their stroke.
+- Round 5: callouts read at 4.5:1 against the ground sampled under them (contrast.ts, WCAG), with a halo, and a larger
+  sub-line; a beat's callouts are placed once on its look and carried with their places (no jumps), clear of objects,
+  smoke and lanes; every later shot of a map beat brings a new mark (exact shot count in enrich, standing things come
+  in one by one, more Saudi places); a hook standing where the story's strike lands shows the strike on shot 1; the
+  camera keeps a beat's main standing thing inside the safe frame.
+- Round 6: objects never under a minimum size, the beat's main thing a size larger (objscale.ts); a share the line
+  says («حدود نیمی از تولید») becomes a bar at the main thing, its words and value from the line only (enrich.ts
+  shareOf); at most one new callout a shot, and labels of close points look away from each other on short leaders;
+  an incident's time keeps the sub-line short (the hour, not the long date).
+- Round 7: a callout is at most two lines (the bold on one line when there is a sub-line; long source names in their
+  short form, «مرکز دریایی بریتانیا» → UKMTO); a share's bar stands right over its thing and the camera keeps it in
+  the safe frame (no clamp); the poll's map is not dimmed and the hook's thing stands on it again.
+- Round 7, the owner's rules (22 Nov 2026), each with its test (`tests/round7.test.mjs`, frame by frame on both topics):
+  1. **No text over text.** Every word a frame writes on the map is placed once against every other (`Reel.tsx`
+     `layoutWords`): the header and the source line first, then a share's bar, a measure's length and the scale, the
+     callouts, the writer's place names, the ground's names; under the poll the map's words wait. What finds no room is
+     not drawn on that frame (it comes with a later shot). Callouts wrap to two lines at most.
+  2. **Ships move naturally** (`map-engine/ships.ts`): one clock per ship for the whole Reel, so a ship never jumps when
+     a beat changes; each type at its real service speed (a tanker 13 kn) in one time-lapse for every Reel (1 s of video
+     = 15 min at sea, about 6 km); its way is its lane with the corners rounded, its bow swings round a turn instead of
+     flipping, and a wake widens behind it. A ship coming in to an incident covers only the last of its way at that speed.
+  3. **The number of ships comes from the news** (`ships.ts shipCount`): «شش نفتکش» is six; up to four sail as a column,
+     more are one ship with a «۶×» badge; no number, one ship. Nothing is added that the line does not say.
+  4. **Sizes**: an object is drawn between about 150 and 185 px (objscale.ts `MIN_SCALE`, `MAX_SCALE`), the beat's main
+     thing a size larger.
+  5. **Land and water** (`map-engine/water.ts`, the finest coast the engine has: 1:50m, the straits' 1:10m coasts and
+     the Gulf islands): a hatched sea area only from its source's outline (an advisory, an incident's exact area;
+     `enrich.ts sourcedZones` drops a made-up outline, and Divan's sea sketches in `zones.ts` are written as names); it
+     is masked to the water. Lanes are thin chart lines masked to the water, every sea lane is tested on the water, and
+     a ship's way in to an incident leaves the lane only where the straight run is all sea (behind Musandam's tip it
+     lies at its place instead). Borders are Natural Earth's (1:50m on every dive).
+  6. **Nothing without a reason**: no ambient traffic; a lane is drawn only where a ship of the story sails or lies.
+- Rendering here: `REMOTION_BROWSER=<path to chrome>` lets `render.mjs` use a browser the machine has (a sandbox that
+  cannot download Remotion's own). The tests load the components too (`tests/hooks.mjs` compiles `.tsx` with esbuild).
+
+### Round 8 (owner, 22 Nov 2026): numbered places and a legend, never words on the map
+
+Seven rounds of «a label beside its point on a leader line» kept failing on the owner's screenshots (a leader ending on
+Iranian land, an Iranian flag beside «مین … به گفتهٔ سپاه» reading as if Iran laid the mine, words on ships, lane lines
+crossing the coast, a tanker on the Bandar Abbas coast). The map now carries no callout words, no leader line, no flag:
+
+1. **Numbered discs** (`storyboard/legend.ts`, `map-engine/markers.tsx`): a small disc with its number exactly at each
+   incident or place; for a sea event the nearest water point at least the disc's own size (on the widest shot) off every
+   coast (`waterPoint`, `clearKm`), and clear of a passing ship's way where the water allows.
+2. **The legend** (`Reel.tsx LegendPanel`): one fixed box just over the source line (which moves under it; the caption
+   is not shown on such a beat): «۱  مین، نزدیک خصب، به گفتهٔ سپاه، ۲۰ نوامبر». Plain Persian, two lines at most an item
+   (`wrapItem`, 38 → 32 px), three items a beat. A share the line says («حدود نیمی از تولید») is a row with its bar.
+3. **No flags** beside incidents: who says it is in the words only.
+4. **Water** (`map-engine/water.ts`): every thing that floats is drawn only where its waterline (eleven points along the
+   hull) is water and its point a kilometre off the coast (`objects.tsx wetK`); on a wide shot a ship that would cover a
+   coast fades out. A thing standing at an incident takes its place beside the disc, never on it (`besideDiscs`); a
+   building on the water is not drawn. `isLand` now tests the land's polygons by their boxes (same answers, ~60× faster)
+   and `coastKm` measures to the coastline's own segments.
+5. **Lanes** only from the Hormuz traffic separation scheme in `routes.json` (one inbound, one outbound, faint, masked to
+   the water); a hand-drawn line at sea goes, and a ship on one sails the real lane instead.
+6. **Counts from the news**: up to six ships drawn small in a column along the lane (`columnOf`); more, one ship and a
+   «×N» badge.
+7. **Strikes**: the impact point only (a burst under a red-ringed disc); no missile or drone flies in from anywhere.
+8. **Khurais** and any place its words call an onshore oil field: a pumpjack (`pumpjack`, in the asset manifest).
+9. **The pre-delivery check** (`scripts/mapcheck.mjs`, rules in `scripts/mapcheck-lib.mjs`, run by
+   `tests/legend.test.mjs` on both topics): frame by frame through the renderer's own `frameScene`, it fails on a word's
+   box over land (a land place's own name excepted), over another word, a thing or a disc, or under a panel; on a thing
+   afloat, a sea disc or a badge on land or the coastline; on a lane touching land or two lanes crossing.
+   `node --import ./tests/register.mjs scripts/mapcheck.mjs samples/divan-strait.json --every 2`
+   The camera keeps a beat's discs and their things inside the band between the header and the legend on every shot,
+   and pulls out no further than 1.3 of the beat's span (`legend.ts fitPoints`).

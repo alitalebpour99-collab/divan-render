@@ -70,7 +70,46 @@ export const PLACES_FA: Readonly<Record<string, { t: string; lon: number; lat: n
   riyadh: { t: "ریاض", lon: 46.72, lat: 24.71 },
   baghdad: { t: "بغداد", lon: 44.36, lat: 33.31 },
   ankara: { t: "آنکارا", lon: 32.85, lat: 39.93 },
+  // round 5: the Saudi oil coast and the east–west pipeline's way (towns at their centres), so a close map of Arabia has its ground
+  rastanura: { t: "راس تنوره", lon: 50.16, lat: 26.64 },
+  dammam: { t: "دمام", lon: 50.1, lat: 26.43 },
+  manama: { t: "منامه", lon: 50.58, lat: 26.22 },
+  hofuf: { t: "هفوف", lon: 49.59, lat: 25.38 },
+  jubail: { t: "جبیل", lon: 49.66, lat: 27.01 },
+  yanbu: { t: "ینبع", lon: 38.06, lat: 24.09 },
+  jeddah: { t: "جده", lon: 39.19, lat: 21.49 },
+  medina: { t: "مدینه", lon: 39.61, lat: 24.47 },
+  sanaa: { t: "صنعا", lon: 44.21, lat: 15.35 },
 };
 
 /** A state's Persian name: Divan's list first, then Natural Earth's column, then the code itself. */
 export const nameFa = (a3: string, ne?: string) => NAMES_FA[a3] ?? (ne || a3);
+
+/**
+ * Islands and ports for a close map of the Gulf (span under 10°): written small, quiet, only where nothing speaks.
+ * Ports at Natural Earth 1:10m ports' points where it has them (Bandar Abbas, Bushehr, Fujairah, Sohar, Muscat, Dubai,
+ * Doha, Abu Dhabi, Jubail); the rest and the islands at their town or the island's middle (city level).
+ */
+export const SEA_PLACES_FA: Readonly<Record<string, { t: string; lon: number; lat: number; kind: "island" | "port" }>> = {
+  hormuzIsland: { t: "جزیرهٔ هرمز", lon: 56.46, lat: 27.06, kind: "island" },
+  larak: { t: "لارک", lon: 56.36, lat: 26.86, kind: "island" },
+  abuMusa: { t: "ابوموسی", lon: 55.03, lat: 25.88, kind: "island" },
+  greaterTunb: { t: "تنب بزرگ", lon: 55.3, lat: 26.26, kind: "island" },
+  lesserTunb: { t: "تنب کوچک", lon: 55.14, lat: 26.24, kind: "island" },
+  kish: { t: "کیش", lon: 53.98, lat: 26.53, kind: "island" },
+  sirri: { t: "سیری", lon: 54.54, lat: 25.91, kind: "island" },
+  kharg: { t: "خارک", lon: 50.32, lat: 29.24, kind: "island" },
+  bandarAbbasPort: { t: "بندرعباس", lon: 56.2, lat: 27.14, kind: "port" },
+  jask: { t: "جاسک", lon: 57.77, lat: 25.64, kind: "port" },
+  bushehr: { t: "بوشهر", lon: 50.84, lat: 28.98, kind: "port" },
+  lengeh: { t: "بندر لنگه", lon: 54.88, lat: 26.56, kind: "port" },
+  fujairahPort: { t: "فجیره", lon: 56.36, lat: 25.18, kind: "port" },
+  khorFakkan: { t: "خورفکان", lon: 56.36, lat: 25.34, kind: "port" },
+  sohar: { t: "صحار", lon: 56.74, lat: 24.38, kind: "port" },
+  dubai: { t: "دبی", lon: 55.27, lat: 25.27, kind: "port" },
+  rasAlKhaimah: { t: "رأس‌الخیمه", lon: 55.94, lat: 25.79, kind: "port" },
+  khasabPort: { t: "خصب", lon: 56.25, lat: 26.18, kind: "port" },
+  rasTanura: { t: "راس تنوره", lon: 50.16, lat: 26.64, kind: "port" },
+  jubail: { t: "جبیل", lon: 49.67, lat: 27.03, kind: "port" },
+  yanbu: { t: "ینبع", lon: 38.06, lat: 24.09, kind: "port" },
+};

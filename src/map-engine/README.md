@@ -16,7 +16,10 @@ repository as a dependency. It has no Divan code in it: the look comes in as a `
   `CometTrail` (great-circle head and fading tail, additive glow; `loop` for the ambient traffic in `lanes.ts`),
   `PinCluster` + `pinsIn` (for a counter), `MeasureLine` (the length is `km()` of the two points, never typed),
   `Callouts` (one bold word and one line, greedy placement in `labels.ts`, leader from the label's right edge),
-  `PlaceLabels` (≥ 40 px on a dark halo).
+  `PlaceLabels` (≥ 40 px on a dark halo), `LaneLine` and `WaterMask` (round 7: a lane, a sea comet or a hatched sea
+  area is drawn only on the water, `water.ts`).
+- **Ships** (`ships.ts`): one clock per ship over the whole Reel at its type's real speed, rounded lanes, the number of
+  ships read from the line.
 - **Flags, never faces:** `FlagChip` draws a state's flag flat by code (Iran's is the real 4 : 7 flag with the emblem and
   the 22 takbir, `iran-flag.ts`); a state without art gets a chip with its name only.
 

@@ -15,6 +15,8 @@ export type View = {
   /** [x, y] on the screen, or null when the point is on the far side of the globe */
   at: (lon: number, lat: number) => [number, number] | null;
   path: (geo: unknown) => string;
+  /** [lon, lat] under a point of the screen (round 5: what lies under a label) */
+  inv: (x: number, y: number) => [number, number] | null;
   theme: Theme;
   /** the frame of the whole Reel, for motion that never stops */
   f: number;
@@ -52,6 +54,7 @@ export function makeView(look: Look, frame: Frame, theme: Theme, f: number, uid 
     uid,
     at: (lon, lat) => (geoDistance([lon, lat], [look.lon, look.lat]) > Math.PI / 2 - 0.02 ? null : (proj([lon, lat]) as [number, number])),
     path: (geo) => path(geo as never) ?? "",
+    inv: (x, y) => (proj.invert ? (proj.invert([x, y]) as [number, number] | null) : null),
   };
 }
 

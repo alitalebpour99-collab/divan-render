@@ -349,5 +349,5 @@ test("round 8: a share the line says is a row of the legend with its bar, never 
   const b = c.beats.find((x) => x.kind === "map" && x.marks.some((m) => m.kind === "share"));
   const row = b.legend.find((x) => x.n === 0);
   assert.equal(row.share, 0.5);
-  assert.equal(row.text, "حدود نیمی از تولید نفت عربستان");
+  assert.equal(row.text, "نیمی از تولید عربستان");
 });

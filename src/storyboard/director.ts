@@ -29,8 +29,8 @@ export function hookFrom(b: Beat): Look | null {
 import type { Beat, Mark, ReelContent, Shot, Storyboard, Transition } from "./types";
 
 export const FPS = 30;
-/** pass 4: how long the camera flies into a beat (Reel.tsx cameraKeys): a dive, a pan */
-export const TRAVEL = { dive: 30, pan: 22 } as const;
+/** pass 4: how long the camera flies into a beat (Reel.tsx cameraKeys): a quick dive, a whip pan (render 1 at 22/30 frames left an empty frame at every cut) */
+export const TRAVEL = { dive: 14, pan: 6 } as const;
 /**
  * Pass 4 (the judge: «near-empty frames at the cuts: the header arrives before the marks»): a beat's first shot that flies
  * (a dive or a pan) brings its header, its marks, its discs and their legend rows together, when the camera has arrived.
@@ -491,6 +491,8 @@ export function direct(c: ReelContent, lines: VoiceLine[] = [], fps = FPS): Stor
         if (focus && look) {
           const from0 = claims ? frameAll(claims, 0, beatLook) : { ...look, lon: beatLook.lon, lat: beatLook.lat, span: Math.min(look.span, beatLook.span * 1.1) };
           look = { ...from0, lon: from0.lon + (focus.lon - from0.lon) * 0.4, lat: from0.lat + (focus.lat - from0.lat) * 0.4, span: from0.span * 0.92, tilt: 0 };
+          // the beat's main thing stays in the frame as the camera turns (round 5)
+          if (!claims && main) look = keepInFrame(look, main);
         }
         // round 8: every numbered place and every thing standing at one stays inside the map band (under the header,
         // over the legend), on every shot of its beat, whatever move the cycle asked for

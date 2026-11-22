@@ -67,7 +67,9 @@ function cameraKeys(sb: Storyboard): Key[] {
       keys.push({ at: 0, ...(hook ?? (s.motion.camera === "push-close" ? { ...look, span: look.span * 0.55 } : { ...look, span: Math.min(175, look.span * 2.4), lon: look.lon - look.span * 0.3, tilt: 22 })) });
       keys.push({ at: a + len, ...look });
     } else {
-      const travel = s.motion.camera === "dive" ? Math.min(len, TRAVEL.dive) : Math.min(len, TRAVEL.pan);
+      // pass 4: into a new beat the camera whips (its header and marks land as it arrives); inside a beat it glides
+      const into = sb.shots.find((z) => z.beat === s.beat) === s && s.beat > 0;
+      const travel = s.motion.camera === "dive" ? Math.min(len, into ? TRAVEL.dive : 40) : Math.min(len, into ? TRAVEL.pan : 22);
       if (keys[keys.length - 1].at < a) keys.push({ at: a, ...prev });
       keys.push({ at: a + travel, ...look, ease: "inOut" });
       // after the move the camera keeps creeping the same way (a tenth further), so the frame is never still

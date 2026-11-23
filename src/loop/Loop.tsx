@@ -20,8 +20,6 @@ import { COLW, H, L, LABEL_SIZE, PANEL, PIN_R, PLOT, ROW_H, SOURCE_TOP, W, event
 export { loopDuration };
 
 const STAGE = { x: 0, y: 0, w: W, h: H };
-const sx = (x: number) => PLOT.x0 + (x / 100) * (PLOT.x1 - PLOT.x0);
-const sy = (y: number) => PLOT.y0 + (y / 100) * (PLOT.y1 - PLOT.y0);
 const halo = "0 0 10px rgba(11,17,29,0.95), 0 2px 4px rgba(11,17,29,0.95)";
 
 export const Loop: React.FC<LoopProps> = (p) => {
@@ -31,6 +29,12 @@ export const Loop: React.FC<LoopProps> = (p) => {
   const pts = p.points;
   const first = pts[0];
   const last = pts[pts.length - 1];
+  // the line fills its plot (pass 2 of the sample: the site's own 0–100 frame left it flat in a third of the panel):
+  // the first reading on the left edge, today on the right, the lowest and highest readings 8 % inside the edges
+  const yLo = Math.min(...pts.map((q) => q.y));
+  const yHi = Math.max(...pts.map((q) => q.y));
+  const sx = (x: number) => PLOT.x0 + ((x - first.x) / Math.max(1e-6, last.x - first.x)) * (PLOT.x1 - PLOT.x0);
+  const sy = (y: number) => PLOT.y0 + (0.08 + (0.84 * (y - yLo)) / Math.max(1e-6, yHi - yLo)) * (PLOT.y1 - PLOT.y0);
   const line = [...sc.shown, sc.tip].map((q, i) => `${i ? "L" : "M"}${sx(q.x).toFixed(1)} ${sy(q.y).toFixed(1)}`).join(" ");
   const area = `${line} L${sx(sc.tip.x).toFixed(1)} ${PLOT.y1} L${sx(first.x).toFixed(1)} ${PLOT.y1} Z`;
   // the whole line stays faint under the drawing, so the panel is never empty while the pin runs back
@@ -113,13 +117,10 @@ export const Loop: React.FC<LoopProps> = (p) => {
         ) : (
           <circle cx={sx(sc.tip.x)} cy={sy(sc.tip.y)} r={15} fill={ROOM.amber} stroke={ROOM.paper} strokeWidth={4} />
         )}
-        <text x={PLOT.x0} y={PLOT.y1 + 58} textAnchor="start" fill={ROOM.mute} fontFamily={VAZIR} fontSize={38} fontWeight={600}>
-          {first.dateText}
-        </text>
-        <text x={PLOT.x1} y={PLOT.y1 + 58} textAnchor="end" fill={ROOM.paper} fontFamily={VAZIR} fontSize={38} fontWeight={700}>
-          {last.dateText}
-        </text>
       </svg>
+      {/* the two ends of the time axis, as HTML: an SVG text runs a Persian date's words in the wrong order */}
+      <div style={{ position: "absolute", left: PLOT.x0 - 10, top: PLOT.y1 + 20, direction: "rtl", fontFamily: VAZIR, fontWeight: 600, fontSize: 38, color: ROOM.mute, whiteSpace: "nowrap" }}>{first.dateText}</div>
+      <div style={{ position: "absolute", right: W - PLOT.x1 - 10, top: PLOT.y1 + 20, direction: "rtl", fontFamily: VAZIR, fontWeight: 700, fontSize: 38, color: ROOM.paper, whiteSpace: "nowrap" }}>{last.dateText}</div>
 
       {/* the one source line, on the screen with every figure */}
       <div style={{ position: "absolute", top: SOURCE_TOP, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, fontWeight: 600, fontSize: 36, color: ROOM.mute, opacity: 0.9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

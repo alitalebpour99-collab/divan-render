@@ -1,0 +1,138 @@
+{
+ "ok": true,
+ "seconds": 29.466666666666665,
+ "checks": [
+  {
+   "id": "length",
+   "ok": true,
+   "detail": "29.5 s (15 to 90 for reels; strait usually 24–36)",
+   "fa": "طول ویدیو از حد مجاز بیرون است"
+  },
+  {
+   "id": "text",
+   "ok": true,
+   "detail": "no filler, clean spelling, every named place where its mark is",
+   "fa": "متن ویدیو مشکل دارد (پرکننده، املا یا ناهمخوانی با نقشه)"
+  },
+  {
+   "id": "recipe",
+   "ok": true,
+   "detail": "beats follow «تنگه»",
+   "fa": "ترتیب بخش‌ها با قالب نمی‌خواند"
+  },
+  {
+   "id": "shot-length",
+   "ok": true,
+   "detail": "18 shots, each 1 to 2 s",
+   "fa": "نمایی کوتاه‌تر از ۱ یا بلندتر از ۲ ثانیه است"
+  },
+  {
+   "id": "shot-words",
+   "ok": true,
+   "detail": "8 words or fewer in every shot",
+   "fa": "متن یک نما بیش از ۸ کلمه است"
+  },
+  {
+   "id": "screen-words",
+   "ok": true,
+   "detail": "12 words or fewer on screen",
+   "fa": "روی صفحه بیش از ۱۲ کلمه است"
+  },
+  {
+   "id": "hook-words",
+   "ok": true,
+   "detail": "hook of 5 words",
+   "fa": "قلاب بیش از ۷ کلمه است"
+  },
+  {
+   "id": "hook-short",
+   "ok": true,
+   "detail": "the hook lasts 2.5 s",
+   "fa": "قلاب بیش از ۳ ثانیه طول می‌کشد"
+  },
+  {
+   "id": "sync",
+   "ok": true,
+   "detail": "every shot starts on its word (±0.4 s)",
+   "fa": "تصویر با کلمهٔ راوی هم‌زمان نیست"
+  },
+  {
+   "id": "voice-zero",
+   "ok": true,
+   "detail": "no narrator",
+   "fa": "صدای راوی از ثانیهٔ صفر شروع نمی‌شود"
+  },
+  {
+   "id": "end",
+   "ok": true,
+   "detail": "1.2 s after the last word",
+   "fa": "پایان ویدیو بعد از آخرین کلمه طولانی است"
+  },
+  {
+   "id": "meaning",
+   "ok": true,
+   "detail": "every shot has a picture and a reason",
+   "fa": "نمایی بی‌معنی یا بی‌تصویر است"
+  },
+  {
+   "id": "sfx",
+   "ok": true,
+   "detail": "16 effects",
+   "fa": "بیش از دو افکت در یک ثانیه است"
+  },
+  {
+   "id": "no-dot",
+   "ok": true,
+   "detail": "no «·» or «|» beside Persian",
+   "fa": "کنار متن فارسی «·» یا «|» آمده است"
+  },
+  {
+   "id": "persian",
+   "ok": true,
+   "detail": "no Latin words on screen (a source may name an outlet as it names itself)",
+   "fa": "روی صفحه واژهٔ لاتین آمده است"
+  },
+  {
+   "id": "sources",
+   "ok": true,
+   "detail": "every figure, road and mark has its source",
+   "fa": "یک عدد، راه یا نشانه منبع ندارد"
+  },
+  {
+   "id": "convention",
+   "ok": true,
+   "detail": "colours belong to the actors",
+   "fa": "رنگ راه‌ها و رنگ بازیگرها با هم آمده است"
+  },
+  {
+   "id": "hook-motion",
+   "ok": true,
+   "detail": "first 1.5 s: 0 frozen stretch(es); frame 0 against 1.2 s SSIM 0.791",
+   "fa": "تصویر در ثانیهٔ اول ثابت است"
+  },
+  {
+   "id": "still",
+   "ok": true,
+   "detail": "no 2.5 s of frozen picture",
+   "fa": "بیش از ۲٫۵ ثانیه تصویر ثابت مانده است"
+  },
+  {
+   "id": "loop",
+   "ok": true,
+   "detail": "first and last frame SSIM 0.989 (0.90 or more)",
+   "fa": "فریم آخر به فریم اول نمی‌خورد"
+  },
+  {
+   "id": "loudness",
+   "ok": true,
+   "detail": "-14.0 LUFS, true peak -1.4 dBTP",
+   "fa": "بلندی صدا اندازه نیست"
+  },
+  {
+   "id": "dark",
+   "ok": true,
+   "detail": "near-black pixels 2.9 % (35 % or less)",
+   "fa": "تصویر بیش از اندازه تاریک است"
+  }
+ ]
+}

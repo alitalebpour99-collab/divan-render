@@ -36,19 +36,21 @@ fs.mkdirSync("out", { recursive: true });
 
 // a busy machine may take longer than Remotion's half minute to open its browser (the worker allows two minutes too)
 const timeoutInMilliseconds = 120_000;
+// a machine that cannot download Remotion's own browser (a sandbox without that host) names one it has
+const browserExecutable = process.env.REMOTION_BROWSER || null;
 const t0 = Date.now();
 if (stills) {
-  const composition = await selectComposition({ serveUrl, id, inputProps: props, timeoutInMilliseconds });
+  const composition = await selectComposition({ serveUrl, id, inputProps: props, timeoutInMilliseconds, browserExecutable });
   for (const frame of stills === "all" ? Array.from({ length: composition.durationInFrames }, (_, i) => i) : stills) {
     const output = `out/${name}-${String(frame).padStart(4, "0")}.png`;
-    await renderStill({ composition, serveUrl, output, frame: Math.min(frame, composition.durationInFrames - 1), inputProps: props, timeoutInMilliseconds });
+    await renderStill({ composition, serveUrl, output, frame: Math.min(frame, composition.durationInFrames - 1), inputProps: props, timeoutInMilliseconds, browserExecutable });
     console.log("wrote", output, `(of ${composition.durationInFrames} frames)`);
   }
 } else {
   fs.mkdirSync(path.join(serveUrl, "public"), { recursive: true });
   const lines = flag("--voice") ? JSON.parse(fs.readFileSync(flag("--voice"), "utf8")) : [];
   const voiceIn = voiceFiles(lines, path.join(serveUrl, "public"), name);
-  const first = await selectComposition({ serveUrl, id, inputProps: { ...props, voiceIn }, timeoutInMilliseconds });
+  const first = await selectComposition({ serveUrl, id, inputProps: { ...props, voiceIn }, timeoutInMilliseconds, browserExecutable });
   const seconds = first.durationInFrames / first.fps;
   const music = `music-${name}.wav`;
   fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) || first.props.drone === true }));
@@ -56,7 +58,7 @@ if (stills) {
   for (const v of first.props.voice ?? []) console.log("voice", v.file, "at", (v.from / first.fps).toFixed(2), "s for", (v.frames / first.fps).toFixed(2), "s");
   if (first.props.holds?.length) console.log("holds", JSON.stringify(first.props.holds));
   const inputProps = { ...props, voiceIn, music };
-  const composition = await selectComposition({ serveUrl, id, inputProps, timeoutInMilliseconds });
+  const composition = await selectComposition({ serveUrl, id, inputProps, timeoutInMilliseconds, browserExecutable });
   const outputLocation = `out/${name}.mp4`;
   // every tenth of the frames, with the time it took: a sample that crawls shows where
   let tenth = 0;
@@ -67,7 +69,7 @@ if (stills) {
       console.log("frame", renderedFrames, "of", composition.durationInFrames, "after", Math.round((Date.now() - t0) / 1000), "s");
     }
   };
-  await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3), timeoutInMilliseconds, onProgress });
+  await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3), timeoutInMilliseconds, onProgress, browserExecutable });
   dropVoice(path.join(serveUrl, "public"), name);
   console.log(finish(outputLocation, seconds));
   // the gate of the set style: the plan the film was drawn from, the file, the tile's words (a sample reports and goes on with DIVAN_GATE=warn)

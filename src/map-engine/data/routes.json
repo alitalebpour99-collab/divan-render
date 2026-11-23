@@ -1,0 +1,84 @@
+{
+ "type": "FeatureCollection",
+ "about": "Divan's real routes: sea lanes (in the order ships travel them), pipelines (from source to terminal). Every feature says where it comes from and how exact it is. Positions are for a news map, never for navigation.",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "hormuz-tss-out",
+    "kind": "sea-lane",
+    "fa": "خط خروجی تنگهٔ هرمز",
+    "en": "Strait of Hormuz TSS, outbound (eastbound) lane",
+    "direction": "out of the Persian Gulf",
+    "source": "IMO traffic separation scheme «In the Strait of Hormuz» (two 2-mile lanes with a 2-mile separation zone, north of the Musandam peninsula and the Quoin islands; right-hand traffic, so outbound is the southern lane). Digitised by hand from public chart depictions: the official coordinates are in IMO Ships' Routeing and Admiralty charts, not public. Accuracy about ±3 km.",
+    "accuracy_km": 3
+   },
+   "geometry": { "type": "LineString", "coordinates": [[50.9, 27.2], [52.8, 26.75], [54.6, 26.35], [55.6, 26.36], [56.0, 26.52], [56.25, 26.6], [56.48, 26.57], [56.62, 26.42], [56.76, 26.2], [56.92, 25.98], [57.3, 25.5], [58.6, 24.7], [61.5, 23.2]] }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "hormuz-tss-in",
+    "kind": "sea-lane",
+    "fa": "خط ورودی تنگهٔ هرمز",
+    "en": "Strait of Hormuz TSS, inbound (westbound) lane",
+    "direction": "into the Persian Gulf",
+    "source": "IMO traffic separation scheme «In the Strait of Hormuz»: the northern lane, about 4 nautical miles (2 lane + 2 separation) north of the outbound lane. Digitised by hand from public chart depictions; accuracy about ±3 km.",
+    "accuracy_km": 3
+   },
+   "geometry": { "type": "LineString", "coordinates": [[61.8, 22.7], [58.8, 24.45], [57.5, 25.3], [57.02, 26.03], [56.84, 26.3], [56.67, 26.54], [56.5, 26.68], [56.25, 26.7], [55.95, 26.6], [55.4, 26.5], [54.4, 26.47], [52.9, 26.9], [51.0, 27.45]] }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "red-sea-north",
+    "kind": "sea-lane",
+    "fa": "مسیر دریای سرخ",
+    "en": "Red Sea main route (Suez to Bab el-Mandeb), southbound",
+    "direction": "south",
+    "source": "Divan's schematic lane on the main Red Sea route, mid-channel; not a charted scheme. Accuracy about ±20 km. Round 7: through Bab el-Mandeb by the main channel west of Perim, its turn eased so the rounded way stays on the water.",
+    "accuracy_km": 20
+   },
+   "geometry": { "type": "LineString", "coordinates": [[33.0, 28.6], [34.6, 27.2], [37.8, 21.8], [40.9, 16.3], [42.7, 13.6], [43.15, 12.85], [43.3, 12.5], [43.6, 12.3], [45.6, 12.1], [51.5, 12.4]] }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "goreh-jask",
+    "kind": "pipeline",
+    "fa": "خط لولهٔ گوره–جاسک",
+    "en": "Goreh–Jask crude oil pipeline",
+    "names": ["گوره", "جاسک", "goreh", "jask"],
+    "source": "Route as published by NIOC and in news maps (Goreh near Genaveh, Bushehr province, to the Kuh-e Mobarak terminal west of Jask, about 1,000 km). Schematic along the published corridor; accuracy about ±15 km.",
+    "accuracy_km": 15
+   },
+   "geometry": { "type": "LineString", "coordinates": [[50.55, 29.58], [51.1, 28.75], [51.9, 28.05], [52.9, 27.55], [54.3, 27.15], [55.5, 27.25], [56.4, 27.25], [57.0, 26.75], [57.25, 26.2], [57.25, 25.85]] }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "east-west",
+    "kind": "pipeline",
+    "fa": "خط لولهٔ شرق به غرب عربستان",
+    "en": "East–West Pipeline (Petroline), Abqaiq to Yanbu",
+    "names": ["شرق به غرب", "شرق-غرب", "ینبع", "پترولاین", "east-west", "petroline", "yanbu"],
+    "source": "Saudi Aramco's East–West crude pipeline from the Abqaiq area to Yanbu on the Red Sea, about 1,200 km. Schematic along the published corridor; accuracy about ±20 km.",
+    "accuracy_km": 20
+   },
+   "geometry": { "type": "LineString", "coordinates": [[49.68, 25.94], [48.9, 25.75], [47.8, 25.55], [46.6, 25.3], [45.2, 25.0], [43.9, 24.75], [42.4, 24.5], [40.8, 24.3], [39.4, 24.15], [38.06, 24.09]] }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "habshan-fujairah",
+    "kind": "pipeline",
+    "fa": "خط لولهٔ حبشان–فجیره",
+    "en": "Habshan–Fujairah pipeline (ADCOP)",
+    "names": ["حبشان", "فجیره", "habshan", "fujairah", "adcop"],
+    "source": "ADNOC's Abu Dhabi Crude Oil Pipeline from Habshan to Fujairah on the Gulf of Oman, about 370 km. Schematic along the published corridor; accuracy about ±10 km.",
+    "accuracy_km": 10
+   },
+   "geometry": { "type": "LineString", "coordinates": [[53.73, 23.87], [54.55, 24.12], [55.35, 24.45], [55.85, 24.8], [56.33, 25.13]] }
+  }
+ ]
+}

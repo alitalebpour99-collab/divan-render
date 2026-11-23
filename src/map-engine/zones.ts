@@ -1,7 +1,9 @@
 // Sea areas a report can name («در داخل و اطراف تنگهٔ هرمز»), as rough polygons [lon, lat] for hatching (round 3,
 // 21 Nov 2026). An area is what the report says, never a point it does not give: a zone says «somewhere here».
 // Drawn by hand from Natural Earth's coasts at the 1:50m scale; they follow the water, not the borders at sea.
-export type Zone = { id: string; t: string; polygon: [number, number][] };
+// Round 7: these outlines are Divan's own sketches of where a sea is, not an advisory's: they name a sea and are never
+// hatched as a danger area. A danger area is drawn only from its source's own outline (`source`), clipped to the water.
+export type Zone = { id: string; t: string; polygon: [number, number][]; /** the official outline's source, when it is one (UKMTO/JMIC advisory) */ source?: string; /** where its name is written */ at?: [number, number] };
 
 export const ZONES: Zone[] = [
   { id: "hormuz", t: "تنگهٔ هرمز", polygon: [[55.6, 26.95], [56.6, 27.05], [57.1, 26.4], [56.95, 25.75], [56.45, 25.95], [56.3, 26.35], [55.85, 26.45]] },

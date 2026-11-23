@@ -6,10 +6,23 @@
 import React from "react";
 import { AbsoluteFill, Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { geoContains, geoDistance, geoInterpolate } from "d3-geo";
-import { densify, useView, ContextNames, NAMES_FA, PLACES_FA, nameFa, CAPITALS, CometTrail, CountryFill, Callouts, ClaimLine, DashedLine, FlagChip, LANES, MapStage, MeasureLine, PinCluster, PlaceLabels, RegionHatch, DIVAN, country, lookAt, makeView, faNum, type Key, type Look, type CalloutSpec } from "../map-engine";
+import { measureLabelBox, placeCallouts } from "../map-engine/layers";
+import { carry, textWidth } from "../map-engine/labels";
+import { mix } from "../map-engine/contrast";
+import { worldFor } from "../map-engine/world";
+import { densify, useView, ContextNames, pickNames, placeLabel, NAMES_FA, PLACES_FA, nameFa, CAPITALS, CometTrail, CountryFill, Callouts, LaneLine, WaterMask, ClaimLine, DashedLine, FlagChip, LANES, MapStage, MeasureLine, PinCluster, PlaceLabels, RegionHatch, DIVAN, country, lookAt, makeView, faNum, type Key, type Look, type CalloutSpec } from "../map-engine";
 import { VAZIR } from "../map-engine/fonts";
-import { LOOP } from "./director";
+import { LOOP, mainObject, shareWidth, arriveOf, TRAVEL } from "./director";
 import { RoadObject } from "./objects";
+import { MapObject, ObjectDefs, objectBox, objectPoint, columnOf, sailAt, COLUMN_MAX, wetK, artScale, FLOATING, clearOfPanels, shipPose, type Pose } from "../map-engine/objects";
+import { kmAlong, kmPerFrame, pointAt, wayOf } from "../map-engine/ships";
+import { landOn, landAt, boxOnWater } from "../map-engine/water";
+import { MapMarker, Disc } from "../map-engine/markers";
+import { legendLayout, legendBox, LEGEND, LEGEND_SOURCE_TOP, MARKER_R, type LegendItem } from "./legend";
+const LEGEND_PAD = LEGEND.pad;
+const LEGEND_GAP = LEGEND.gap;
+import { SeaDetail, ScaleAndNorth, scaleGeom } from "../map-engine/detail";
+import { SEA_PLACES_FA } from "../map-engine/names";
 import type { Beat, ChartSpec, Mark, ReelContent, Shot, Storyboard } from "./types";
 
 export const ROOM = { bg: "#1a2330", bg2: "#202b3a", edge: "#151d28", panel: "rgba(30,41,58,0.94)", line: "#34445a", paper: "#f3efe6", mute: "#a3afbd", amber: "#ffb020", hit: "#ff4d40" };
@@ -54,7 +67,10 @@ function cameraKeys(sb: Storyboard): Key[] {
       keys.push({ at: 0, ...(hook ?? (s.motion.camera === "push-close" ? { ...look, span: look.span * 0.55 } : { ...look, span: Math.min(175, look.span * 2.4), lon: look.lon - look.span * 0.3, tilt: 22 })) });
       keys.push({ at: a + len, ...look });
     } else {
-      const travel = s.motion.camera === "dive" ? Math.min(len, 40) : Math.min(len, 22);
+      // pass 4: into a new beat the camera whips (its header and marks land as it arrives); inside a beat it glides
+      const into = sb.shots.find((z) => z.beat === s.beat) === s && s.beat > 0;
+      // pass 5: along a followed line the camera glides the whole shot, with the line as it draws
+      const travel = s.motion.follow !== undefined && !into ? len : s.motion.camera === "dive" ? Math.min(len, into ? TRAVEL.dive : 40) : Math.min(len, into ? TRAVEL.pan : 22);
       if (keys[keys.length - 1].at < a) keys.push({ at: a, ...prev });
       keys.push({ at: a + travel, ...look, ease: "inOut" });
       // after the move the camera keeps creeping the same way (a tenth further), so the frame is never still
@@ -68,10 +84,284 @@ function cameraKeys(sb: Storyboard): Key[] {
   return keys.filter((k, i, all) => i === 0 || k.at > all[i - 1].at);
 }
 
+/** round 6: where a share's bar stands: above its thing, inside the safe frame */
+const shareBox = (v: { at: (lon: number, lat: number) => [number, number] | null }, m: { lon: number; lat: number; label: string }) => {
+  const at = v.at(m.lon, m.lat);
+  if (!at) return null;
+  // round 7: as wide as its words, always right over its thing (the camera keeps it in the frame: director.ts shareBounds)
+  const w = shareWidth(m.label);
+  const h = 128;
+  return { x: at[0] - w / 2, y: at[1] - 190 - h, w, h };
+};
+/**
+ * A share the line says, as a bar over its thing (round 6): the line's own words above, the bar filling to the share,
+ * Iran's amber on a dark track, a short leader to the thing. The value is the line's (enrich.ts shareOf), never computed.
+ */
+const ShareBar: React.FC<{ m: Extract<Mark, { kind: "share" }>; t: number }> = ({ m, t }) => {
+  const v = useView();
+  const b = shareBox(v, m);
+  const at = v.at(m.lon, m.lat);
+  if (!b || !at || t < 0) return null;
+  const k = interpolate(t, [0, 8], [0, 1], clamp);
+  const fill = interpolate(t, [6, 30], [0, m.share], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const halo = { paintOrder: "stroke" as const, stroke: DIVAN.halo, strokeWidth: 7, strokeLinejoin: "round" as const };
+  const barY = b.y + 66;
+  return (
+    <g opacity={k}>
+      <path d={`M${b.x + b.w / 2} ${b.y + b.h} L${at[0]} ${at[1] - 60}`} stroke={DIVAN.ink} strokeWidth={2.5} opacity={0.7} />
+      <text x={b.x + b.w} y={b.y + 44} textAnchor="start" direction="rtl" fill={DIVAN.ink} fontFamily={VAZIR} fontWeight={800} fontSize={40} style={halo}>
+        {m.label}
+      </text>
+      <rect x={b.x} y={barY} width={b.w} height={34} rx={17} fill={DIVAN.halo} stroke={DIVAN.ink} strokeWidth={2} opacity={0.92} />
+      {/* right to left, as the page reads */}
+      <rect x={b.x + b.w * (1 - fill)} y={barY} width={b.w * fill} height={34} rx={17} fill={m.color ?? DIVAN.accent} />
+    </g>
+  );
+};
+
+/** round 5: the look a beat's callouts are placed on: its last shot's, where all its marks are in */
+const refLookOf = (sb: Storyboard, beat: number): Look | undefined => {
+  const own = sb.shots.filter((s) => s.beat === beat && s.motion.look);
+  return own.length ? (own[own.length - 1].motion.look as Look) : undefined;
+};
+
+const clockKey = (m: Extract<Mark, { kind: "object" }>) => (m.move === "sail" && m.lane && m.path ? `${m.id}|${m.lane}` : "");
+const CLOCKS = new WeakMap<object, Map<string, { s0: number; f0: number }>>();
+/**
+ * Round 7: one clock per ship of the Reel (a ship type on a lane): set where it is first seen, so it passes the point of
+ * its first beat half-way through that beat, then sails on at its speed through every later beat (ships.ts).
+ */
+export function shipClocks(c: ReelContent, sb: Storyboard): Map<string, { s0: number; f0: number }> {
+  const have = CLOCKS.get(sb);
+  if (have) return have;
+  // pass 3: the clocks worked out once with the storyboard (Root.tsx), so a frame never searches them again
+  const pre = (sb as Storyboard & { clocks?: Record<string, { s0: number; f0: number }> }).clocks;
+  if (pre) {
+    const m = new Map(Object.entries(pre));
+    CLOCKS.set(sb, m);
+    return m;
+  }
+  const out = new Map<string, { s0: number; f0: number }>();
+  const ends: Record<number, number> = {};
+  for (const s of sb.shots) ends[s.beat] = Math.max(ends[s.beat] ?? 0, Math.round((s.start + s.dur) * sb.fps));
+  for (const s of sb.shots) {
+    const b = c.beats[s.beat];
+    const marks = b.kind === "hook" ? (b.marks ?? []) : b.kind === "map" ? b.marks : b.kind === "demand" || b.kind === "road" ? (b.marks ?? []) : [];
+    for (const i of s.marks) {
+      const m = marks[i];
+      if (m.kind !== "object") continue;
+      const key = clockKey(m);
+      if (!key || out.has(key)) continue;
+      const way = wayOf(m.path!);
+      const at = s.beat === 0 && s.n === 1 ? 0 : Math.round(s.start * sb.fps);
+      const v = kmPerFrame(m.id);
+      const mid = kmAlong(way, [m.lon, m.lat]);
+      // on frame 0 the hook's ship is already at its point; a later one reaches its point half-way through its beat
+      let s0 = mid - (s.beat === 0 ? 0 : (v * ((ends[s.beat] ?? at) - at)) / 2);
+      // never off its way's end before the Reel is over
+      s0 = Math.max(0, Math.min(s0, way.km - v * (sb.total - at) - 1));
+      // pass 3 (owner: «روساخت نفتکش‌های کوچک به ساحل قشم و ایران می‌ساید»): a column the line counts sails where every hull
+      // and house of it is clear of every coast on the frames it is seen, out on the open lane
+      if (m.count && m.count > 1 && m.count <= COLUMN_MAX) s0 = openWater(c, sb, key, way, s0, at, v);
+      out.set(key, { s0, f0: at });
+    }
+  }
+  CLOCKS.set(sb, out);
+  return out;
+}
+
+/**
+ * Pass 3: where along its way a column of ships is at frame `at` so that, on every frame of the beats it sails in, every
+ * ship of it is drawn whole on open water (its waterline, house and bow HOUSE_KM off every coast: objects.tsx hullClear),
+ * nearest the writer's point among the best. Measured on the Reel's own camera, every sixth frame.
+ */
+function openWater(c: ReelContent, sb: Storyboard, key: string, way: ReturnType<typeof wayOf>, s0: number, at: number, v: number): number {
+  const keys = cameraKeys(sb);
+  const frames: { f: number; view: ReturnType<typeof makeView>; n: number; gap: number; zoom: number; panels: { x: number; y: number; w: number; h: number }[]; discs: [number, number][] }[] = [];
+  const beats = new Set<number>();
+  for (const s of sb.shots) {
+    const b = c.beats[s.beat];
+    const marks = b.kind === "hook" ? (b.marks ?? []) : b.kind === "map" ? b.marks : [];
+    if (marks.some((m) => m.kind === "object" && clockKey(m) === key)) beats.add(s.beat);
+  }
+  for (const s of sb.shots) {
+    if (!beats.has(s.beat)) continue;
+    const b = c.beats[s.beat] as Extract<Beat, { kind: "hook" | "map" }>;
+    const m = b.marks?.find((q): q is Extract<Mark, { kind: "object" }> => q.kind === "object" && clockKey(q) === key);
+    if (!m) continue;
+    for (let f = Math.round(s.start * sb.fps); f < Math.round((s.start + s.dur) * sb.fps); f += 6) {
+      const look = lookOfFrame(keys, f, sb.total);
+      const col = columnOf(m, b.look.span, look.span);
+      const view = makeView(look, STAGE, DIVAN, f, "clock");
+      // the beat's numbered discs (a ship never sails over one: mapcheck's object-over-marker)
+      const discs = (b.marks ?? []).filter((q): q is Extract<Mark, { kind: "marker" }> => q.kind === "marker").map((q) => view.at(q.lon, q.lat)).filter((q): q is [number, number] => Boolean(q));
+      frames.push({ f, view, n: col.n, gap: col.gapKm, zoom: artScale(m.id) * (m.size ?? 1) * col.zoom, panels: legendBox(b.legend) ? [legendBox(b.legend)!] : [], discs });
+    }
+  }
+  if (!frames.length) return s0;
+  const id = key.split("|")[0] as Extract<Mark, { kind: "object" }>["id"];
+  const tail = Math.max(...frames.map((x) => (x.n - 1) * x.gap));
+  const hi = way.km - v * (sb.total - at) - 1;
+  // a ship's verdict on a frame depends only on where along its way it is: kept per 3 km of way
+  const memo = frames.map(() => new Map<number, number>());
+  // 3: drawn on the map but hidden (its picture near a coast or under the legend); 1: past the band's edge (not seen
+  // whole, but nothing on the map is wrong); 0: seen whole on open water
+  const bad = (fi: number, km: number) => {
+    const x = frames[fi];
+    const k = Math.round(km / 3);
+    let r = memo[fi].get(k);
+    if (r === undefined) {
+      const p = pointAt(way, k * 3);
+      const q = x.view.at(p[0], p[1]);
+      const pose = q ? shipPose(x.view, way, k * 3) : null;
+      const onDisc = q ? x.discs.some((d) => Math.abs(d[0] - q[0]) < 135 * x.zoom + MARKER_R + 4 && q[1] - d[1] < 120 * x.zoom + MARKER_R + 6 && d[1] - q[1] < 20 * x.zoom + MARKER_R + 6) : false;
+      const hb = q ? { x: q[0] - 135 * x.zoom, y: q[1] - 120 * x.zoom, w: 270 * x.zoom, h: 140 * x.zoom } : null;
+      const off = !hb || hb.x + hb.w < 0 || hb.x > 1080 || hb.y + hb.h < 0 || hb.y > 1920;
+      // under the header, the source line or the legend (faded there, or not drawn) is as bad as a coast
+      const under = hb ? [...CHROME, ...x.panels].some((pn) => meetBox(hb, pn, 2)) : false;
+      r = off ? 1 : under || onDisc || !wetK(x.view, q!, x.zoom, id, pose) ? 3 : q![0] < 80 || q![0] > 1000 || q![1] > 1468 ? 1 : 0;
+      memo[fi].set(k, r);
+    }
+    return r;
+  };
+  const misses = (s: number) => {
+    let n = 0;
+    frames.forEach((x, fi) => {
+      for (let i = 0; i < x.n; i += 1) n += bad(fi, s + v * (x.f - at) - i * x.gap);
+    });
+    return n;
+  };
+  if (typeof process !== "undefined" && process.env?.CLOCK_DEBUG) {
+    const dump = (s: number) => frames.map((x, fi) => `${(x.f / 30).toFixed(1)}:${Array.from({ length: x.n }, (_, i) => bad(fi, s + v * (x.f - at) - i * x.gap)).join("")}`).join(" ");
+    (globalThis as { clockDump?: (s: number) => string }).clockDump = dump;
+  }
+  let best = { s: s0, n: misses(s0) };
+  if (!best.n) return s0;
+  for (let d = 4; d <= 480; d += 4)
+    for (const s of [s0 + d, s0 - d]) {
+      if (s < tail || s > hi) continue;
+      const n = misses(s);
+      if (n < best.n) best = { s, n };
+      if (!best.n) return best.s;
+    }
+  return best.s;
+}
+
+/**
+ * Round 8, the owner (22 Nov 2026: «نوشته‌های روی نقشه و جاها و بعضی وقت‌ها آبجکت‌ها یهو ناپدید و دوباره تولید میشن»):
+ * what a thing on the map is across beats. Two beats that draw the same thing (the same tanker on its lane, the same
+ * numbered disc on its place, the same place name) draw ONE thing: the later beat carries it on from the cut, never
+ * draws it afresh after a gap. A missile or a drop is an event, never carried.
+ */
+export const markKey = (m: Mark): string | null => {
+  const ll = (lon: number, lat: number) => `${lon.toFixed(2)},${lat.toFixed(2)}`;
+  const line = (cs: [number, number][]) => (cs.length ? `${ll(cs[0][0], cs[0][1])}>${ll(cs[cs.length - 1][0], cs[cs.length - 1][1])}#${cs.length}` : "");
+  switch (m.kind) {
+    case "object":
+      if (m.move === "drop" || m.move === "arc") return null;
+      return clockKey(m) ? `object|${clockKey(m)}` : `object|${m.id}|${m.variant ?? ""}|${ll(m.lon, m.lat)}|${m.move ?? ""}`;
+    case "marker":
+      return `marker|${m.n}|${ll(m.lon, m.lat)}`;
+    case "label":
+      return `label|${m.t}|${ll(m.lon, m.lat)}`;
+    case "callout":
+      return `callout|${m.bold}|${m.sub ?? ""}|${ll(m.lon, m.lat)}`;
+    case "flag":
+      return `flag|${m.a3}|${ll(m.lon, m.lat)}`;
+    case "lane":
+      return `lane|${m.id}`;
+    case "measure":
+      return `measure|${ll(m.a[0], m.a[1])}|${ll(m.b[0], m.b[1])}`;
+    case "fill":
+      return `fill|${m.a3}|${m.color}`;
+    case "hatch":
+      return `hatch|${m.a3 ?? ""}|${m.polygon ? line(m.polygon) : ""}|${m.color}`;
+    case "claim":
+    case "dashed":
+    case "comet":
+      return `${m.kind}|${line(m.coords)}|${m.color}`;
+    case "pins":
+      return `pins|${m.points.map((p) => ll(p.lon, p.lat)).join(";")}|${m.color}`;
+    case "share":
+      return `share|${m.label}|${ll(m.lon, m.lat)}`;
+    default:
+      return null;
+  }
+};
+/** frames a carried thing takes to slide to where its new beat puts it */
+const SLIDE = 14;
+/** the same thing on the beat before: by its key, or (a thing the new beat moves a little) the same kind, name and number within 0.6 degrees */
+function heldOf(carry: Map<string, { at: number; life?: number; m: Mark }> | undefined, key: string, m: Mark): { at: number; life?: number; m: Mark; exact: boolean } | undefined {
+  if (!carry) return undefined;
+  const ex = carry.get(key);
+  if (ex) return { ...ex, exact: true };
+  if (!("lon" in m) || (m.kind === "object" && m.path)) return undefined;
+  const same = (q: Mark) => q.kind === m.kind && (q.kind === "object" && m.kind === "object" ? q.id === m.id && q.variant === m.variant && q.move === m.move && !q.path : q.kind === "marker" && m.kind === "marker" ? q.n === m.n : q.kind === "label" && m.kind === "label" ? q.t === m.t : false);
+  for (const h of carry.values()) if (same(h.m) && "lon" in h.m && Math.hypot(h.m.lon - m.lon, h.m.lat - m.lat) <= 0.6) return { ...h, exact: false };
+  return undefined;
+}
+/** frames a thing takes to fade out when its story ends (never a pop) */
+export const FADE_OUT = 9;
+type Entry = { m: Mark; t: number; beat: number; own: boolean; life?: number; base?: number; opacity?: number; key?: string | null; at?: number };
+const CARRY = new WeakMap<object, Map<number, Map<string, { at: number; life?: number; m: Mark }>>>();
+const NEXT = new WeakMap<object, Map<number, Map<string, { at: number; m: Mark }>>>();
+
 /** The marks on the map at frame f, each with its clock: the hook's are whole from frame 0 (the event is already there). */
-function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
-  const out: { m: Mark; t: number; beat: number; own: boolean }[] = [];
-  const cur = sb.shots.find((s) => f >= s.start * sb.fps && f < (s.start + s.dur) * sb.fps) ?? sb.shots[sb.shots.length - 1];
+export function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean): Entry[] {
+  if (inLoop) return marksRaw(c, sb, f, true);
+  const fr = (s: { start: number; dur: number }) => [Math.round(s.start * sb.fps), Math.round((s.start + s.dur) * sb.fps)] as const;
+  const cur = sb.shots.find((s) => f >= fr(s)[0] && f < fr(s)[1]) ?? sb.shots[sb.shots.length - 1];
+  const beats = [...new Set(sb.shots.map((s) => s.beat))].sort((a, b) => a - b);
+  const bi = beats.indexOf(cur.beat);
+  const firstOf = (b: number) => fr(sb.shots.find((s) => s.beat === b)!)[0];
+  const endOf = (b: number) => Math.max(...sb.shots.filter((s) => s.beat === b).map((s) => fr(s)[1]));
+  // what the beat before left on the map on its last frame (its own clock), carried on into this beat
+  let carryMap = CARRY.get(sb);
+  if (!carryMap) CARRY.set(sb, (carryMap = new Map()));
+  let carry = carryMap.get(cur.beat);
+  if (!carry) {
+    carry = new Map();
+    if (bi > 0) {
+      const prevLast = endOf(beats[bi - 1]) - 1;
+      for (const e of marksAt(c, sb, prevLast, prevLast >= sb.total - LOOP)) if (e.key && e.at !== undefined && !carry.has(e.key)) carry.set(e.key, { at: e.at, life: e.life, m: e.m });
+    }
+    carryMap.set(cur.beat, carry);
+  }
+  const list = marksRaw(c, sb, f, false, carry);
+  // what the next beat (or the loop's first picture) will draw: a thing not in it fades out over the beat's last frames
+  let nextMap = NEXT.get(sb);
+  if (!nextMap) NEXT.set(sb, (nextMap = new Map()));
+  let next = nextMap.get(cur.beat);
+  if (!next) {
+    next = new Map<string, { at: number; m: Mark }>();
+    const nb = beats[bi + 1];
+    const lst = nb !== undefined ? marksRaw(c, sb, firstOf(nb), false, undefined, true) : marksRaw(c, sb, sb.total - LOOP, true, undefined, true);
+    for (const e of lst) if (e.key) next.set(e.key, { at: 0, m: e.m });
+    nextMap.set(cur.beat, next);
+  }
+  // the last beat ends where the loop begins
+  const end = Math.min(endOf(cur.beat), bi === beats.length - 1 ? sb.total - LOOP : Infinity);
+  const fade = Math.max(0, Math.min(1, (end - f) / FADE_OUT));
+  if (fade >= 1) return list;
+  return list.map((e) => (e.key && heldOf(next, e.key, e.m) ? e : { ...e, opacity: (e.opacity ?? 1) * fade }));
+}
+
+/**
+ * The marks at frame f as each beat lists them. `carry`: what the beat before left on the map, by markKey (it keeps
+ * its clock and its look, so it is never drawn afresh); `anyTime`: every mark the beat will draw, whatever its time.
+ */
+function marksRaw(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean, carry?: Map<string, { at: number; life?: number; m: Mark }>, anyTime = false): Entry[] {
+  const out: Entry[] = [];
+  const clocks = shipClocks(c, sb);
+  const baseOf = (i: number) => {
+    const b = c.beats[i];
+    return b.kind === "hook" || b.kind === "map" || b.kind === "demand" ? b.look.span : b.kind === "road" ? b.look?.span : undefined;
+  };
+  // where each beat ends: an object that moves (a ship, an aircraft) spends its beat on its way
+  const ends: Record<number, number> = {};
+  for (const s of sb.shots) ends[s.beat] = Math.max(ends[s.beat] ?? 0, Math.round((s.start + s.dur) * sb.fps));
+  // pass 3: the shot's frames rounded as the renderer rounds them (a beat's last frame never falls between two shots)
+  const cur = sb.shots.find((s) => f >= Math.round(s.start * sb.fps) && f < Math.round((s.start + s.dur) * sb.fps)) ?? sb.shots[sb.shots.length - 1];
   // the chapter: from the last beat that clears the map
   let from = 0;
   c.beats.forEach((b, i) => {
@@ -82,20 +372,84 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
     const marks = b.kind === "hook" ? (b.marks ?? []) : b.kind === "map" ? b.marks : b.kind === "demand" || b.kind === "road" ? (b.marks ?? []) : [];
     for (const i of s.marks) {
       const m = marks[i];
-      const at = s.beat === 0 && s.n === 1 ? -60 : Math.round(s.start * sb.fps) + 3;
+      // round 5: the hook's strike (a drone or missile coming down) is seen falling on its first shot, not already over
+      const strike = m.kind === "object" && (m.move === "drop" || m.move === "arc");
+      // round 8: a numbered disc on a beat's first shot lands when the camera has arrived (a dive or a pan takes 1.5 s):
+      // flying in, the disc would cross the header or the legend; its burst and the fire it sets come with it
+      // pass 4: everything a flying first shot brings (its things too, not only its discs) lands with its header, together
+      // a column on the Reel's clock is already sailing (it never blinks out while the camera flies)
+      const onClock = m.kind === "object" && Boolean(clockKey(m)) && (m.count ?? 1) > 1;
+      const at0 = s.beat === 0 && s.n === 1 ? (strike ? 6 : -60) : Math.round(s.start * sb.fps) + 3 + (onClock ? 0 : arriveOf(sb.shots, s, sb.fps));
+      // round 8: a thing the beat before left on the map keeps its clock (never a gap at the cut, never drawn afresh)
+      const key = markKey(m);
+      const held = key && !inLoop ? heldOf(carry, key, m) : undefined;
+      const at = held ? Math.min(held.at, at0) : at0;
       if (inLoop) {
-        if (s.beat === 0 && s.n === 1) out.push({ m, t: f - at, beat: 0, own: true });
+        // an object of the first frame runs back to where it stood then, so the last frame meets the first
+        if (s.beat === 0 && s.n === 1) {
+          // round 7: a ship on the Reel's clock comes back where it sailed on frame 0 (it fades in as the camera flies home)
+          const ck = m.kind === "object" ? clocks.get(clockKey(m)) : undefined;
+          if (ck && m.kind === "object") out.push({ m: { ...m, s0: ck.s0, f0: ck.f0 + sb.total }, t: 99, beat: 0, own: true, base: baseOf(0), opacity: Math.min(1, (f - (sb.total - LOOP)) / 10) });
+          else out.push({ m, t: m.kind === "object" ? -at - (sb.total - f) : f - at, beat: 0, own: true, life: (ends[0] ?? 0) - at, base: baseOf(0) });
+        }
         continue;
       }
-      if (f < at) continue;
+      if (f < at && !anyTime) continue;
       if (s.beat === 0 || s.beat >= from) {
         // labels, measures and callouts belong to their own beat; what is drawn on the ground stays for the chapter
-        const passing = m.kind === "callout" || m.kind === "measure" || m.kind === "label" || m.kind === "flag" || b.kind === "road";
+        const passing = m.kind === "callout" || m.kind === "marker" || m.kind === "lane" || m.kind === "measure" || m.kind === "label" || m.kind === "flag" || m.kind === "object" || m.kind === "share" || b.kind === "road";
         // the close gathers the story on the first frame: every line and pin of every beat (the roads too) is back on
         // the hook's map and its comets run again (round 2, the judge: «end on the 0 s map with the three roads»)
-        const gather = (c.beats[cur.beat].kind === "poll" || c.beats[cur.beat].kind === "gauge") && (m.kind === "comet" || m.kind === "dashed" || m.kind === "pins" || m.kind === "claim");
+        // round 7: the hook's own thing (the refinery, the tanker) stands there too, so the question has its context
+        const gather = (c.beats[cur.beat].kind === "poll" || c.beats[cur.beat].kind === "gauge") && (m.kind === "comet" || m.kind === "dashed" || m.kind === "pins" || m.kind === "claim" || (s.beat === 0 && m.kind === "object" && m.move !== "drop" && m.move !== "arc" && m.move !== "sail"));
         if (passing && s.beat !== cur.beat && !gather) continue;
-        out.push({ m, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather });
+        // a burning object came in early (pass 3): its fire waits for the pin it stands on, and for a missile's burst there
+        let mm: Mark = m;
+        if (m.kind === "object" && ((m.fire !== undefined && m.fire !== false) || m.move === "approach")) {
+          // the incident nearest the ship (its pin, or the missile coming down on it) sets when it starts to burn
+          const dist = (lon: number, lat: number) => Math.hypot(lon - m.lon, lat - m.lat);
+          let best = Infinity;
+          let land = at;
+          for (const z of sb.shots)
+            if (z.beat === s.beat)
+              for (const j of z.marks) {
+                const q = marks[j];
+                const d = q.kind === "pins" ? Math.min(...q.points.map((p) => dist(p.lon, p.lat))) : q.kind === "marker" ? dist(q.lon, q.lat) + 0.2 : q.kind === "object" && (q.move === "drop" || q.move === "arc") ? dist(q.lon, q.lat) - 1e-3 : Infinity;
+                if (d <= best) {
+                  best = d;
+                  const arrive = arriveOf(sb.shots, z, sb.fps);
+                  land = Math.round(z.start * sb.fps) + 3 + arrive + (q.kind === "object" ? 30 : 0);
+                }
+              }
+          const struck = best < Infinity && land > at;
+          // round 4, the sequence: the ship sails in and lies at its point when the incident lands, then burns
+          mm = { ...m, ...(m.fire !== undefined && m.fire !== false ? { fire: Math.max(0, land - at) + (m.fire === true ? 0 : m.fire) } : {}), ...(m.move === "approach" ? { arrive: Math.max(24, (struck ? land : at + 60) - at - 8) } : {}) };
+        }
+        // pass 4 (the judge: «make each shot of the share beat add a real change»): a pipeline on a beat whose line says a share
+        // of the output went stops its oil on the shot after the share lands
+        if (mm.kind === "object" && mm.move === "pipe") {
+          const si = marks.findIndex((q) => q.kind === "share");
+          const own = sb.shots.filter((z) => z.beat === s.beat);
+          const zi = si >= 0 ? own.findIndex((z) => z.marks.includes(si)) : -1;
+          if (zi >= 0 && own[zi + 1]) mm = { ...mm, stop: Math.round(own[zi + 1].start * sb.fps) + 3 - at };
+          // pass 5: a followed line draws from its start until its end shot, the camera travelling with it
+          if (s.motion.follow) mm = { ...mm, draw: Math.max(30, Math.round(s.start * sb.fps) + s.motion.follow - at) };
+        }
+        // round 6: the beat's main thing is drawn a size larger
+        const mp = mainObject(marks);
+        if (mm.kind === "object" && mp && mm.lon === mp[0] && mm.lat === mp[1] && marks.findIndex((q) => q.kind === "object" && q.lon === mp[0] && q.lat === mp[1]) === i) mm = { ...mm, main: true };
+        // round 7: a ship on a lane sails the Reel's one clock
+        if (mm.kind === "object") {
+          const ck = clocks.get(clockKey(mm));
+          if (ck) mm = { ...mm, s0: ck.s0, f0: ck.f0 };
+        }
+        // a thing the beat moves a little (the hook's refinery makes room for its disc) slides there, never jumps
+        if (held && !held.exact && "lon" in held.m && "lon" in mm) {
+          const b0 = Math.round((sb.shots.find((z) => z.beat === s.beat)?.start ?? 0) * sb.fps);
+          const u = Easing.inOut(Easing.cubic)(Math.max(0, Math.min(1, (f - b0) / SLIDE)));
+          mm = { ...mm, lon: held.m.lon + (mm.lon - held.m.lon) * u, lat: held.m.lat + (mm.lat - held.m.lat) * u } as Mark;
+        }
+        out.push({ m: mm, t: f - at, beat: s.beat, own: s.beat === cur.beat || gather, life: held ? held.life : (ends[s.beat] ?? at) - at, base: baseOf(s.beat), key, at });
       }
     }
   }
@@ -106,6 +460,33 @@ function marksAt(c: ReelContent, sb: Storyboard, f: number, inLoop: boolean) {
 const fillOpacity = (color: string, span: number) => (color.toLowerCase() === DIVAN.actors.iran ? (span < 12 ? 0.3 : 0.5) : span < 12 ? 0.26 : 0.4);
 /** the ground's names the context layer may write: the places of the engine, and every named state at its centroid */
 const PLACE_LIST = Object.values(PLACES_FA);
+/** islands and ports on a close map of the Gulf (round 4), never two of one name */
+const SEA_LIST = Object.values(SEA_PLACES_FA).filter((p) => !PLACE_LIST.some((q) => q.t === p.t));
+
+/** An area where the source gives a place only roughly: a soft disc and a dashed ring about 15 km across, its centre a small dot. */
+const AreaMarks: React.FC<{ points: { lon: number; lat: number }[]; color: string; t: number; span: number }> = ({ points, color, t, span }) => {
+  const v = useView();
+  if (t < 0) return null;
+  const k = Math.min(1, t / 12);
+  return (
+    <g opacity={k}>
+      {points.map((p, i) => {
+        const at = v.at(p.lon, p.lat);
+        const edge = v.at(p.lon + 0.07, p.lat);
+        if (!at || !edge) return null;
+        const r = Math.max(36, Math.min(160, Math.hypot(edge[0] - at[0], edge[1] - at[1])));
+        void span;
+        return (
+          <g key={i}>
+            <circle cx={at[0]} cy={at[1]} r={r} fill={color} opacity={0.16} />
+            <circle cx={at[0]} cy={at[1]} r={r} fill="none" stroke={color} strokeWidth={3} strokeDasharray="10 8" strokeDashoffset={-v.f * 0.6} />
+            <circle cx={at[0]} cy={at[1]} r={5} fill={color} />
+          </g>
+        );
+      })}
+    </g>
+  );
+};
 const STATE_LIST = Object.keys(NAMES_FA)
   .map((a3) => {
     const c = country(a3);
@@ -114,10 +495,23 @@ const STATE_LIST = Object.keys(NAMES_FA)
   .filter((x): x is { t: string; lon: number; lat: number } => Boolean(x));
 
 /** Small boxes along every line on the map: the labels are placed clear of them (round 3: «labels over the route»). */
-const LineBoxes: React.FC<{ ms: Mark[]; children: (boxes: { x: number; y: number; w: number; h: number }[]) => React.ReactNode }> = ({ ms, children }) => {
-  const v = useView();
+const lineBoxesOf = (v: ReturnType<typeof useView>, ms: Mark[]) => {
   const boxes: { x: number; y: number; w: number; h: number }[] = [];
   for (const m of ms) {
+    if (m.kind === "object") {
+      // an object takes its own room (about 230 by 150 px) where it stands, starts and ends
+      // round 7: a ship on the Reel's clock or one coming in takes its room where it lies, not along the whole lane it passes
+      const passing = m.move === "approach" || (m.move === "sail" && m.lane);
+      const at = [[m.lon, m.lat] as [number, number], ...(m.path && m.path.length > 1 && !passing ? [m.path[0], m.path[Math.floor(m.path.length / 2)], m.path[m.path.length - 1]] : [])];
+      for (const q of at) {
+        const p = v.at(q[0], q[1]);
+        // round 5: a burning object takes its smoke's room too (it rises about 160 px)
+        const burns = m.fire !== undefined && m.fire !== false;
+        // round 7 pass 3: the main thing is drawn a size larger (about 240 px) and its hull reaches below its point
+        if (p) boxes.push(burns ? { x: p[0] - 135, y: p[1] - 300, w: 270, h: 360 } : { x: p[0] - 125, y: p[1] - 130, w: 250, h: 180 });
+      }
+      continue;
+    }
     if (m.kind !== "comet" && m.kind !== "dashed" && m.kind !== "claim") continue;
     const pts = densify(m.coords, 0.5);
     const step = Math.max(1, Math.floor(pts.length / 24));
@@ -126,15 +520,168 @@ const LineBoxes: React.FC<{ ms: Mark[]; children: (boxes: { x: number; y: number
       if (p) boxes.push({ x: p[0] - 22, y: p[1] - 22, w: 44, h: 44 });
     }
   }
-  return <>{children(boxes)}</>;
+  return boxes;
 };
 
-const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: number; span: number }> = ({ list, f, span }) => {
+/** Where the header and the source line write: no word on the map may enter them (round 7). */
+export const CHROME = [
+  { x: 0, y: 0, w: 1080, h: 556 },
+  { x: 0, y: 1404, w: 1080, h: 64 },
+];
+const meetBox = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }, pad = 0) => a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
+
+/**
+ * Round 7 (owner: «هیچ لیبل، کال‌اوت یا تیتری نباید در هیچ لحظه روی دیگری بیفتد»): every word a frame writes on the map,
+ * placed once against every other, in the order of what matters: the header and the source line (CHROME), then the
+ * share's bar, a measure's length and the scale, then the callouts (placed on their beat's look and carried), then the
+ * writer's place names, then the ground's names. What finds no room waits (it is not drawn on this frame); a callout
+ * that meets a word placed before it waits too. Pure: tests/words.test.mjs walks both samples frame by frame through it.
+ */
+/** The poll's options, its chip and the badge (PollPic): the map's words wait under them. */
+export const POLL_BOX = { x: 40, y: 990, w: 1000, h: 490 };
+export function layoutWords(view: ReturnType<typeof makeView>, refLook: Look | undefined, list: { m: Mark; t: number; life?: number; base?: number }[], scale: boolean, span: number, over: { x: number; y: number; w: number; h: number }[] = [], /** round 8: the ground's names on the frame before (they keep their place first) */ prefer: string[] = []) {
+  type B = { x: number; y: number; w: number; h: number };
+  const live = list.filter((x) => x.t >= 0);
+  const callouts: CalloutSpec[] = [];
+  const labels: { t: string; lon: number; lat: number }[] = [];
+  live.forEach(({ m }, i) => {
+    if (m.kind === "callout") callouts.push({ id: `c${list.indexOf(live[i])}`, lon: m.lon, lat: m.lat, bold: m.bold, sub: m.sub, color: m.color, a3: m.a3 });
+    if (m.kind === "label") labels.push({ t: m.t, lon: m.lon, lat: m.lat });
+  });
+  // round 8: the numbered discs are things on the map too: no word meets one
+  const discBoxes = live.flatMap(({ m }) => {
+    if (m.kind !== "marker") return [];
+    const q = view.at(m.lon, m.lat);
+    return q ? [{ x: q[0] - MARKER_R - 10, y: q[1] - MARKER_R - 10, w: 2 * MARKER_R + 20, h: 2 * MARKER_R + 20 }] : [];
+  });
+  const objBoxes = [...list.flatMap(({ m, t, life, base }) => (m.kind === "object" ? [objectBox(m, t, life ?? 90, base, view, view.f)].filter((b): b is NonNullable<typeof b> => Boolean(b)) : [])), ...discBoxes];
+  const sc = scale ? scaleGeom(view) : null;
+  const CH = [...CHROME, ...over];
+  // round 8: a share's words and bar are a row of the legend: nothing of it on the map
+  const shareBoxes: B[] = [];
+  // a measure's length on the header or the source line waits (its line is still drawn); round 8: its words stand on the
+  // side of its line that is water (never over land, never over a thing), else they wait
+  // round 8: a measure's length is a row of the legend (legend.ts): its words are never on the map; its bar stays
+  const measureSide = 1;
+  const measureBoxes: B[] = [];
+  const quietMeasures = live.filter(({ m }) => m.kind === "measure" && !measureBoxes.length).map(({ m }) => m);
+  // the scale is the least of the fixed words: it steps aside for a share or a measure; round 8: and it is drawn only
+  // over water, clear of every thing and disc
+  const scaleOk = Boolean(sc) && ![...shareBoxes, ...measureBoxes, ...CH, ...objBoxes].some((b) => meetBox(b, sc!.box, 6)) && boxOnWater(view, sc!.box);
+  const fixed: B[] = [...shareBoxes, ...measureBoxes, ...(scaleOk ? [sc!.box] : [])];
+  // round 5: placed once on the beat's look, clear of its objects, their smoke and its lanes; then carried with the places
+  const ref = refLook ? makeView(refLook, STAGE, DIVAN, view.f, "ref") : view;
+  const fixedRef: B[] = [
+
+    ...live.flatMap(({ m }) => (m.kind === "measure" ? [measureLabelBox(ref, m.a, m.b)].filter((b): b is NonNullable<typeof b> => Boolean(b)) : [])),
+    ...(sc ? [sc.box] : []),
+  ];
+  const preRef = placeCallouts(ref, callouts, SAFE, lineBoxesOf(ref, list.map((x) => x.m)), fixedRef);
+  const carried = carry(preRef.placed, Object.fromEntries(callouts.map((c) => [c.id, view.at(c.lon, c.lat)])), SAFE);
+  // a carried callout that meets a word placed before it (or another callout) waits for the next shot
+  const kept: typeof carried = [];
+  // round 7 pass 3 (the judge: «پرتابه، خروجی تنگه» was written over the tanker it names): a carried callout keeps its
+  // offset in pixels while the camera zooms, so on this frame it can come onto an object; then it is placed afresh on
+  // this frame, clear of every object's room
+  const objRooms = objBoxes.map((b) => ({ x: b.x - 10, y: b.y - 10, w: b.w + 20, h: b.h + 20 }));
+  for (const p0 of carried) {
+    let p = p0;
+    // and (the judge: «خریص» stood by Abqaiq after the camera moved) a carried callout that came nearer another
+    // callout's place than its own is placed afresh too, with every callout's place known
+    const own = view.at(callouts.find((x) => x.id === p.id)?.lon ?? 0, callouts.find((x) => x.id === p.id)?.lat ?? 0);
+    const mid: [number, number] = [p.box.x + p.box.w / 2, p.box.y + p.box.h / 2];
+    const astray = Boolean(own) && callouts.some((c) => {
+      if (c.id === p.id) return false;
+      const q = view.at(c.lon, c.lat);
+      return Boolean(q) && Math.hypot(mid[0] - q![0], mid[1] - q![1]) < Math.hypot(mid[0] - own![0], mid[1] - own![1]);
+    });
+    if (astray || objRooms.some((b) => meetBox(p.box, b, 4))) {
+      const again = placeCallouts(view, callouts, SAFE, [...objRooms, ...kept.map((k) => k.box)], [...CH, ...fixed]).placed.find((x) => x.id === p.id);
+      if (again) p = again;
+    }
+    const blocked = [...CH, ...fixed, ...kept.map((k) => k.box)].some((b) => meetBox(p.box, b, 4));
+    if (!blocked) kept.push(p);
+  }
+  const pre = { fits: preRef.fits, placed: kept };
+  // what lies under each callout on the beat's look (three points along its words): the colour must read on all of it
+  const groundAt = (x: number, y: number) => {
+    const ll = ref.inv(x, y);
+    if (!ll) return DIVAN.sea;
+    for (const { m } of list) {
+      if (m.kind !== "fill") continue;
+      const g = country(m.a3)?.geo;
+      if (g && geoContains(g, ll)) return mix(m.color, DIVAN.land, fillOpacity(m.color, ref.look.span));
+    }
+    return geoContains(worldFor(ref.look.span).land as never, ll) ? DIVAN.land : DIVAN.sea;
+  };
+  const grounds = Object.fromEntries(preRef.placed.map((p) => [p.id, [0.15, 0.5, 0.85].map((u) => groundAt(p.box.x + p.box.w * u, p.box.y + p.box.h * 0.4))]));
+  const showScale = scaleOk && !kept.some((p) => meetBox(p.box, sc!.box));
+  const calloutBoxes: B[] = kept.flatMap((p) => {
+    const out = [p.box];
+    // the leader, as a row of small boxes
+    const ex = p.box.x + p.box.w;
+    const ey = p.box.y + p.box.h / 2;
+    for (let s = 0; s <= 1; s += 0.1) out.push({ x: p.anchor[0] + (ex - p.anchor[0]) * s - 12, y: p.anchor[1] + (ey - p.anchor[1]) * s - 12, w: 24, h: 24 });
+    return out;
+  });
+  const words: { kind: string; t: string; box: B; at?: [number, number] }[] = [
+    ...shareBoxes.map((box) => ({ kind: "share", t: "", box })),
+    ...measureBoxes.map((box) => ({ kind: "measure", t: "", box })),
+    ...(showScale ? [{ kind: "scale", t: "", box: sc!.box }] : []),
+    ...kept.map((p) => ({ kind: "callout", t: p.id, box: p.box })),
+  ];
+  // the writer's place names: clear of all of that, the leaders and each other
+  const taken: B[] = [...CH, ...fixed, ...calloutBoxes];
+  // round 8: a name never moves off its place onto a leader: it stands on its place, clear of every thing and word, or
+  // waits; and a name of the sea (its place is water) is written on the water only
+  const groundOk = (at: [number, number] | null, box: B) => {
+    const g = at ? view.inv(at[0], at[1]) : null;
+    return !g || landAt(g) || boxOnWater(view, box);
+  };
+  const labelsAt = labels.map((l) => {
+    const pl0 = placeLabel(view, l, [], [...taken, ...objBoxes]);
+    const pl = pl0 && groundOk(pl0.at, pl0.box) ? pl0 : null;
+    if (pl) {
+      taken.push(pl.box);
+      words.push({ kind: "label", t: l.t, box: pl.box, at: pl.at });
+    }
+    return pl;
+  });
+  // where a mark already speaks, the ground stays quiet
+  const avoid: [number, number][] = [];
+  for (const { m } of live) {
+    if (m.kind === "object") avoid.push([m.lon, m.lat], ...(m.path && m.move !== "sail" ? m.path : []));
+    else if (m.kind === "callout" || m.kind === "label" || m.kind === "flag") avoid.push([m.lon, m.lat]);
+    else if (m.kind === "pins") avoid.push(...m.points.map((p) => [p.lon, p.lat] as [number, number]));
+    else if (m.kind === "measure") avoid.push(m.a, m.b, [(m.a[0] + m.b[0]) / 2, (m.a[1] + m.b[1]) / 2]);
+  }
+  for (const { m } of live) if (m.kind === "marker") avoid.push([m.lon, m.lat]);
+  const names = pickNames(view, avoid, span < 10 ? [...PLACE_LIST, ...SEA_LIST] : PLACE_LIST, STATE_LIST, span > 70 ? 4 : span < 10 ? 6 : 5, [...taken, ...objBoxes], prefer).filter((n) => groundOk(n.at, n.box));
+  for (const n of names) words.push({ kind: "name", t: n.t, box: n.box, at: n.at });
+  return { pre, grounds, showScale, labelsAt, names, labels, callouts, words, quietMeasures, measureSide };
+}
+
+const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean; life?: number; base?: number; opacity?: number; key?: string | null }[]; f: number; span: number; scale?: boolean; /** round 5: the beat's own look, where its callouts are placed once */ refLook?: Look; /** round 7: a picture over the map whose words the map's words wait under */ over?: { x: number; y: number; w: number; h: number }[]; /** pass 4: the disc the shot turns to, and frames since */ focus?: { n: number; t: number }; /** round 8: the Reel's track (reelTrack): names keep their place, words and things fade, never blink */ track?: Track }> = ({ list, f, span, scale = false, refLook, over = [], focus, track }) => {
+  const tv = (k: string) => (track ? track.vis(k, f) : 1);
+  const thingVis = (key: string | null | undefined, li: number, kind: string) => Array.from({ length: COLUMN_MAX }, (_, j) => {
+    const k = `thing:${key ?? `${kind}@${li}`}#${j}`;
+    return track && track.has(k) ? track.vis(k, f) : 1;
+  });
   const callouts: CalloutSpec[] = [];
   const ts: number[] = [];
   const labels: { t: string; lon: number; lat: number }[] = [];
-  const body = list.map(({ m, t, own }, i) => {
-    switch (m.kind) {
+  // a missile and its burst draw under what stands: a ship it hits is never hidden by the flash (pass 3)
+  const objects: { drawFirst: boolean; node: React.ReactNode }[] = [];
+  const view = useView();
+  const measures: React.ReactNode[] = [];
+  const discs: React.ReactNode[] = [];
+  const shares: { m: Extract<Mark, { kind: "share" }>; t: number }[] = [];
+  // round 8: a thing whose story ends fades out (marksAt), whatever it is
+  const ops: number[] = [];
+  const labelOps: number[] = [];
+  const measureOps: number[] = [];
+  const body = list.map(({ m, t, own, life, base, opacity, key }, i) => {
+    const node = ((): React.ReactNode => { switch (m.kind) {
       case "fill":
         return <CountryFill key={i} a3={m.a3} color={m.color} t={t} opacity={fillOpacity(m.color, span)} edge={m.color.toLowerCase() === DIVAN.actors.iran || (m as { pulse?: boolean }).pulse} pulse={(m as { pulse?: boolean }).pulse} />;
       case "hatch":
@@ -149,52 +696,82 @@ const MapMarks: React.FC<{ list: { m: Mark; t: number; own: boolean }[]; f: numb
           </g>
         );
       case "comet":
-        return <CometTrail key={i} coords={m.coords} color={m.color} t={t} dur={36} loop={m.loop ? 75 : own && t > 40 ? 54 : undefined} head={22} width={24} tail={0.45} route />;
+        // round 7: a lane is a thin line on the water (LaneLine); a comet over the sea is masked to the water and thinner
+        if (m.loop) return <LaneLine key={i} coords={m.coords} color={m.color} t={t} />;
+        return seaRoute(m.coords) ? (
+          <g key={i}>
+            <WaterMask id={`${view.uid}-comet-${i}`} margin={6} />
+            <g mask={`url(#${view.uid}-comet-${i})`}>
+              <CometTrail coords={m.coords} color={m.color} t={t} dur={36} loop={own && t > 40 ? 54 : undefined} head={12} width={10} tail={0.45} route />
+            </g>
+          </g>
+        ) : (
+          <CometTrail key={i} coords={m.coords} color={m.color} t={t} dur={36} loop={own && t > 40 ? 54 : undefined} head={22} width={24} tail={0.45} route />
+        );
+      case "lane":
+        // round 8: the real lane (Hormuz TSS), faint and still, only on the water
+        return <LaneLine key={i} coords={m.coords} color="#ffd88a" t={t} faint />;
+      case "marker":
+        discs.push(<g key={`k${i}`} opacity={opacity ?? 1}><MapMarker lon={m.lon} lat={m.lat} n={m.n} hit={m.hit} t={t} focus={own && focus && focus.n === m.n ? focus.t : undefined} /></g>);
+        return null;
       case "pins":
-        return <PinCluster key={i} points={m.points} color={m.color} t={t} />;
+        // a place the source gives only roughly: an area (a soft disc and a dashed ring), never a precise pin
+        return m.area ? <AreaMarks key={i} points={m.points} color={m.color} t={t} span={span} /> : <PinCluster key={i} points={m.points} color={m.color} t={t} />;
       case "measure":
-        return <MeasureLine key={i} a={m.a} b={m.b} t={t} />;
+        // over the objects: a ship passing the narrowest point must not hide its length
+        measures.push(<MeasureLine key={i} a={m.a} b={m.b} t={t} quiet={false} side={1} />);
+        measureOps.push(opacity ?? 1);
+        return null;
       case "callout":
         callouts.push({ id: `c${i}`, lon: m.lon, lat: m.lat, bold: m.bold, sub: m.sub, color: m.color, a3: m.a3 });
         ts.push(t);
+        ops.push(opacity ?? 1);
         return null;
       case "label":
-        labels.push({ t: m.t, lon: m.lon, lat: m.lat });
+        if (t >= 0) {
+          labels.push({ t: m.t, lon: m.lon, lat: m.lat });
+          labelOps.push(opacity ?? 1);
+        }
+        return null;
+      case "share":
+        shares.push({ m, t });
+        return null;
+      case "object":
+        // over the lines and pins they belong to, under the labels
+        objects.push({ drawFirst: m.move === "drop" || m.move === "arc", node: <MapObject key={`o${i}`} o={m} t={t} life={life ?? 90} base={base} opacity={opacity ?? 1} panels={[...CHROME, ...over]} vis={thingVis(key, i, m.kind)} /> });
         return null;
       default:
         return null;
-    }
+    } })();
+    return node && opacity !== undefined && opacity < 1 && m.kind !== "object" ? <g key={`f${i}`} opacity={opacity}>{node}</g> : node;
   });
   void f;
-  // where a mark already speaks, the ground stays quiet
-  const avoid: [number, number][] = [];
-  for (const { m, t } of list) {
-    if (t < 0) continue;
-    if (m.kind === "callout" || m.kind === "label" || m.kind === "flag") avoid.push([m.lon, m.lat]);
-    else if (m.kind === "pins") avoid.push(...m.points.map((p) => [p.lon, p.lat] as [number, number]));
-    else if (m.kind === "measure") avoid.push(m.a, m.b, [(m.a[0] + m.b[0]) / 2, (m.a[1] + m.b[1]) / 2]);
-  }
+  const L7 = layoutWords(view, refLook, list, scale, span, over, track ? (track.names[f - 1] ?? []) : []);
+  const { pre, grounds, showScale, labelsAt, names, quietMeasures, measureSide } = L7;
   return (
     <>
-      <ContextNames avoid={avoid} places={PLACE_LIST} states={STATE_LIST} max={span > 70 ? 4 : 5} />
+      <ObjectDefs />
+      <ContextNames avoid={[]} places={[]} states={[]} picked={names} ops={names.map((n) => tv(`name:${n.t}`))} />
       {body}
-      <PlaceLabels items={labels} />
-      <LineBoxes ms={list.map((x) => x.m)}>{(boxes) => <Callouts items={callouts} ts={ts} safe={SAFE} taken={boxes} />}</LineBoxes>
+      {objects.filter((o) => o.drawFirst).map((o) => o.node)}
+      {objects.filter((o) => !o.drawFirst).map((o) => o.node)}
+      {measures.map((node, i) => <g key={`m${i}`} opacity={measureOps[i] ?? 1}>{React.isValidElement(node) ? React.cloneElement(node as React.ReactElement<{ quiet: boolean; side: number }>, { quiet: quietMeasures.length > 0, side: measureSide }) : node}</g>)}
+      {discs}
+      <PlaceLabels items={labels} placed={labelsAt} ops={labels.map((l, i) => (labelOps[i] ?? 1) * tv(`label:${l.t}`))} />
+      <Callouts items={callouts} ts={ts} safe={SAFE} pre={pre} grounds={grounds} ops={callouts.map((c, i) => (ops[i] ?? 1) * tv(`callout:${c.bold}`))} />
+      {/* round 8: a share is a row of the legend (LegendPanel), never words over the map */}
+      {shares.length < 0 ? <ShareBar m={shares[0].m} t={0} /> : null}
+      {showScale ? <ScaleAndNorth /> : null}
     </>
   );
 };
 
-/** The day's traffic: comets on the sea lanes in view, always moving, back where they began at the loop. */
-const Ambient: React.FC<{ f: number; total: number; look: Look }> = ({ f, total, look }) => {
-  if (look.span > 120) return null;
-  const near = LANES.filter((l) => l.path.some(([lon, lat]) => Math.abs(lon - look.lon) < look.span * 0.7 && Math.abs(lat - look.lat) < look.span * 0.9)).slice(0, 3);
-  return (
-    <>
-      {near.map((l, i) => (
-        <CometTrail key={l.id} coords={l.path} color="#ffd88a" t={((f / total) * 2 + i * 0.37) * 120} loop={120} tail={0.22} head={8} width={5} />
-      ))}
-    </>
-  );
+/** A line whose every point is at sea (a ship's way, not a missile's): drawn on the water only. */
+const SEA_ROUTES = new WeakMap<object, boolean>();
+const seaRoute = (coords: [number, number][]) => {
+  let r = SEA_ROUTES.get(coords);
+  if (r === undefined) SEA_ROUTES.set(coords, (r = landOn(coords, 4).length === 0));
+  return r;
 };
 
 // ---------------- the pictures over the map ----------------
@@ -344,9 +921,9 @@ const PriceTag: React.FC<{ chart: ChartSpec; k: number; f: number; look: Look }>
   );
 };
 
-const Source: React.FC<{ text?: string; k: number; top?: number }> = ({ text, k }) =>
+const Source: React.FC<{ text?: string; k: number; top?: number }> = ({ text, k, top }) =>
   text && shortSource(text) ? (
-    <div style={{ position: "absolute", top: SOURCE_TOP, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, fontWeight: 600, fontSize: 36, color: ROOM.mute, opacity: 0.85 * k, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+    <div style={{ position: "absolute", top: top ?? SOURCE_TOP, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, fontWeight: 600, fontSize: 36, color: ROOM.mute, opacity: 0.85 * k, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
       منبع: {shortSource(text)}
     </div>
   ) : null;
@@ -598,10 +1175,11 @@ const DemandPic: React.FC<{ b: Extract<Beat, { kind: "demand" }>; local: number;
 
 // ---------------- the frame ----------------
 
-const Header: React.FC<{ s: Shot; local: number; big: boolean; color: string }> = ({ s, local, big, color }) => {
+const Header: React.FC<{ s: Shot; local: number; big: boolean; color: string; arrive?: number; again?: boolean }> = ({ s, local, big, color, arrive = 0, again = false }) => {
   if (!s.text.header || s.picture.layer === "chart" || s.picture.layer === "number" || s.picture.layer === "road" || s.picture.layer === "gauge") return null;
   // words snap in (5 frames): a cross-fade caught half-way read as ghosted text on the judge's sheets (round 3A)
-  const k = big ? 1 : rise(local, 0, 5);
+  // pass 5 (the judge: «the header blinks at 11.0 s»): a beat's header snaps in on its first shot and stays through its cuts
+  const k = big || again ? 1 : rise(local, arrive, 5);
   return (
     <div style={{ position: "absolute", top: 330, left: L, width: COLW, direction: "rtl", textAlign: "right", fontFamily: VAZIR, opacity: k, transform: `translateY(${(1 - k) * 24}px)` }}>
       <div style={{ fontWeight: 800, fontSize: big ? 92 : 76, color, lineHeight: 1.22, textShadow: "0 4px 24px rgba(0,0,0,0.55)" }}>{s.text.header}</div>
@@ -634,6 +1212,242 @@ const Caption: React.FC<{ sb: Storyboard; f: number }> = ({ sb, f }) => {
   );
 };
 
+/**
+ * Round 8 (owner: «یک جعبهٔ راهنمای ثابت»): the words of a beat's numbered places in one fixed box above the source line:
+ * a row an item, its disc on the right as on the map, plain Persian in at most two lines. A row comes in when its disc
+ * lands on the map; the box keeps its full size from the beat's first frame, so nothing on the map moves for it.
+ */
+const LegendPanel: React.FC<{ items: LegendItem[]; tOf: (n: number) => number; hitOf: (n: number) => boolean; focus?: { n: number; t: number } }> = ({ items, tOf, hitOf, focus }) => {
+  const { rows, box: full } = legendLayout(items);
+  const k0 = Math.max(...rows.map((r) => tOf(r.n)));
+  if (k0 < 0) return null;
+  const pk = Math.min(1, (k0 + 1) / 8);
+  // pass 3 (owner: «کادر راهنما از اول تمام‌قد است»): the box is as tall as the rows that have come, growing upward from
+  // the source line as each row lands (eased over 8 frames); the rows above slide up to make room
+  const grow = rows.map((r) => {
+    const t = tOf(r.n);
+    return t < 0 ? 0 : Easing.out(Easing.cubic)(Math.min(1, (t + 1) / 8));
+  });
+  const H = LEGEND_PAD * 2 - LEGEND_GAP + rows.reduce((n, r, i) => n + (r.h + LEGEND_GAP) * grow[i], 0);
+  const box = { ...full, y: full.y + full.h - H, h: H };
+  const tops = rows.map((_, i) => box.y + LEGEND_PAD + rows.slice(0, i).reduce((n, q, j) => n + (q.h + LEGEND_GAP) * grow[j], 0));
+  return (
+    <svg width={1080} height={1920} style={{ position: "absolute", inset: 0 }}>
+      <g opacity={pk}>
+        <rect x={box.x} y={box.y} width={box.w} height={box.h} rx={26} fill="rgba(14,21,33,0.9)" stroke="rgba(243,239,230,0.18)" strokeWidth={2} />
+        {rows.map((r, ri) => {
+          const t = tOf(r.n);
+          if (t < 0) return null;
+          const k = Math.min(1, (t + 1) / 10);
+          const cx = box.x + box.w - 20 - 26;
+          const top = tops[ri];
+          const lh = r.size * 1.32;
+          const ty = top + (r.h - (r.share !== undefined ? 44 : 0) - r.lines.length * lh) / 2;
+          return (
+            // pass 4: on a shot turned to a disc its row is lit (an amber bar beside it), the other rows step back
+            <g key={r.n} opacity={k * (focus && r.n !== focus.n ? 1 - 0.45 * Math.min(1, focus.t / 10) : 1)} transform={`translate(${(1 - k) * 24} 0)`}>
+              {focus && r.n === focus.n ? <rect x={box.x + 10} y={top - 4} width={box.w - 20} height={r.h + 8} rx={16} fill="rgba(255,176,32,0.12)" stroke="#ffb020" strokeWidth={3} opacity={Math.min(1, focus.t / 10)} /> : null}
+              {r.n ? <Disc x={cx} y={top + Math.min(r.h / 2, 26 + 2)} n={r.n} r={24} hit={hitOf(r.n)} /> : null}
+              {r.measure ? (
+                <g transform={`translate(${cx} ${top + r.h / 2})`} stroke={DIVAN.accent} strokeWidth={5} strokeLinecap="round">
+                  <path d="M0 -20 L0 20 M-11 -20 L11 -20 M-11 20 L11 20" fill="none" />
+                </g>
+              ) : null}
+              {r.share !== undefined ? (
+                <g>
+                  <rect x={box.x + 26} y={top + r.h - 34} width={cx + 26 - box.x - 26} height={26} rx={13} fill="rgba(243,239,230,0.12)" stroke="rgba(243,239,230,0.35)" strokeWidth={2} />
+                  <rect x={box.x + 26 + (cx + 26 - box.x - 26) * (1 - Math.min(1, t / 24) * r.share)} y={top + r.h - 34} width={(cx + 26 - box.x - 26) * Math.min(1, t / 24) * r.share} height={26} rx={13} fill={ROOM.amber} />
+                </g>
+              ) : null}
+              {r.lines.map((l, j) => (
+                <text key={j} x={cx - 26 - 18} y={ty + lh * (j + 0.78)} textAnchor="start" direction="rtl" fill={ROOM.paper} fontFamily={VAZIR} fontWeight={j === 0 ? 700 : 600} fontSize={r.size}>
+                  {l}
+                </text>
+              ))}
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  );
+};
+
+/** The camera at frame f: the shots' keys, and the room's one slow breath over the Reel (the same at its first and last frame). */
+export function lookOfFrame(keys: Key[], f: number, total: number): Look {
+  const base = lookAt(keys, f, false);
+  const breath = Math.sin((2 * Math.PI * f) / total);
+  return { ...base, span: base.span * (1 + 0.025 * breath), lon: base.lon + base.span * 0.004 * breath };
+}
+
+/**
+ * Round 7: every word the map writes on frame f, with its box, as the renderer places it (tests/words.test.mjs walks a
+ * Reel through this and asserts that no two meet, nor any meets the header or the source line).
+ */
+function frameWordsRaw(p: ReelContent, sb: Storyboard, f: number, prefer: string[]) {
+  const keys = cameraKeys(sb);
+  const look = lookOfFrame(keys, f, sb.total);
+  const inLoop = f >= sb.total - LOOP;
+  const idx = Math.max(0, sb.shots.findIndex((s) => f >= Math.round(s.start * sb.fps) && f < Math.round((s.start + s.dur) * sb.fps)));
+  const shot = sb.shots[idx] ?? sb.shots[0];
+  const beat = p.beats[shot.beat];
+  const view = makeView(look, STAGE, DIVAN, f);
+  const list = marksAt(p, sb, f, inLoop);
+  const lb = legendOn(beat, inLoop);
+  const over = [...(!inLoop && beat.kind === "poll" ? [POLL_BOX] : []), ...(lb ? [lb] : [])];
+  const layout = layoutWords(view, refLookOf(sb, shot.beat), list, !inLoop && beat.kind === "map", look.span, over, prefer);
+  return { look, shot, beat, words: layout.words, layout, list, view, legend: lb, over };
+}
+
+/** the key of a word on the map across frames: its kind and its words (a callout by its bold line) */
+const wordKey = (w: { kind: string; t: string }, layout: { callouts: CalloutSpec[] }) => (w.kind === "callout" ? `callout:${layout.callouts.find((c) => c.id === w.t)?.bold ?? w.t}` : `${w.kind}:${w.t}`);
+
+/**
+ * Round 7: every word the map writes on frame f, with its box, as the renderer places it; round 8: through the Reel's
+ * track (wordTrack), so a word that fades out is not counted and a word hidden for its track is not drawn.
+ */
+export function frameWords(p: ReelContent, sb: Storyboard, f: number) {
+  const tr = reelTrack(p, sb);
+  const w = frameWordsRaw(p, sb, f, tr.names[f - 1] ?? []);
+  const words = w.words.filter((x) => tr.vis(wordKey(x, w.layout), f) > 0);
+  return { ...w, words };
+}
+
+/** Round 8: the legend's box on this beat (null: none, or the loop's first picture). */
+export function legendOn(beat: Beat, inLoop: boolean) {
+  return !inLoop && (beat.kind === "map" || beat.kind === "hook") ? legendBox(beat.legend) : null;
+}
+
+/**
+ * Round 8, the pre-delivery check's eyes (scripts/mapcheck.mjs): everything frame f draws on the map, where it is on the
+ * frame and on the earth. Words (with their boxes), the panels over the map (header, source line, legend, poll), every
+ * thing (each hull of a column of ships on its own, with its waterline), every numbered disc, every lane drawn, the
+ * count's badge. The same functions the renderer runs.
+ */
+function frameSceneRaw(p: ReelContent, sb: Storyboard, f: number, prefer: string[]) {
+  const w = frameWordsRaw(p, sb, f, prefer);
+  const { view, list } = w;
+  type B = { x: number; y: number; w: number; h: number };
+  const things: { key: string; id: string; floats: boolean; box: B; p: [number, number]; geo: [number, number] | null; sc: number; badge?: B; col?: number; k: number; pose?: Pose | null }[] = [];
+  const discs: { n: number; sea: boolean; xy: [number, number]; geo: [number, number]; r: number }[] = [];
+  const lanes: { id: string; coords: [number, number][] }[] = [];
+  // pass 3: a column of ships as the line counts it, and how many of it are drawn on this frame
+  const cols: { li: number; n: number; drawn: number; own: boolean }[] = [];
+  list.forEach(({ m, t, life, base, opacity, own, key }, li) => {
+    if (t < 0) return;
+    const tk = (i: number) => `${key ?? `${m.kind}@${li}`}#${i}`;
+    if (m.kind === "lane") lanes.push({ id: m.id, coords: m.coords });
+    if (m.kind === "marker") {
+      const q = view.at(m.lon, m.lat);
+      if (q) discs.push({ n: m.n, sea: m.sea, xy: q, geo: [m.lon, m.lat], r: MARKER_R });
+    }
+    if (m.kind !== "object" || (opacity !== undefined && opacity < 0.5)) return;
+    if (m.move === "drop" || m.move === "arc" || m.move === "pipe") return;
+    const fl = FLOATING.has(m.id);
+    const col = m.move === "sail" && m.f0 !== undefined && m.count && m.count > 1 && m.count <= COLUMN_MAX ? columnOf(m, base, view.look.span) : null;
+    if (col) {
+      const c0 = things.length;
+      for (let i = 0; i < col.n; i += 1) {
+        const h = sailAt(m, f, i * col.gapKm);
+        const q = h ? view.at(h.p[0], h.p[1]) : null;
+        if (!h || !q) continue;
+        const s2 = artScale(m.id) * (m.size ?? 1) * col.zoom;
+        const hb = { x: q[0] - 135 * s2, y: q[1] - 120 * s2, w: 270 * s2, h: 140 * s2 };
+        const pose = shipPose(view, h.way, h.s);
+        const k = (fl ? wetK(view, q, s2, m.id, pose) : 1) * clearOfPanels(hb, [...CHROME, ...w.over]);
+        if (k) things.push({ key: tk(i), id: m.id, floats: fl, p: q, geo: h.p, sc: s2, col: li, k, pose, box: { x: q[0] - 135 * s2, y: q[1] - 120 * s2, w: 270 * s2, h: 140 * s2 } });
+      }
+      cols.push({ li, n: col.n, drawn: things.length - c0, own: Boolean(own) });
+      return;
+    }
+    const op = objectPoint(m, t, life ?? 90, base, view, f);
+    if (!op) return;
+    const k = (fl ? wetK(view, op.p, op.sc, m.id) : 1) * clearOfPanels(op.box, [...CHROME, ...w.over]);
+    if (!k) return;
+    const badge = m.count && m.count > COLUMN_MAX ? { x: op.p[0] + 130 * op.sc * 0.62 - 34, y: op.p[1] - 120 * op.sc - 34 * 1.4, w: 68, h: 68 } : undefined;
+    things.push({ key: tk(0), id: m.id, floats: fl, p: op.p, geo: view.inv(op.p[0], op.p[1]), sc: op.sc, box: op.box, k, ...(badge ? { badge } : {}) });
+  });
+  return { ...w, things, discs, lanes, cols };
+}
+
+/** round 8: a run shorter than this (frames) is a blink, never drawn; a gap shorter than this between two runs is closed */
+export const MIN_RUN = 15;
+export const MAX_GAP = 30;
+/** frames a word or thing takes to fade in or out at the ends of its run */
+export const RUN_FADE = 8;
+type Track = { names: string[][]; vis: (key: string, f: number) => number; has: (key: string) => boolean };
+const TRACKS = new WeakMap<object, Track>();
+/**
+ * Round 8 (owner, 22 Nov 2026: «نوشته‌های روی نقشه و جاها و بعضی وقت‌ها آبجکت‌ها یهو ناپدید و دوباره تولید میشن»): every
+ * frame used to place its words and judge its things on its own, so a name pushed out by a newcomer for 3 frames, or a
+ * ship whose hull touched a coast or the legend for 10, blinked out and back. The Reel is walked once, frame by frame, in
+ * order: a ground name on the frame before keeps its place first (pickNames prefer), and each word and thing gets a run
+ * of frames: a blink (shorter than MIN_RUN) is never drawn, the shorter side of a gap under MAX_GAP is dropped (the thing
+ * stays gone instead of coming back), and every run fades in and out over RUN_FADE frames. Nothing is shown that the
+ * frame itself did not allow: the track only hides and fades. The renderer and the pre-delivery check both read it.
+ */
+export function reelTrack(p: ReelContent, sb: Storyboard): Track {
+  const have = TRACKS.get(sb);
+  if (have) return have;
+  const names: string[][] = [];
+  const seen = new Map<string, Uint8Array>();
+  const mark = (k: string, f: number) => {
+    let a = seen.get(k);
+    if (!a) seen.set(k, (a = new Uint8Array(sb.total)));
+    a[f] = 1;
+  };
+  for (let f = 0; f < sb.total; f += 1) {
+    const sc = frameSceneRaw(p, sb, f, names[f - 1] ?? []);
+    names.push(sc.layout.names.map((n) => n.t));
+    for (const w of sc.words) mark(wordKey(w, sc.layout), f);
+    for (const t of sc.things) mark(`thing:${t.key}`, f);
+  }
+  const loopAt = sb.total - LOOP;
+  const vis = new Map<string, Float32Array>();
+  for (const [k, a] of seen) {
+    let runs: [number, number][] = [];
+    for (let f = 0; f < a.length; f += 1) if (a[f] && (f === 0 || !a[f - 1])) runs.push([f, f]);
+    else if (a[f]) runs[runs.length - 1][1] = f;
+    // a gap under MAX_GAP: the shorter side goes (the loop's own return to the first picture is not a gap)
+    for (let again = true; again; ) {
+      again = false;
+      for (let i = 0; i + 1 < runs.length; i += 1) {
+        const [a0, a1] = runs[i];
+        const [b0, b1] = runs[i + 1];
+        if (b0 - a1 - 1 > MAX_GAP || b0 >= loopAt) continue;
+        // a run that holds frame 0 is the hook's first picture: it stays
+        const dropA = a0 === 0 ? false : a1 - a0 < b1 - b0;
+        runs.splice(dropA ? i : i + 1, 1);
+        again = true;
+        break;
+      }
+    }
+    runs = runs.filter(([r0, r1]) => r1 - r0 + 1 >= MIN_RUN || r0 === 0 || r1 === sb.total - 1);
+    const v = new Float32Array(sb.total);
+    for (const [r0, r1] of runs)
+      for (let f = r0; f <= r1; f += 1) {
+        const fin = r0 === 0 ? 1 : (f - r0 + 1) / RUN_FADE;
+        const fout = r1 === sb.total - 1 ? 1 : (r1 - f + 1) / RUN_FADE;
+        v[f] = Math.max(0, Math.min(1, fin, fout));
+      }
+    vis.set(k, v);
+  }
+  const track: Track = { names, vis: (k, f) => vis.get(k)?.[f] ?? 0, has: (k) => vis.has(k) };
+  TRACKS.set(sb, track);
+  return track;
+}
+
+/**
+ * Round 8, the pre-delivery check's eyes (scripts/mapcheck.mjs): frame f as drawn, through the Reel's track: a thing or a
+ * word its track hides is not on it, one fading is (with its k).
+ */
+export function frameScene(p: ReelContent, sb: Storyboard, f: number) {
+  const tr = reelTrack(p, sb);
+  const sc = frameSceneRaw(p, sb, f, tr.names[f - 1] ?? []);
+  const words = sc.words.filter((w) => tr.vis(wordKey(w, sc.layout), f) > 0);
+  const things = sc.things.map((t) => ({ ...t, k: t.k * tr.vis(`thing:${t.key}`, f) })).filter((t) => t.k > 0);
+  return { ...sc, words, things };
+}
+
 export const Reel: React.FC<Props> = (p) => {
   const f = useCurrentFrame();
   const sb = p.storyboard;
@@ -647,16 +1461,19 @@ export const Reel: React.FC<Props> = (p) => {
   const beatStart = Math.round((sb.shots.find((s) => s.beat === shot.beat)?.start ?? 0) * fps);
   const local = f - Math.round(shot.start * fps);
   const beatLocal = f - beatStart;
+  // pass 4: the header of a beat's flying first shot waits for the camera, and lands with the marks
+  const arrive = arriveOf(sb.shots, shot, fps);
+  const first = sb.shots.find((s) => s.beat === shot.beat);
+  const arrive0 = first ? arriveOf(sb.shots, first, fps) : 0;
+  // pass 4: the disc this shot turns to (director.ts), with frames since the shot began
+  const focusOn = !inLoop && shot.motion.focus ? { n: shot.motion.focus, t: local } : undefined;
   const keys = React.useMemo(() => cameraKeys(sb), [sb]);
-  const base = lookAt(keys, f, false);
-  // the room breathes once over the Reel: the same at its first and its last frame
-  const breath = Math.sin((2 * Math.PI * f) / total);
-  const look: Look = { ...base, span: base.span * (1 + 0.025 * breath), lon: base.lon + base.span * 0.004 * breath };
+  const look = lookOfFrame(keys, f, total);
   const overMap = shot.picture.layer !== "map" && !inLoop;
   // a road drawn on the map keeps the map lit: the road is on it. Round 2: no picture puts the map out any more; a chart
   // or a figure dims it to half, the poll and the flags hardly at all (the judge: «a dimmed still behind the poll»)
   const roadOnMap = beat.kind === "road" && Boolean(beat.look);
-  const dimTo = !overMap || roadOnMap || beat.kind === "flags" ? 0 : beat.kind === "poll" ? 0.12 : beat.kind === "gauge" || (beat.kind === "chart" && beat.chart.place) ? 0 : beat.kind === "chart" ? 0.25 : 0.5;
+  const dimTo = !overMap || roadOnMap || beat.kind === "flags" ? 0 : beat.kind === "poll" ? 0 : beat.kind === "gauge" || (beat.kind === "chart" && beat.chart.place) ? 0 : beat.kind === "chart" ? 0.25 : 0.5;
   const dim = interpolate(f, [beatStart, beatStart + 8], [0, dimTo], clamp) * (inLoop ? 0 : 1);
   // every shot over the map moves on its own: a slow push and a drift that turns at each cut, so no 2 s stand still
   const shotLen = Math.max(1, Math.round(shot.dur * fps));
@@ -680,7 +1497,12 @@ export const Reel: React.FC<Props> = (p) => {
     if (ll) marks.push({ m: { kind: "callout", lon: ll[0], lat: ll[1], bold: beat.wants, sub: "می‌خواهد", color: colorOfA3(p, beat.a3) }, t: beatLocal - 20, beat: shot.beat, own: true });
   }
   // an incident lands: a red pin in its first half second flashes the edges of the screen (the turn is seen)
-  const flash = marks.reduce((a, x) => (x.m.kind === "pins" && x.m.color.toLowerCase() === ROOM.hit && x.t >= 0 && x.t < 14 ? Math.max(a, 1 - x.t / 14) : a), 0);
+  const flash = marks.reduce((a, x) => (((x.m.kind === "pins" && x.m.color.toLowerCase() === ROOM.hit) || (x.m.kind === "marker" && x.m.hit)) && x.t >= 0 && x.t < 14 ? Math.max(a, 1 - x.t / 14) : a), 0);
+  // round 8: the beat's legend (its numbered places' words) in its fixed band, each row with its disc as it lands
+  const lb = legendOn(beat, inLoop);
+  const legendItems = lb && (beat.kind === "map" || beat.kind === "hook") ? beat.legend ?? [] : [];
+  const discT = (n: number) => marks.reduce((a, x) => (x.own && ((x.m.kind === "marker" && x.m.n === n) || (n === 0 && (x.m.kind === "share" || x.m.kind === "measure"))) ? Math.max(a, x.t) : a), -1);
+  const discHit = (n: number) => marks.some((x) => x.own && x.m.kind === "marker" && x.m.n === n && x.m.hit);
   const hookShot = sb.shots[0];
   // the loop: the hook's words are back at once (6 frames), so the last second is the first picture, sharp
   const loopK = interpolate(f, [loopAt, loopAt + 6], [0, 1], clamp);
@@ -692,12 +1514,13 @@ export const Reel: React.FC<Props> = (p) => {
   return (
     <AbsoluteFill style={{ background: `radial-gradient(120% 75% at 50% 42%, ${ROOM.bg2} 0%, ${ROOM.bg} 62%, ${ROOM.edge} 100%)` }}>
       <MapStage look={look} frame={STAGE} theme={DIVAN} f={f} dim={dim} bleed>
-        <Ambient f={f} total={total} look={look} />
-        <MapMarks list={marks} f={f} span={look.span} />
+        <SeaDetail />
+        <MapMarks list={marks} f={f} span={look.span} scale={!inLoop && beat.kind === "map"} refLook={refLookOf(sb, shot.beat)} over={[...(!inLoop && beat.kind === "poll" ? [POLL_BOX] : []), ...(lb ? [lb] : [])]} focus={focusOn} track={reelTrack(p, sb)} />
       </MapStage>
       {/* the scrims: the map runs under the header and the caption, darkened there so their words read */}
       <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 640, background: "linear-gradient(180deg, rgba(22,32,50,0.94) 0%, rgba(22,32,50,0.72) 55%, rgba(22,32,50,0) 100%)" }} />
       <div style={{ position: "absolute", left: 0, top: 1330, width: 1080, height: 590, background: "linear-gradient(0deg, rgba(22,32,50,0.95) 0%, rgba(22,32,50,0.75) 60%, rgba(22,32,50,0) 100%)" }} />
+      {lb ? <LegendPanel items={legendItems} tOf={discT} hitOf={discHit} focus={focusOn} /> : null}
       {flash > 0 ? <div style={{ position: "absolute", inset: 0, boxShadow: `inset 0 0 ${160 + 120 * flash}px rgba(255,77,64,${0.55 * flash})` }} /> : null}
       {!inLoop && beat.kind === "flags" ? <FlagsOnMap b={beat} local={beatLocal} look={look} f={f} /> : null}
       {/* the picture of this shot, over the dimmed map */}
@@ -712,8 +1535,8 @@ export const Reel: React.FC<Props> = (p) => {
       {/* the pictures that stand on the map itself, outside the push (round 3) */}
       {!inLoop && beat.kind === "gauge" ? <GaugePic b={beat} local={beatLocal} f={f} look={look} lines={roadLines(p)} /> : null}
       {!inLoop && beat.kind === "chart" && beat.chart.place ? <PriceTag chart={beat.chart} k={interpolate(beatLocal, [6, Math.max(20, sb.shots.filter((s) => s.beat === shot.beat).reduce((n, s) => n + s.dur, 0) * fps * 0.6)], [0, 1], { ...clamp, easing: Easing.inOut(Easing.cubic) })} f={f} look={look} /> : null}
-      {!inLoop && beat.kind === "map" ? <Source text={shot.text.source ?? beat.source} k={rise(beatLocal, 10, 10)} /> : null}
-      {!inLoop ? <Header s={shot} local={local} big={shot.beat === 0} color={shot.picture.layer === "poll" ? ROOM.amber : shot.beat === 0 ? ROOM.paper : color} /> : null}
+      {!inLoop && beat.kind === "map" ? <Source text={shot.text.source ?? beat.source} k={rise(beatLocal, Math.max(10, arrive0), 10)} top={lb ? LEGEND_SOURCE_TOP : undefined} /> : null}
+      {!inLoop ? <Header s={shot} local={local} big={shot.beat === 0} arrive={arrive} again={first !== shot && first?.text.header === shot.text.header} color={shot.picture.layer === "poll" ? ROOM.amber : shot.beat === 0 ? ROOM.paper : color} /> : null}
       {/* the loop: the first picture's words come back */}
       {inLoop ? (
         <div style={{ opacity: loopK }}>
@@ -722,7 +1545,7 @@ export const Reel: React.FC<Props> = (p) => {
       ) : null}
       <Hud p={p} f={f} active={inLoop ? -1 : roadsShown.findIndex((r) => beat.kind === "road" && beat.road.key === r.key)} roads={roadsShown} after={!inLoop && (beat.kind === "poll" || beat.kind === "gauge")} ai={!inLoop && beat.kind === "road" ? p.ai_label : undefined} />
       {/* the poll writes its own options and the badge sits where the caption would: no caption there */}
-      {!inLoop && sb.voice.length > 0 && beat.kind !== "poll" && !marks.some((x) => x.own && x.t >= 0 && x.m.kind === "callout") ? <Caption sb={sb} f={f} /> : null}
+      {!inLoop && sb.voice.length > 0 && beat.kind !== "poll" && !lb && !marks.some((x) => x.own && x.t >= 0 && x.m.kind === "callout") ? <Caption sb={sb} f={f} /> : null}
       {sb.voice.map((v, i) => (
         <Sequence key={i} from={v.from} durationInFrames={v.frames + 6} layout="none">
           <Audio src={staticFile(v.file)} />

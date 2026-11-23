@@ -1,6 +1,7 @@
 // The storyboard of a Divan Reel (storyboard-fa.md §2), and the content it is made from. Pure types: the site's
 // writer (lib/agents) and the renderer share them. One style for every template: the navy room of «تصمیم امروز».
 import type { Look } from "../map-engine/camera";
+import type { MapObjectId, ObjectMove } from "../map-engine/object-ids";
 
 export type TemplateId =
   | "today"
@@ -57,22 +58,30 @@ export type ChartSpec = { title: string; unit: string; points: number[]; first: 
 /** A mark on the map: what appears, where, in whose colour. Coordinates are [lon, lat]. */
 export type Mark =
   | { kind: "fill"; a3: string; color: string; /** breathes while it is the beat's subject (the renderer sets it) */ pulse?: boolean }
-  | { kind: "hatch"; a3?: string; polygon?: [number, number][]; color: string }
+  /** a polygon is drawn only with its source: an official advisory area (UKMTO, JMIC) or an incident's exact area (round 7); it is clipped to the water */
+  | { kind: "hatch"; a3?: string; polygon?: [number, number][]; color: string; source?: { kind: "advisory" | "incident"; ref: string } }
   | { kind: "claim"; coords: [number, number][]; color: string }
   | { kind: "dashed"; coords: [number, number][]; color: string }
   | { kind: "comet"; coords: [number, number][]; color: string; loop?: boolean }
-  | { kind: "pins"; points: { lon: number; lat: number }[]; color: string; counter?: string }
+  | { kind: "pins"; points: { lon: number; lat: number }[]; color: string; counter?: string; /** the source gives the place only roughly: drawn as an area, not a precise pin */ area?: boolean }
   | { kind: "callout"; lon: number; lat: number; bold: string; sub?: string; color?: string; /** whose claim: its flag beside the words */ a3?: string }
   | { kind: "measure"; a: [number, number]; b: [number, number] }
   | { kind: "label"; t: string; lon: number; lat: number }
-  | { kind: "flag"; a3: string; lon: number; lat: number };
+  | { kind: "flag"; a3: string; lon: number; lat: number }
+  /** a real thing of the story standing or moving on the map (topics.ts places it, map-engine/objects.tsx draws it) */
+  | { kind: "object"; id: MapObjectId; lon: number; lat: number; move?: ObjectMove; path?: [number, number][]; color?: string; /** frames after it lands when it catches fire */ fire?: number | boolean; sign?: string; size?: number; /** a type of its kind (shahed, male, f35, su35, ballistic, cruise, majlis, capitol) */ variant?: string; /** an approaching ship: frames to its point (the renderer sets it from the incident) */ arrive?: number; wind?: [number, number]; /** the beat's main thing (the renderer sets it) */ main?: boolean; /** round 7: how many the line says («شش نفتکش»); one when absent */ count?: number; /** a ship's lane (its clock is the Reel's, ships.ts): the same lane, the same ship */ lane?: string; /** the renderer's: where along its way the ship is (km) at frame f0 */ s0?: number; f0?: number; /** pass 4, a pipeline: frames after it lands when its oil stops */ stop?: number; /** pass 5: a followed pipeline draws over this many frames */ draw?: number }
+  /** round 8: a numbered disc (۱ ۲ ۳) exactly at an incident or place, on water for a sea event; its words are in the beat's legend */
+  | { kind: "marker"; n: number; lon: number; lat: number; /** an event at sea: the disc stands on water, off the coast */ sea: boolean; /** a strike landed here: a burst under the disc */ hit?: boolean }
+  /** round 8: a real sea lane (routes.json), drawn faint and only on the water */
+  | { kind: "lane"; id: string; coords: [number, number][] }
+  | { kind: "share"; lon: number; lat: number; /** 0…1, read from the line (نیمی, یک‌سوم, ۳۰ درصد) */ share: number; /** the line's own words for it */ label: string; color?: string };
 
 export type Road = { key: string; color: string; title: string; cost: string; source: string; object: ObjectId; risk?: number | null };
 
 /** A beat: one narrator line and what shows it. The director cuts every beat into shots of 1 to 2 seconds. */
 export type Beat =
-  | { kind: "hook"; cue: string; say?: string; look: Look; title: string; sub?: string; marks?: Mark[]; region?: string; /** where the first frame looks from: the globe (a dive), across (a pan) or very close; the concept sets it */ from?: Look; opening?: string }
-  | { kind: "map"; cue: string; say?: string; look: Look; marks: Mark[]; caption?: string; source?: string; clear?: boolean }
+  | { kind: "hook"; cue: string; say?: string; look: Look; title: string; sub?: string; marks?: Mark[]; /** round 8: the words of the numbered places, in a fixed box (legend.ts) */ legend?: { n: number; text: string }[]; region?: string; /** where the first frame looks from: the globe (a dive), across (a pan) or very close; the concept sets it */ from?: Look; opening?: string }
+  | { kind: "map"; cue: string; say?: string; look: Look; marks: Mark[]; caption?: string; source?: string; clear?: boolean; /** round 8: the words of the numbered places, in a fixed box (legend.ts) */ legend?: { n: number; text: string }[] }
   | { kind: "chart"; cue: string; say?: string; chart: ChartSpec }
   | { kind: "number"; cue: string; say?: string; big: string; unit: string; text: string; source: string }
   | { kind: "flags"; cue: string; say?: string; a3: string[]; title: string }
@@ -97,12 +106,18 @@ export type ReelContent = {
   /** «roads» (today and its family: red, blue, green) or «actors» (the map templates): never both (map-engine-fa.md §5) */
   convention: "roads" | "actors";
   badge?: string;
+  /** where it is posted: a Reel runs 15–90 s, a YouTube video longer (checks.ts LENGTH); the content sets the length */
+  platform?: "reels" | "youtube";
+  /** what the fact-check gate cut or rewrote before this was drawn (lib/agents/factcheck.ts), for the owner's desk */
+  factcheck?: { beat: number; field: string; before: string; after: string; why: string }[];
   /** a label on the screen: this is Divan's analysis, made with AI */
   ai_label?: string;
+  /** round 8: the map's callouts are numbered discs with a legend already (legend.ts): enrich() leaves the content as it is */
+  legend?: boolean;
 };
 
 export type Picture = { layer: "map" | "chart" | "number" | "flags" | "road" | "gauge" | "poll" | "title"; asset: string; beat: number; view?: string };
-export type Motion = { camera: "dive" | "pan" | "push" | "push-close" | "hold-breathe" | "pull-out" | "pen" | "none"; look?: Look; /** the first shot only: where the camera starts (the concept's opening) */ from?: Look; object: { id: string; do: string; at_word?: string }[] };
+export type Motion = { camera: "dive" | "pan" | "push" | "push-close" | "hold-breathe" | "pull-out" | "pen" | "none"; look?: Look; /** pass 4: the numbered disc this shot turns to (its legend row lights) */ focus?: number; /** pass 5: a followed line: frames from this shot to its end shot (its line draws until then) */ follow?: number; /** the first shot only: where the camera starts (the concept's opening) */ from?: Look; object: { id: string; do: string; at_word?: string }[] };
 export type ShotText = { header?: string; sub?: string; chips: string[]; source?: string; caption_keyword?: string };
 export type Sound = { sfx?: "hit" | "whoosh" | "tick" | "pop" | "rise" | "swish" | "badge"; at_word?: string; music?: string };
 export type Transition = "cut" | "push" | "slide" | "pop" | "dive" | "loop";

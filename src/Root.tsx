@@ -1,6 +1,9 @@
 import React from "react";
 import { Composition } from "remotion";
 import decisionSample from "../samples/decision-oil.json";
+import loopSample from "../samples/loop-dollar.json";
+import { Loop, loopDuration } from "./loop/Loop";
+import type { LoopProps } from "./props";
 import { direct } from "./storyboard/director";
 import { enrich } from "./storyboard/enrich";
 import { storyboardChecks } from "./storyboard/checks";
@@ -41,6 +44,9 @@ type StoryIn = { kicker: string; title: string; mark?: string; ai: boolean; hand
 export const Root: React.FC = () => (
   <>
     <Composition id="decision" component={Reel as never} {...frame} durationInFrames={900} defaultProps={decisionSample as never} calculateMetadata={reelMeta as never} />
+    {/* «یک دور» (owner, 23 Nov 2026): the seamless loop of the dollar line, in the same room and on the same map engine;
+        music only, its last frame flowing into its first (loop/Loop.tsx, loop/scene.ts, loop-time.ts) */}
+    <Composition id="loop" component={Loop as never} {...frame} durationInFrames={300} defaultProps={loopSample as never} calculateMetadata={(({ props }: { props: LoopProps }) => ({ durationInFrames: loopDuration(props) })) as never} />
     <Composition id="cover" component={Cover} {...frame} durationInFrames={1} defaultProps={{ format: "decision", kicker: "تصمیم امروز", big: "نفت چطور برود؟" } as CoverIn} />
     <Composition id="story" component={RoomStory} {...frame} durationInFrames={storyDuration()} defaultProps={{ kicker: "تصمیم امروز", title: "نفت چطور برود؟", ai: true, handle: "@divan.ahura" } as StoryIn} />
   </>

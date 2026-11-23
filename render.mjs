@@ -13,6 +13,7 @@ import { finish } from "./finish.mjs";
 import { enforce, enforceDecision } from "./gate.mjs";
 import { contactSheet, contactSheets, qa } from "./qa.mjs";
 import { score } from "./music.mjs";
+import { enforceSeam } from "./seam.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 
 const args = process.argv.slice(2);
@@ -53,7 +54,7 @@ if (stills) {
   const first = await selectComposition({ serveUrl, id, inputProps: { ...props, voiceIn }, timeoutInMilliseconds, browserExecutable });
   const seconds = first.durationInFrames / first.fps;
   const music = `music-${name}.wav`;
-  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) || first.props.drone === true }));
+  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) || first.props.drone === true, loop: id === "loop" }));
   if (first.props.plan) console.log("set style:", first.props.plan.shots.length, "shots,", first.props.plan.sfx.length, "effects,", first.props.plan.pieces.length, "pieces");
   for (const v of first.props.voice ?? []) console.log("voice", v.file, "at", (v.from / first.fps).toFixed(2), "s for", (v.frames / first.fps).toFixed(2), "s");
   if (first.props.holds?.length) console.log("holds", JSON.stringify(first.props.holds));
@@ -102,6 +103,16 @@ if (stills) {
       if (result) fs.writeFileSync(`out/${name}.gate.json`, JSON.stringify({ ok: result.ok, seconds, checks: result.checks }, null, 1));
     }
     console.log(result?.ok ? "gate: every check passed" : "gate: failed (see above)");
+  }
+  // a seamless loop: its seam, measured on the finished file (seam.mjs); a sample reports and goes on with DIVAN_GATE=warn
+  if (id === "loop") {
+    let result = null;
+    try {
+      result = enforceSeam({ file: outputLocation });
+    } finally {
+      if (result) fs.writeFileSync(`out/${name}.gate.json`, JSON.stringify({ ok: result.ok, seconds, checks: result.checks }, null, 1));
+    }
+    console.log(result?.ok ? "seam: every check passed" : "seam: failed (see above)");
   }
   console.log("wrote", outputLocation, composition.durationInFrames, "frames,", seconds.toFixed(1), "s, in", Math.round((Date.now() - t0) / 1000), "s");
 }

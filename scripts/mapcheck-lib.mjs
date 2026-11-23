@@ -11,8 +11,8 @@ export const DISC_KM = 2;
 /** pass 3: the ships whose picture has a house and a bow (their whole picture is tested, not only the waterline) */
 const MERCHANT = new Set(["tanker", "cargo", "lng", "warship"]);
 
-/** round 8 (owner, 22 Nov 2026: «یهو ناپدید و دوباره تولید میشن»): a word or thing gone for this many frames or fewer, then back, is a blink */
-export const BLINK_FRAMES = 30;
+import { BLINK_FRAMES, blinks } from "./blinks.mjs";
+export { BLINK_FRAMES, blinks };
 
 /**
  * Round 8: what is on the map on frame f, by identity across frames: every word (a callout by its bold line), every thing
@@ -23,21 +23,6 @@ export function presence(sc) {
   for (const w of sc.words) out.add(w.kind === "callout" ? `callout «${sc.layout?.callouts?.find((c) => c.id === w.t)?.bold ?? w.t}»` : `${w.kind} «${w.t}»`);
   for (const t of sc.things) out.add(`thing ${t.key ?? t.id}`);
   for (const d of sc.discs) out.add(`disc ${d.n} at ${d.geo.map((x) => x.toFixed(2)).join(",")}`);
-  return out;
-}
-
-/** the blinks of a Reel: present on frame a, absent on 1 to BLINK_FRAMES frames, present again (the loop's last frames excepted) */
-export function blinks(frames, upTo) {
-  const out = [];
-  const last = new Map();
-  frames.forEach((set, f) => {
-    if (f >= upTo) return;
-    for (const k of set) {
-      const l = last.get(k);
-      if (l !== undefined && f - l > 1 && f - l - 1 <= BLINK_FRAMES) out.push({ k, from: l + 1, to: f - 1, n: f - l - 1 });
-      last.set(k, f);
-    }
-  });
   return out;
 }
 
@@ -186,4 +171,5 @@ function segCross(p1, p2, p3, p4) {
   const d4 = d(p1, p2, p4);
   return d1 * d2 < 0 && d3 * d4 < 0;
 }
+
 

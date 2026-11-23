@@ -32,6 +32,7 @@ import { GateRefusal, enforce, enforceDecision, planChecks, verdict } from "./ga
 import { contactSheets, qa as qualityGate } from "./qa.mjs";
 import { dropVoice, duckOf, voiceFiles } from "./voice.mjs";
 import { score } from "./music.mjs";
+import { SeamRefusal, enforceSeam } from "./seam.mjs";
 
 const SITE = (process.env.DIVAN_URL ?? "https://divan.ahura.cloud").replace(/\/+$/, "");
 const SECRET = process.env.DIVAN_RENDER_SECRET ?? "";
@@ -109,14 +110,16 @@ async function trackFile(name) {
 /** The score of one Reel: its library track when there is one, else (or when the track cannot be read) the synthesized score. */
 async function scoreOf(job, seconds, duck, set = false) {
   const track = await trackFile(job.music);
+  // «یک دور»: the bed folded into one seamless turn (music.mjs, loopBed)
+  const loop = job.format === "loop";
   if (track) {
     try {
-      return score({ id: job.format, seconds, duck, track, set });
+      return score({ id: job.format, seconds, duck, track, set, loop });
     } catch (e) {
       console.log(`music ${job.music}: not read (${e instanceof Error ? e.message.split("\n")[0] : e}); the synthesized score instead`);
     }
   }
-  return score({ id: job.format, seconds, duck, set });
+  return score({ id: job.format, seconds, duck, set, loop });
 }
 
 /**
@@ -300,6 +303,11 @@ async function render(job) {
       const result = enforce({ plan: composition.props.plan, file: video, cover: String(job.cover?.big ?? "") });
       step(result?.ok ? "gate passed" : "gate reported");
     }
+    // a seamless loop is handed back only when its end flows into its beginning, in picture and in sound (seam.mjs)
+    if (job.format === "loop") {
+      const result = enforceSeam({ file: video });
+      step(result?.ok ? "seam passed" : "seam reported");
+    }
     for (const [kind, file, type] of [
       ["video", video, "video/mp4"],
       ["cover", cover, "image/jpeg"],
@@ -314,7 +322,8 @@ async function render(job) {
     // the message of a render error may quote the content: only its first line, cut short, goes to the site, and none of it to the log
     const reason = e instanceof GateRefusal ? e.message : gaveUp ? "the server ran short of memory; the render was given up and will be tried again" : slow ? `drawing took longer than ${Math.round(RENDER_MAX_MS / 60_000)} minutes (${reached}); it will be tried again` : String(e instanceof Error ? e.message : e).split("\n")[0].slice(0, 240);
     console.log(`Reel ${job.id} (${job.format}): failed after ${Math.round((Date.now() - t0) / 1000)} s`);
-    await call(`?id=${job.id}&failed=1`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ error: reason }) }).catch(() => undefined);
+    // a loop refused at its seam is not tried again (the same content draws the same seam): the site says so in the panel's feed
+    await call(`?id=${job.id}&failed=1`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ error: reason, ...(e instanceof SeamRefusal ? { seam: true } : {}) }) }).catch(() => undefined);
   } finally {
     clearInterval(watch);
     clearTimeout(tooLong);
@@ -353,12 +362,12 @@ async function pass() {
   if (Date.now() < HOLD_UNTIL) return taken;
   for (;;) {
     // a look first: it costs the site nothing and claims nothing
-    const { waiting } = await call("?peek=1&can=story");
+    const { waiting } = await call("?peek=1&can=story,loop");
     state.lastLook = new Date().toISOString();
     if (!waiting) return taken;
     if (!(await waitForQuiet())) return taken;
     // this bundle holds the Story's composition and the carousel's, and says so: the site hands them only to a renderer that can draw them
-    const { jobs } = await call("?max=1&can=story");
+    const { jobs } = await call("?max=1&can=story,loop");
     if (!jobs?.length) return taken;
     state.busy = true;
     try {

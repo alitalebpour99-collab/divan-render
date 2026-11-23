@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { checkReel } from "./mapcheck-lib.mjs";
+import { checkLoop } from "./mapcheck-loop.mjs";
 
 const args = process.argv.slice(2);
 const file = args.find((a) => a.endsWith(".json"));
@@ -22,7 +23,9 @@ if (!file) {
 }
 
 const t0 = Date.now();
-const { sb, fails } = checkReel(JSON.parse(fs.readFileSync(file, "utf8")), every);
+const content = JSON.parse(fs.readFileSync(file, "utf8"));
+// «یک دور» has its own layout (src/loop/scene.ts): the same rules, the whole turn, across its seam
+const { sb, fails } = content.format === "loop" ? await checkLoop(content, every) : checkReel(content, every);
 const byRule = {};
 for (const x of fails) (byRule[x.rule] ??= []).push(x);
 const report = { file: path.basename(file), frames: sb.total, every, ok: fails.length === 0, fails: fails.length, rules: Object.fromEntries(Object.entries(byRule).map(([k, v]) => [k, { n: v.length, first: v.slice(0, 6) }])), ms: Date.now() - t0 };

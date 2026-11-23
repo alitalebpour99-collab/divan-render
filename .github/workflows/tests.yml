@@ -1,6 +1,6 @@
 name: Tests
 
-# The storyboard engine and the map engine's pure parts (tests/), without a browser
+# The storyboard engine, the map engine's pure parts and the loop's seam and layout (tests/), without a browser
 # and without ffmpeg: a few seconds on every push and pull request.
 
 on:
@@ -23,4 +23,4 @@ jobs:
           node-version: 24
       # TypeScript read by Node with its own type stripping; d3-geo and topojson-client are the only packages needed
       - run: npm install --no-save --no-audit --no-fund d3-geo@3.1.1 topojson-client@3.1.0
-      - run: node --import ./tests/register.mjs --test tests/storyboard.test.mjs
+      - run: node --import ./tests/register.mjs --test tests/storyboard.test.mjs tests/seam.test.mjs tests/loop.test.mjs

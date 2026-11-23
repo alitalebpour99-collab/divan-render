@@ -129,6 +129,10 @@ animation checked frame by frame, and a gate. One composition, `decision` (`src/
 - Music: the dark drone of the set style (`props.drone`). Sample: `samples/decision-oil.json` with its ElevenLabs
   take `decision-oil.voice.json` and tile `decision-oil.cover.json` (Samples workflow: `decision:decision-oil`).
 
+## «یک دور»: the seamless loop (20 November 2026)
+
+`src/loop/Loop.tsx` (composition `loop`), its layout `src/loop/scene.ts` and clock `src/loop-time.ts`: ten seconds in the one style (the navy room, the map engine, the storyboard Reels' HUD, header, glass chart panel, source line and badge) whose last frame flows into its first (every moving value is periodic in the turn; rebuilt 23 Nov 2026). Music only: `music.mjs` `loopBed` folds the bed into one seamless turn (a calm entry, then the last 0.4 s laid over the first). `seam.mjs` checks every rendered loop before it is handed back: first/last frame SSIM ≥ 0.99, the last and first 50 ms of the sound at most 3 dB apart, no click at the wrap; a refused loop is reported to the site with `seam: true`. Tests: `node --test tests/seam.test.mjs` and `node --import ./tests/register.mjs --test tests/loop.test.mjs`; the map check `scripts/mapcheck.mjs samples/loop-dollar.json` (rule `blink` across the seam). A sample: Samples with `list=loop:loop-dollar` (its verdict in `small/loop-dollar.gate.json`).
+
 ## The set style
 
 The owner approved the new video style on 13 November 2026 (lit sets, a

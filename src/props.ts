@@ -312,6 +312,8 @@ export type LoopProps = Base & {
   frames: number;
   /** the renderer's switch (DIVAN_BADGE=off): no channel badge */
   badge?: boolean;
+  /** set by the renderer, not the site (v4): the frame of the bed's first beat in the turn (music.mjs beatOf) */
+  beatPhase?: number;
 };
 
 /** «پروندهٔ هسته‌ای»: the declared facilities on the map, or the enriched uranium on the ladder. */

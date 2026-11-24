@@ -234,3 +234,36 @@ moves it a little); a thing whose story ends fades out over 9 frames; the Reel i
 names on the frame before keep their place first, a blink under 15 frames is never drawn, the shorter side of a gap
 under 30 frames is dropped, and every word and thing fades in and out. mapcheck's rule `blink` fails any Reel where
 something is gone for 1 to 30 frames and back.
+
+## «یک دور» on the map engine (23 Nov 2026)
+
+The seamless loop (#26, closed) was rebuilt in the one style: `src/loop/Loop.tsx` and its pure layout `src/loop/scene.ts`.
+Two samples on `divan-render` branch `preview-loop-v2` (Samples, `loop:loop-dollar`).
+
+| flaw in the first sample | fix |
+|---|---|
+| the line flat in the lower third of its panel: the site's 0–100 frame keeps its own padding | the plot is scaled to the readings (first on the left edge, today on the right, lowest and highest 8 % inside) |
+| the axis dates' words in the wrong order («خرداد ۱۴۰۴ ۲۳»): an SVG `<text>` runs Persian without the page's direction | the two dates are HTML in `direction: rtl` |
+| (from #26) a figure that rolled through values between two readings | the figure on screen is always the reading at the pin, with «حدود» when the site marks it approximate |
+| (from #26) two events close together would flash their words for a few frames | the draw rests at each event; every leg at least 22 frames (`MIN_LEG`, tested) |
+
+### v3 (24 Nov 2026)
+
+| flaw of v2 (6.5) | fix |
+|---|---|
+| the map a still amber backdrop: only a small sway | the camera drifts across Iran once a turn (±1.6°), rises and falls twice, breathes ±6 %; Tehran's pin travels with it |
+| nothing on the map answers the story | each event sends a ripple from Tehran over the map and lifts Iran's amber for 1.2 s |
+| the pin's ring on a 1 s clock unrelated to the music | the turn is 288 frames, sixteen beats of the 100 BPM bed; the pin swells on each beat (the beat's phase against the track is not measured) |
+| the bottom fifth empty | the events' strip: a numbered disc an event at its date, filled as the pin passes, the same numbers on the line and in the event's row |
+| samples on the synthesized drone | `render.mjs --track` takes the library track the worker would (`samples/loop-dollar.track`) |
+
+### v4 (24 Nov 2026)
+
+| flaw of v3 (7.5) | fix |
+|---|---|
+| today's red dot over disc ۶ at the strip's end; the strip's pin over a disc's number | no dot at the end (the line's red point is today); the pin drawn under the discs |
+| the pin's beat on the tempo but not on the track's beats | `music.mjs` `beatOf` measures the folded bed (onsets, tempo by autocorrelation, phase of the turn's 16-beat grid); the renderer hands the first beat in as `beatPhase` |
+| the strip at y 1600–1690, under Instagram's caption | the strip is the chart's time axis inside the panel; the panel, source line and caption row move up; every box ends above y 1500 (tested) |
+
+v2 seam: SSIM 0.999 (threshold now 0.99), sound 1.0 dB apart, wrap jump 4.2 % of the peak; mapcheck (with `blink`, read across
+the seam) passes on every frame; −14.2 LUFS, true peak −2.5 dBFS.

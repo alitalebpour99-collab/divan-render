@@ -136,8 +136,8 @@ export const Loop: React.FC<LoopProps> = (p) => {
         )}
       </svg>
       {/* the two ends of the time axis, as HTML: an SVG text runs a Persian date's words in the wrong order */}
-      <div style={{ position: "absolute", left: PLOT.x0 - 10, top: PLOT.y1 + 20, direction: "rtl", fontFamily: VAZIR, fontWeight: 600, fontSize: 38, color: ROOM.mute, whiteSpace: "nowrap" }}>{first.dateText}</div>
-      <div style={{ position: "absolute", right: W - PLOT.x1 - 10, top: PLOT.y1 + 20, direction: "rtl", fontFamily: VAZIR, fontWeight: 700, fontSize: 38, color: ROOM.paper, whiteSpace: "nowrap" }}>{last.dateText}</div>
+      <div style={{ position: "absolute", left: PLOT.x0 - 10, top: STRIP.y + 28, direction: "rtl", fontFamily: VAZIR, fontWeight: 600, fontSize: 34, color: ROOM.mute, whiteSpace: "nowrap" }}>{first.dateText}</div>
+      <div style={{ position: "absolute", right: W - PLOT.x1 - 10, top: STRIP.y + 28, direction: "rtl", fontFamily: VAZIR, fontWeight: 700, fontSize: 34, color: ROOM.paper, whiteSpace: "nowrap" }}>{last.dateText}</div>
 
       {/* the one source line, on the screen with every figure */}
       <div style={{ position: "absolute", top: SOURCE_TOP, left: L, width: COLW, direction: "rtl", fontFamily: VAZIR, fontWeight: 600, fontSize: 36, color: ROOM.mute, opacity: 0.9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -162,11 +162,13 @@ export const Loop: React.FC<LoopProps> = (p) => {
         </div>
       ) : null}
 
-      {/* v3: the events' strip in the bottom band: one numbered disc an event at its date (time left to right, as the
-          line), filled once the pin has passed it, the pin running along with the line's pin (back on the rewind) */}
+      {/* the events' strip, the chart's own time axis (v4: inside the panel, out of Instagram's caption band): one numbered
+          disc an event at its date, filled once the pin has passed it, the pin running along with the line's (back on the rewind) */}
       <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
         <line x1={STRIP.x0} x2={STRIP.x1} y1={STRIP.y} y2={STRIP.y} stroke={ROOM.line} strokeWidth={4} strokeLinecap="round" />
         <line x1={STRIP.x0} x2={sc.strip.pin} y1={STRIP.y} y2={STRIP.y} stroke={ROOM.amber} strokeWidth={4} strokeLinecap="round" />
+        {/* v4: the pin under the discs (a disc's number is never covered); on the full line no dot at all (the line's red point is today) */}
+        {sc.full ? null : <circle cx={sc.strip.pin} cy={STRIP.y} r={9} fill={ROOM.paper} stroke={ROOM.amber} strokeWidth={3} />}
         {sc.strip.events.map((e) => (
           <g key={e.n}>
             <circle cx={e.x} cy={STRIP.y} r={e.n === sc.eventN ? 22 : 17} fill={e.passed ? ROOM.amber : ROOM.bg} stroke={e.passed ? ROOM.paper : ROOM.mute} strokeWidth={3} />
@@ -175,7 +177,6 @@ export const Loop: React.FC<LoopProps> = (p) => {
             </text>
           </g>
         ))}
-        {sc.full ? <circle cx={STRIP.x1} cy={STRIP.y} r={11} fill={ROOM.hit} /> : <circle cx={sc.strip.pin} cy={STRIP.y} r={11} fill={ROOM.paper} stroke={ROOM.amber} strokeWidth={4} />}
       </svg>
 
       {p.music ? <Audio src={staticFile(p.music)} /> : null}

@@ -64,3 +64,30 @@ test("the header keeps to two lines, the event rows to the column; a span too lo
   const { fails } = await checkLoop(long, 30);
   assert.ok(fails.some((x) => x.rule === "header-too-long"));
 });
+
+test("v4: everything the loop writes ends above y 1500, out of Instagram's caption band", () => {
+  const N = loopDuration(sample);
+  for (let f = 0; f < N; f += 3) {
+    const sc = loopScene(sample, f);
+    for (const b of [...sc.panels, ...sc.words.map((w) => w.box), sc.badgeBox]) assert.ok(b.y + b.h <= 1500 || b.y === 0, `frame ${f}: a box ends at ${b.y + b.h}`);
+  }
+});
+
+test("v4: the pin beats on the bed's measured beats (beatOf finds the phase of a made-up pulse)", async () => {
+  const { beatOf } = await import("../music.mjs");
+  const rate = 44100;
+  const seconds = 9.6;
+  const total = Math.round(seconds * rate);
+  const L = new Float32Array(total);
+  // a soft bed plus a short burst every 0.6 s, the first at 0.21 s
+  for (let i = 0; i < total; i += 1) L[i] = 0.05 * Math.sin((2 * Math.PI * 110 * i) / rate);
+  for (let b = 0.21; b < seconds; b += 0.6) for (let k = 0; k < 0.04 * rate; k += 1) L[Math.round(b * rate) + k] += 0.5 * Math.sin((2 * Math.PI * 60 * k) / rate) * (1 - k / (0.04 * rate));
+  const beat = beatOf(L, L, total, rate, seconds);
+  assert.equal(beat.period, 18);
+  assert.ok(Math.abs(beat.phase - 0.21 * 30) <= 1.2, `phase ${beat.phase}`);
+  assert.ok(Math.abs(beat.bpm - 100) <= 3, `bpm ${beat.bpm}`);
+  assert.ok(beat.strength > 2, `strength ${beat.strength}`);
+  // and the scene's pulse peaks on it: the ring starts (0) on the beat's frame
+  const sc = loopScene({ ...sample, beatPhase: 6 }, 6);
+  assert.equal(sc.pulse, 0);
+});

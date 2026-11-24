@@ -268,8 +268,11 @@ async function render(job) {
       for (const c of qc.filter((x) => !x.ok)) console.log(`gate FAIL ${c.id}: ${c.detail}`);
       throw new GateRefusal(verdict({ checks: qc }));
     }
-    fs.writeFileSync(path.join(serve, "public", music), await scoreOf(job, seconds, duckOf(first), Boolean(plan) || first.props.drone === true));
-    const inputProps = { ...job.props, ...sw, voiceIn, music };
+    const bed = await scoreOf(job, seconds, duckOf(first), Boolean(plan) || first.props.drone === true);
+    fs.writeFileSync(path.join(serve, "public", music), bed);
+    // «یک دور» v4: the measured beats of its bed (music.mjs beatOf), so the pin swells on them
+    if (bed.beat) step(`beat at ${bed.beat.phase} frames, ${bed.beat.bpm} BPM measured`);
+    const inputProps = { ...job.props, ...sw, voiceIn, music, ...(bed.beat ? { beatPhase: bed.beat.phase } : {}) };
     const composition = await selectComposition({ serveUrl: serve, id: job.format, inputProps, chromiumOptions, timeoutInMilliseconds });
     step(`${composition.durationInFrames} frames, ${(composition.props.voice ?? []).length} lines of the narrator`);
     let tenth = 0;

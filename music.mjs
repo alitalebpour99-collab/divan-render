@@ -367,7 +367,53 @@ export function loopBed({ id, seconds, track }) {
   }
   const rms = 10 * Math.log10(sum / (2 * total) + 1e-12);
   const gain = track ? Math.min(10 ** ((TRACK_RMS - rms) / 20), peak ? 0.9 / peak : 1) : peak ? 0.6 / peak : 1;
-  return wav(out.L, out.R, gain);
+  const bed = wav(out.L, out.R, gain);
+  // v4 (24 Nov 2026): where the beats of this very turn fall, so the pin in Loop.tsx swells on them (beatOf)
+  bed.beat = beatOf(out.L, out.R, total, RATE, seconds);
+  return bed;
+}
+
+/**
+ * The beats of a folded turn (v4 of «یک دور»): an onset curve (the rise of the level in 10 ms steps, the low end and
+ * the tick both count), its tempo from the autocorrelation between 70 and 140 BPM, and the phase of a grid of
+ * `beats` beats a turn (16 for the 288-frame turn) folded over the turn: the place where the onsets pile up most.
+ * Returns { phase (frames after frame 0 of the first beat, 0…period), period (frames), bpm (measured), strength (the
+ * fold's peak against its mean: 1 = no beat found) }. Pure; tests/seam.test.mjs checks it on a made-up pulse.
+ */
+export function beatOf(L, R, total, rate, seconds, fps = 30, beatsPerTurn = Math.max(1, Math.round((seconds * fps) / 18))) {
+  const hop = Math.round(rate / 100);
+  const n = Math.floor(total / hop);
+  const env = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    let s = 0;
+    for (let k = i * hop; k < (i + 1) * hop; k += 1) s += L[k] * L[k] + R[k] * R[k];
+    env[i] = Math.sqrt(s / (2 * hop));
+  }
+  // the onset curve: only rises count, read round the turn (the turn is a circle)
+  const on = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) on[i] = Math.max(0, env[i] - env[(i - 1 + n) % n]);
+  // the tempo: the lag (10 ms steps) with the strongest circular autocorrelation between 70 and 140 BPM
+  let bestLag = 0;
+  let best = -Infinity;
+  for (let lag = Math.round(6000 / 140); lag <= Math.round(6000 / 70); lag += 1) {
+    let s = 0;
+    for (let i = 0; i < n; i += 1) s += on[i] * on[(i + lag) % n];
+    if (s > best) {
+      best = s;
+      bestLag = lag;
+    }
+  }
+  // the phase of the turn's own grid (whole beats a turn, so it meets itself at the seam)
+  const periodS = seconds / beatsPerTurn;
+  const bins = 60;
+  const fold = new Float64Array(bins);
+  for (let i = 0; i < n; i += 1) fold[Math.floor((((i * 0.01) % periodS) / periodS) * bins) % bins] += on[i];
+  // a little smoothing (three bins) so one stray onset does not win
+  const sm = Array.from(fold, (_, b) => fold[(b - 1 + bins) % bins] + 2 * fold[b] + fold[(b + 1) % bins]);
+  let top = 0;
+  for (let b = 1; b < bins; b += 1) if (sm[b] > sm[top]) top = b;
+  const mean = sm.reduce((a, x) => a + x, 0) / bins || 1;
+  return { phase: +(((top + 0.5) / bins) * periodS * fps).toFixed(2), period: +(periodS * fps).toFixed(2), bpm: +(6000 / bestLag).toFixed(1), strength: +(sm[top] / mean).toFixed(2) };
 }
 
 /**

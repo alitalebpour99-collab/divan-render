@@ -18,22 +18,25 @@ export const H = 1920;
 export const L = 64;
 export const R = 884;
 export const COLW = R - L;
-/** the header and the source line, as Reel.tsx CHROME: no word on the map may enter them */
+/**
+ * v4 (24 Nov 2026): everything the loop says ends above y 1500, out of the band Instagram covers with its caption and
+ * name: the panel, the source line and the caption's row sit higher than in Reel.tsx, the events' strip inside the panel.
+ */
+export const SOURCE_TOP = 1344;
+/** the header and the source line: no word on the map may enter them */
 export const CHROME: Box[] = [
   { x: 0, y: 0, w: 1080, h: 556 },
-  { x: 0, y: 1404, w: 1080, h: 64 },
+  { x: 0, y: SOURCE_TOP - 10, w: 1080, h: 64 },
 ];
 /** the glass panel of the chart (Reel.tsx Chart: L − 24 … R + 24), a little taller: the line is the story here */
-export const PANEL: Box = { x: L - 24, y: 700, w: COLW + 48, h: 690 };
+export const PANEL: Box = { x: L - 24, y: 690, w: COLW + 48, h: 640 };
 /** the plot inside it: time runs left to right, the oldest day on the left, today on the right (owner, 19 Nov 2026) */
-export const PLOT = { x0: L + 40, x1: R - 40, y0: 966, y1: 1262 };
-/** the caption's row (Reel.tsx Caption, y 1490): the event while the line is drawn, then the channel badge */
-export const ROW_TOP = 1490;
+export const PLOT = { x0: L + 40, x1: R - 40, y0: 935, y1: 1176 };
+/** the caption's row: the event while the line is drawn, then the channel badge (ends at 1488) */
+export const ROW_TOP = 1410;
 export const ROW_H = 78;
-/** the source line (Reel.tsx SOURCE_TOP) */
-export const SOURCE_TOP = 1414;
 /** where Tehran's market stands on the screen, between the header and the panel */
-export const PIN_AT: [number, number] = [540, 630];
+export const PIN_AT: [number, number] = [540, 618];
 /** the camera's width (degrees of arc across the frame) and its drift: whole periods per turn */
 export const SPAN = 17;
 /**
@@ -42,12 +45,14 @@ export const SPAN = 17;
  * 100 px each way on the screen, always between the header and the panel. Whole periods: frame N is frame 0.
  */
 export const DRIFT = 1.6;
-/** one beat of the bed (frames): the library track of the loop runs at 100 BPM (music/prompts.json), 0.6 s */
+/** one beat of the bed (frames): the library track of the loop runs at 100 BPM (music/prompts.json), 0.6 s; the
+ * renderer measures where the beats fall in the folded bed (music.mjs beatOf) and hands the first in as `beatPhase` */
 export const BEAT = 18;
 /** how long an event's ripple runs over the map from Tehran (frames) */
 export const RIPPLE = 36;
-/** the strip of the events under the caption's row: one numbered disc an event at its date, the pin running along it */
-export const STRIP = { x0: L + 34, x1: R - 34, y: 1640, box: { x: L, y: 1600, w: COLW, h: 84 } };
+/** v4: the strip of the events is the chart's own time axis, inside the panel under the line: one numbered disc an
+ * event at its date, the line's progress running along it (under the discs: it never covers a number) */
+export const STRIP = { x0: L + 40, x1: R - 40, y: 1212, box: { x: L, y: 1188, w: COLW, h: 48 } };
 export const LABEL_SIZE = 52;
 export const PIN_R = 13;
 
@@ -124,7 +129,7 @@ export function loopScene(p: LoopProps, f: number) {
   const pin = view.at(TEHRAN.lon, TEHRAN.lat) ?? PIN_AT;
   // the pin beats with the bed: a whole number of beats a turn (16 in 288 frames at 100 BPM)
   const beats = Math.max(1, Math.round(N / BEAT));
-  const pulse = ring(f, N, beats);
+  const pulse = ring(f - (p.beatPhase ?? 0), N, beats);
   // each event sends a ripple over the map from Tehran as the pin reaches it (gone long before the turn ends)
   const evPts = pts.filter((q) => q.event);
   const ripples = stops.map((s, i) => ({ n: i + 1, age: f - stopFrame(s, N, stops) })).filter((r) => r.age >= 0 && r.age < RIPPLE && stopFrame(stops[r.n - 1], N, stops) + RIPPLE < N);
@@ -134,7 +139,7 @@ export function loopScene(p: LoopProps, f: number) {
   const eventN = event ? evPts.indexOf(event) + 1 : 0;
 
   const words: Word[] = [];
-  const panels: Box[] = [...CHROME, PANEL, STRIP.box];
+  const panels: Box[] = [...CHROME, PANEL];
   // Tehran's name, on its own land, to the left of the pin (a land place's name may stand on its land)
   const lw = textWidth(TEHRAN.t, LABEL_SIZE);
   words.push({ kind: "label", t: TEHRAN.t, at: pin, box: { x: pin[0] - PIN_R - 18 - lw, y: pin[1] - LABEL_SIZE * 0.62, w: lw, h: LABEL_SIZE * 1.24 }, map: true });

@@ -29,7 +29,7 @@ test("the last frame flows into the first: the same reading, line, words and alm
   assert.equal(z.badge, 0);
   assert.equal(a.event, null);
   assert.equal(z.event, null);
-  assert.ok(Math.hypot(a.pin[0] - z.pin[0], a.pin[1] - z.pin[1]) < 1.5, "the camera jumps at the seam");
+  assert.ok(Math.hypot(a.pin[0] - z.pin[0], a.pin[1] - z.pin[1]) < 4, "the camera jumps at the seam (more than one frame of its drift)");
   // and frame N is frame 0
   assert.deepEqual(loopScene(sample, N).look, a.look);
 });

@@ -7,6 +7,7 @@
 //   node render.mjs cards --props samples/cards.json --still all        every card of a carousel → out/cards-0000.png …
 //   node render.mjs thennow --voice lines.json            with a narrator: the lines as the site makes them (lib/social/voice.ts)
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { finish } from "./finish.mjs";
@@ -54,7 +55,24 @@ if (stills) {
   const first = await selectComposition({ serveUrl, id, inputProps: { ...props, voiceIn }, timeoutInMilliseconds, browserExecutable });
   const seconds = first.durationInFrames / first.fps;
   const music = `music-${name}.wav`;
-  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) || first.props.drone === true, loop: id === "loop" }));
+  // v3 of «یک دور» (24 Nov 2026): a sample may take the library track the site would hand the worker (--track name),
+  // fetched from the site with the renderer's secret as worker.mjs trackFile does; never kept in the repository
+  const trackName = flag("--track");
+  let track = null;
+  if (trackName && /^[a-z0-9-]{3,40}$/.test(trackName) && process.env.DIVAN_RENDER_SECRET) {
+    try {
+      const site = (process.env.DIVAN_URL ?? "https://divan.ahura.cloud").replace(/\/+$/, "");
+      const res = await fetch(`${site}/api/social/work?music=${trackName}`, { headers: { authorization: `Bearer ${process.env.DIVAN_RENDER_SECRET}` }, signal: AbortSignal.timeout(60_000) });
+      const bytes = Buffer.from(await res.arrayBuffer());
+      if (!res.ok || bytes.length < 50_000) throw new Error(`HTTP ${res.status}`);
+      track = path.join(os.tmpdir(), `divan-track-${trackName}.mp3`);
+      fs.writeFileSync(track, bytes);
+      console.log("music: the library track", trackName);
+    } catch (e) {
+      console.log(`music ${trackName}: not fetched (${e instanceof Error ? e.message : e}); the synthesized score instead`);
+    }
+  }
+  fs.writeFileSync(path.join(serveUrl, "public", music), score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) || first.props.drone === true, loop: id === "loop", ...(track ? { track } : {}) }));
   if (first.props.plan) console.log("set style:", first.props.plan.shots.length, "shots,", first.props.plan.sfx.length, "effects,", first.props.plan.pieces.length, "pieces");
   for (const v of first.props.voice ?? []) console.log("voice", v.file, "at", (v.from / first.fps).toFixed(2), "s for", (v.frames / first.fps).toFixed(2), "s");
   if (first.props.holds?.length) console.log("holds", JSON.stringify(first.props.holds));
@@ -72,6 +90,7 @@ if (stills) {
   };
   await renderMedia({ composition, serveUrl, codec: "h264", crf: 19, audioBitrate: "160k", inputProps, outputLocation, concurrency: Number(process.env.RENDER_CONCURRENCY ?? 3), timeoutInMilliseconds, onProgress, browserExecutable });
   dropVoice(path.join(serveUrl, "public"), name);
+  if (track) fs.rmSync(track, { force: true });
   console.log(finish(outputLocation, seconds));
   // the gate of the set style: the plan the film was drawn from, the file, the tile's words (a sample reports and goes on with DIVAN_GATE=warn)
   if (Array.isArray(composition.props.qc)) {

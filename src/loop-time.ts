@@ -4,8 +4,8 @@
 // the video can play again and again with no visible seam. Pure, without React,
 // so the tests (tests/seam.test.mjs, tests/loop.test.mjs) read it with Node's own type stripping.
 
-/** One turn: 10 s at 30 fps. 10 s is ten beats of the drone (60 BPM) and twenty of a 120 BPM bed. */
-export const LOOP_FRAMES = 300;
+/** One turn: 9.6 s at 30 fps, sixteen beats of the loop's library bed (divan-data-steady, 100 BPM); v3 (24 Nov 2026), was 300. */
+export const LOOP_FRAMES = 288;
 /** The range a loop's length must stay in (the seamless-loop brief: about 8 to 15 s). */
 export const LOOP_RANGE: [number, number] = [8 * 30, 15 * 30];
 

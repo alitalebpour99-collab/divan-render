@@ -34,8 +34,20 @@ export const ROW_H = 78;
 export const SOURCE_TOP = 1414;
 /** where Tehran's market stands on the screen, between the header and the panel */
 export const PIN_AT: [number, number] = [540, 630];
-/** the camera's width (degrees of arc across the frame) and its sway: whole periods per turn */
+/** the camera's width (degrees of arc across the frame) and its drift: whole periods per turn */
 export const SPAN = 17;
+/**
+ * v3 (the coordinator, 24 Nov 2026: «the map should move»): the camera drifts east and west across Iran once a turn
+ * (DRIFT degrees either side of Tehran), rises and falls twice, and breathes in and out: Tehran's pin travels about
+ * 100 px each way on the screen, always between the header and the panel. Whole periods: frame N is frame 0.
+ */
+export const DRIFT = 1.6;
+/** one beat of the bed (frames): the library track of the loop runs at 100 BPM (music/prompts.json), 0.6 s */
+export const BEAT = 18;
+/** how long an event's ripple runs over the map from Tehran (frames) */
+export const RIPPLE = 36;
+/** the strip of the events under the caption's row: one numbered disc an event at its date, the pin running along it */
+export const STRIP = { x0: L + 34, x1: R - 34, y: 1640, box: { x: L, y: 1600, w: COLW, h: 84 } };
 export const LABEL_SIZE = 52;
 export const PIN_R = 13;
 
@@ -45,10 +57,10 @@ const TEHRAN = PLACES_FA.tehran;
 
 /** The camera on frame f: centred so Tehran stands at PIN_AT, swaying a little; equal at frame 0 and frame N. */
 export function loopLook(f: number, N: number): Look {
-  const span = SPAN * (1 + 0.03 * wave(f, N, 1, 2.0));
+  const span = SPAN * (1 + 0.06 * wave(f, N, 1, 2.0));
   const scale = scaleOf(span, W);
   const d = (Math.asin((H / 2 - PIN_AT[1]) / scale) * 180) / Math.PI;
-  return { lon: TEHRAN.lon + 0.28 * wave(f, N, 1, 0.6), lat: TEHRAN.lat - d + 0.16 * wave(f, N, 2, 1.1), span };
+  return { lon: TEHRAN.lon + DRIFT * wave(f, N, 1, 0.6), lat: TEHRAN.lat - d + 0.3 * wave(f, N, 2, 1.1), span };
 }
 
 /** The projection of a look, exactly as MapStage.tsx makeView draws it (the whole screen is the stage). */
@@ -110,10 +122,19 @@ export function loopScene(p: LoopProps, f: number) {
   const look = loopLook(f, N);
   const view = loopView(look);
   const pin = view.at(TEHRAN.lon, TEHRAN.lat) ?? PIN_AT;
-  const pulse = ring(f, N, N / 30);
+  // the pin beats with the bed: a whole number of beats a turn (16 in 288 frames at 100 BPM)
+  const beats = Math.max(1, Math.round(N / BEAT));
+  const pulse = ring(f, N, beats);
+  // each event sends a ripple over the map from Tehran as the pin reaches it (gone long before the turn ends)
+  const evPts = pts.filter((q) => q.event);
+  const ripples = stops.map((s, i) => ({ n: i + 1, age: f - stopFrame(s, N, stops) })).filter((r) => r.age >= 0 && r.age < RIPPLE && stopFrame(stops[r.n - 1], N, stops) + RIPPLE < N);
+  // the strip: the events at their dates, the pin along it with the line's pin
+  const sxStrip = (x: number) => STRIP.x0 + ((x - first.x) / Math.max(1e-6, last.x - first.x)) * (STRIP.x1 - STRIP.x0);
+  const strip = { pin: sxStrip(run), events: evPts.map((q, i) => ({ n: i + 1, x: sxStrip(q.x), passed: q.x <= run + 1e-6, t: q.event as string })) };
+  const eventN = event ? evPts.indexOf(event) + 1 : 0;
 
   const words: Word[] = [];
-  const panels: Box[] = [...CHROME, PANEL];
+  const panels: Box[] = [...CHROME, PANEL, STRIP.box];
   // Tehran's name, on its own land, to the left of the pin (a land place's name may stand on its land)
   const lw = textWidth(TEHRAN.t, LABEL_SIZE);
   words.push({ kind: "label", t: TEHRAN.t, at: pin, box: { x: pin[0] - PIN_R - 18 - lw, y: pin[1] - LABEL_SIZE * 0.62, w: lw, h: LABEL_SIZE * 1.24 }, map: true });
@@ -127,9 +148,10 @@ export function loopScene(p: LoopProps, f: number) {
   }
   const badgeBox = { x: L, y: ROW_TOP, w: 470, h: ROW_H };
   if (badge > 0) panels.push(badgeBox);
-  const discs = [{ n: 0, xy: pin, r: PIN_R, geo: [TEHRAN.lon, TEHRAN.lat] as [number, number], sea: false }];
-  return { N, f, prog, run, full, shown, reading, tip, drawing, event, eventAge, times, badge, badgeBox, look, view, pin, pulse, words, panels, discs, stops };
+  const discs = [{ n: 0, xy: pin, r: PIN_R * 1.25, geo: [TEHRAN.lon, TEHRAN.lat] as [number, number], sea: false }];
+  return { N, f, prog, run, full, shown, reading, tip, drawing, event, eventN, eventAge, times, badge, badgeBox, look, view, pin, pulse, beats, ripples, strip, words, panels, discs, stops };
 }
+
 
 /** The frames of a turn at which something is cued (for the sound): the rewind, the draw, each event as the pin reaches it. */
 export function eventFrames(p: LoopProps): number[] {

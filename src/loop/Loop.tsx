@@ -15,7 +15,7 @@ import { VAZIR } from "../map-engine/fonts";
 import { ROOM, shortSource } from "../storyboard/Reel";
 import type { LoopProps } from "../props";
 import { cuesOf } from "../loop-time";
-import { COLW, H, L, LABEL_SIZE, PANEL, PIN_R, PLOT, ROW_H, SOURCE_TOP, W, eventFrames, headerSize, loopDuration, loopScene, rowSize } from "./scene";
+import { COLW, H, L, LABEL_SIZE, PANEL, PIN_R, PLOT, RIPPLE, ROW_H, SOURCE_TOP, STRIP, W, eventFrames, headerSize, loopDuration, loopScene, rowSize } from "./scene";
 
 export { loopDuration };
 
@@ -45,13 +45,25 @@ export const Loop: React.FC<LoopProps> = (p) => {
   const hs = headerSize(p.span);
   const pop = sc.eventAge >= 0 && sc.eventAge < 16 ? sc.eventAge / 16 : -1;
   const ev = sc.event;
+  // an event's ripple over the map, and Iran's amber lifting a little with it
+  const swell = sc.ripples.reduce((a, r) => Math.max(a, 1 - r.age / RIPPLE), 0);
+  // the pin's beat: a quick swell on each beat of the bed, settling before the next
+  const beatK = (1 - sc.pulse) ** 3;
+  const evN = new Map(pts.filter((q) => q.event).map((q, i) => [q, i + 1] as const));
   return (
     <AbsoluteFill style={{ background: `radial-gradient(120% 75% at 50% 42%, ${ROOM.bg2} 0%, ${ROOM.bg} 62%, ${ROOM.edge} 100%)` }}>
-      {/* the ground: Iran in Divan's amber, the camera swaying a little, whole periods a turn */}
+      {/* the ground: Iran in Divan's amber, the camera drifting across it, whole periods a turn */}
       <MapStage look={sc.look} frame={STAGE} theme={DIVAN} f={f} dim={0.1} bleed uid="loop">
         <SeaDetail />
-        <CountryFill a3="IRN" color={DIVAN.actors.iran} t={999} opacity={0.5} />
+        <CountryFill a3="IRN" color={DIVAN.actors.iran} t={999} opacity={0.5 + 0.16 * swell} />
       </MapStage>
+      {/* each event the pin reaches runs over the map from Tehran's market as a ripple (v3) */}
+      <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
+        {sc.ripples.map((r) => {
+          const k = r.age / RIPPLE;
+          return <circle key={r.n} cx={sc.pin[0]} cy={sc.pin[1]} r={PIN_R + k * 620} fill="none" stroke={ROOM.amber} strokeWidth={6 * (1 - k) + 1} opacity={0.75 * (1 - k)} />;
+        })}
+      </svg>
       {/* the scrims of the storyboard Reels: the map runs under the header and the bottom rows, darkened there */}
       <div style={{ position: "absolute", left: 0, top: 0, width: W, height: 640, background: "linear-gradient(180deg, rgba(22,32,50,0.94) 0%, rgba(22,32,50,0.72) 55%, rgba(22,32,50,0) 100%)" }} />
       <div style={{ position: "absolute", left: 0, top: 1330, width: W, height: 590, background: "linear-gradient(0deg, rgba(22,32,50,0.95) 0%, rgba(22,32,50,0.75) 60%, rgba(22,32,50,0) 100%)" }} />
@@ -60,7 +72,7 @@ export const Loop: React.FC<LoopProps> = (p) => {
       <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
         <path d={`M${sc.pin[0]} ${sc.pin[1] + PIN_R} L${sc.pin[0]} ${PANEL.y}`} stroke={ROOM.amber} strokeWidth={4} strokeDasharray="10 8" opacity={0.85} />
         <circle cx={sc.pin[0]} cy={sc.pin[1]} r={PIN_R + sc.pulse * 34} fill="none" stroke={ROOM.amber} strokeWidth={3} opacity={1 - sc.pulse} />
-        <circle cx={sc.pin[0]} cy={sc.pin[1]} r={PIN_R} fill={ROOM.amber} stroke={ROOM.paper} strokeWidth={3} />
+        <circle cx={sc.pin[0]} cy={sc.pin[1]} r={PIN_R * (1 + 0.22 * beatK)} fill={ROOM.amber} stroke={ROOM.paper} strokeWidth={3} />
       </svg>
       <div style={{ position: "absolute", left: label.box.x, top: label.box.y, width: label.box.w, height: label.box.h, display: "flex", alignItems: "center", justifyContent: "flex-end", fontFamily: VAZIR, fontWeight: 800, fontSize: LABEL_SIZE, color: ROOM.paper, textShadow: halo, whiteSpace: "nowrap", direction: "rtl" }}>
         {label.t}
@@ -101,7 +113,12 @@ export const Loop: React.FC<LoopProps> = (p) => {
         <path d={line} fill="none" stroke={ROOM.amber} strokeWidth={8} strokeLinejoin="round" strokeLinecap="round" />
         {sc.shown.map((q, i) =>
           q.event ? (
-            <circle key={i} cx={sx(q.x)} cy={sy(q.y)} r={11} fill={ROOM.amber} stroke={ROOM.paper} strokeWidth={4} />
+            <g key={i}>
+              <circle cx={sx(q.x)} cy={sy(q.y)} r={17} fill={ROOM.amber} stroke={ROOM.paper} strokeWidth={3} />
+              <text x={sx(q.x)} y={sy(q.y) + 8} textAnchor="middle" fill={ROOM.bg} fontFamily={VAZIR} fontWeight={800} fontSize={24}>
+                {faNum(evN.get(q) ?? 0)}
+              </text>
+            </g>
           ) : (
             <circle key={i} cx={sx(q.x)} cy={sy(q.y)} r={7} fill={q.approx ? ROOM.bg : ROOM.paper} stroke={ROOM.paper} strokeWidth={q.approx ? 3 : 0} />
           ),
@@ -130,7 +147,7 @@ export const Loop: React.FC<LoopProps> = (p) => {
       {/* the caption's row: the event the pin has reached, while the line is drawn */}
       {row ? (
         <div style={{ position: "absolute", left: row.box.x, top: row.box.y, width: row.box.w, height: ROW_H, opacity: sc.drawing, display: "flex", alignItems: "center", gap: 18, padding: "0 26px", boxSizing: "border-box", direction: "rtl", background: "rgba(13,19,34,0.86)", border: `2px solid ${ROOM.amber}`, borderRadius: 999, fontFamily: VAZIR }}>
-          <div style={{ width: 24, height: 24, borderRadius: 999, background: ROOM.amber, flex: "none" }} />
+          <div style={{ width: 46, height: 46, borderRadius: 999, background: ROOM.amber, color: ROOM.bg, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 30 }}>{faNum(sc.eventN)}</div>
           <div style={{ fontWeight: 700, fontSize: rowSize(row.t), color: ROOM.paper, whiteSpace: "nowrap" }}>{row.t}</div>
         </div>
       ) : null}
@@ -144,6 +161,22 @@ export const Loop: React.FC<LoopProps> = (p) => {
           <span style={{ color: ROOM.amber, fontWeight: 800, fontSize: 36 }}>+ دنبال کن</span>
         </div>
       ) : null}
+
+      {/* v3: the events' strip in the bottom band: one numbered disc an event at its date (time left to right, as the
+          line), filled once the pin has passed it, the pin running along with the line's pin (back on the rewind) */}
+      <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
+        <line x1={STRIP.x0} x2={STRIP.x1} y1={STRIP.y} y2={STRIP.y} stroke={ROOM.line} strokeWidth={4} strokeLinecap="round" />
+        <line x1={STRIP.x0} x2={sc.strip.pin} y1={STRIP.y} y2={STRIP.y} stroke={ROOM.amber} strokeWidth={4} strokeLinecap="round" />
+        {sc.strip.events.map((e) => (
+          <g key={e.n}>
+            <circle cx={e.x} cy={STRIP.y} r={e.n === sc.eventN ? 22 : 17} fill={e.passed ? ROOM.amber : ROOM.bg} stroke={e.passed ? ROOM.paper : ROOM.mute} strokeWidth={3} />
+            <text x={e.x} y={STRIP.y + 8} textAnchor="middle" fill={e.passed ? ROOM.bg : ROOM.mute} fontFamily={VAZIR} fontWeight={800} fontSize={e.n === sc.eventN ? 28 : 22}>
+              {faNum(e.n)}
+            </text>
+          </g>
+        ))}
+        {sc.full ? <circle cx={STRIP.x1} cy={STRIP.y} r={11} fill={ROOM.hit} /> : <circle cx={sc.strip.pin} cy={STRIP.y} r={11} fill={ROOM.paper} stroke={ROOM.amber} strokeWidth={4} />}
+      </svg>
 
       {p.music ? <Audio src={staticFile(p.music)} /> : null}
       {cues.map((c, i) => (

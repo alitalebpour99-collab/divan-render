@@ -50,6 +50,9 @@ jobs:
           LIST: ${{ inputs.list }}
           # a sample is for looking: the gate reports (out/<name>.gate.json) and the run goes on
           DIVAN_GATE: warn
+          # a sample may name the library track the site would hand the worker (samples/<name>.track): fetched from the
+          # site with the renderer's secret, used for the score, never kept
+          DIVAN_RENDER_SECRET: ${{ secrets.DIVAN_RENDER_SECRET }}
         run: |
           for pair in $LIST; do
             comp="${pair%%:*}"; name="${pair#*:}"
@@ -57,7 +60,8 @@ jobs:
             if [ "$comp" = "cards" ]; then node render.mjs cards --props "samples/$name.json" --bundle bundle --still all --out "$name"; continue; fi
             # with the narrator's lines when the sample has them (samples/<name>.voice.json, as lib/social/voice.ts makes them)
             voice=""; if [ -f "samples/$name.voice.json" ]; then voice="--voice samples/$name.voice.json"; fi
-            node render.mjs "$comp" --props "samples/$name.json" --bundle bundle --out "$name" $voice
+            track=""; if [ -f "samples/$name.track" ]; then track="--track $(head -c 40 "samples/$name.track" | tr -cd 'a-z0-9-')"; fi
+            node render.mjs "$comp" --props "samples/$name.json" --bundle bundle --out "$name" $voice $track
             # for looking without downloading the master: a small copy, a sheet of two frames a second, the loudness, the gate's report
             mkdir -p small
             ffmpeg -v error -y -i "out/$name.mp4" -vf scale=360:-2 -c:v libx264 -crf 30 -preset veryfast -c:a aac -b:a 96k "small/$name-360.mp4"

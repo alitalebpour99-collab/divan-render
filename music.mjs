@@ -376,11 +376,11 @@ export function loopBed({ id, seconds, track }) {
 /**
  * The beats of a folded turn (v4 of «یک دور»): an onset curve (the rise of the level in 10 ms steps, the low end and
  * the tick both count), its tempo from the autocorrelation between 70 and 140 BPM, and the phase of a grid of
- * `beats` beats a turn (16 for the 288-frame turn) folded over the turn: the place where the onsets pile up most.
- * Returns { phase (frames after frame 0 of the first beat, 0…period), period (frames), bpm (measured), strength (the
+ * whole beats a turn (from the measured tempo, v5) folded over the turn: the place where the onsets pile up most.
+ * Returns { beats (a turn), phase (frames after frame 0 of the first beat, 0…period), period (frames), bpm (measured), strength (the
  * fold's peak against its mean: 1 = no beat found) }. Pure; tests/seam.test.mjs checks it on a made-up pulse.
  */
-export function beatOf(L, R, total, rate, seconds, fps = 30, beatsPerTurn = Math.max(1, Math.round((seconds * fps) / 18))) {
+export function beatOf(L, R, total, rate, seconds, fps = 30, beatsGiven = null) {
   const hop = Math.round(rate / 100);
   const n = Math.floor(total / hop);
   const env = new Float32Array(n);
@@ -403,7 +403,10 @@ export function beatOf(L, R, total, rate, seconds, fps = 30, beatsPerTurn = Math
       bestLag = lag;
     }
   }
-  // the phase of the turn's own grid (whole beats a turn, so it meets itself at the seam)
+  // v5: as many whole beats a turn as the measured tempo gives (17 for 107 BPM over 9.6 s), so the grid stays on the
+  // track's beats across the whole turn and still meets itself at the seam
+  const beatsPerTurn = beatsGiven ?? Math.max(1, Math.round((seconds * 100) / bestLag));
+  // the phase of the turn's own grid
   const periodS = seconds / beatsPerTurn;
   const bins = 60;
   const fold = new Float64Array(bins);
@@ -413,7 +416,7 @@ export function beatOf(L, R, total, rate, seconds, fps = 30, beatsPerTurn = Math
   let top = 0;
   for (let b = 1; b < bins; b += 1) if (sm[b] > sm[top]) top = b;
   const mean = sm.reduce((a, x) => a + x, 0) / bins || 1;
-  return { phase: +(((top + 0.5) / bins) * periodS * fps).toFixed(2), period: +(periodS * fps).toFixed(2), bpm: +(6000 / bestLag).toFixed(1), strength: +(sm[top] / mean).toFixed(2) };
+  return { beats: beatsPerTurn, phase: +(((top + 0.5) / bins) * periodS * fps).toFixed(2), period: +(periodS * fps).toFixed(2), bpm: +(6000 / bestLag).toFixed(1), strength: +(sm[top] / mean).toFixed(2) };
 }
 
 /**

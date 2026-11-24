@@ -87,6 +87,14 @@ test("v4: the pin beats on the bed's measured beats (beatOf finds the phase of a
   assert.ok(Math.abs(beat.phase - 0.21 * 30) <= 1.2, `phase ${beat.phase}`);
   assert.ok(Math.abs(beat.bpm - 100) <= 3, `bpm ${beat.bpm}`);
   assert.ok(beat.strength > 2, `strength ${beat.strength}`);
+  // v5: a track at 107 BPM gets 17 beats a turn (its own tempo), and the phase of its first beat
+  const L2 = new Float32Array(total);
+  for (let i = 0; i < total; i += 1) L2[i] = 0.05 * Math.sin((2 * Math.PI * 110 * i) / rate);
+  for (let b = 0.1; b < seconds - 0.05; b += 60 / 107.1) for (let k = 0; k < 0.04 * rate; k += 1) L2[Math.round(b * rate) + k] += 0.5 * Math.sin((2 * Math.PI * 60 * k) / rate) * (1 - k / (0.04 * rate));
+  const b2 = beatOf(L2, L2, total, rate, seconds);
+  assert.equal(b2.beats, 17, JSON.stringify(b2));
+  assert.ok(Math.abs(b2.phase - 3) <= 1.5, `phase ${b2.phase}`);
+  assert.equal(loopScene({ ...sample, beats: 17, beatPhase: 3 }, 3).pulse, 0);
   // and the scene's pulse peaks on it: the ring starts (0) on the beat's frame
   const sc = loopScene({ ...sample, beatPhase: 6 }, 6);
   assert.equal(sc.pulse, 0);

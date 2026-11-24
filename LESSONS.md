@@ -265,5 +265,12 @@ Two samples on `divan-render` branch `preview-loop-v2` (Samples, `loop:loop-doll
 | the pin's beat on the tempo but not on the track's beats | `music.mjs` `beatOf` measures the folded bed (onsets, tempo by autocorrelation, phase of the turn's 16-beat grid); the renderer hands the first beat in as `beatPhase` |
 | the strip at y 1600–1690, under Instagram's caption | the strip is the chart's time axis inside the panel; the panel, source line and caption row move up; every box ends above y 1500 (tested) |
 
+### v5 (24 Nov 2026)
+
+| flaw of v4 (7.5) | fix |
+|---|---|
+| the pin's grid at 100 BPM (16 a turn) while the bed measures 107 BPM: up to a third of a beat off by the end | `beatOf` takes the beat count from the measured tempo (17 a turn), the renderer hands `beats` in with `beatPhase` |
+| every event shown twice (on the line and right under it on the strip) | the strip is a quiet axis: a small tick an event, amber once passed |
+
 v2 seam: SSIM 0.999 (threshold now 0.99), sound 1.0 dB apart, wrap jump 4.2 % of the peak; mapcheck (with `blink`, read across
 the seam) passes on every frame; −14.2 LUFS, true peak −2.5 dBFS.

@@ -128,7 +128,7 @@ export function loopScene(p: LoopProps, f: number) {
   const view = loopView(look);
   const pin = view.at(TEHRAN.lon, TEHRAN.lat) ?? PIN_AT;
   // the pin beats with the bed: a whole number of beats a turn (16 in 288 frames at 100 BPM)
-  const beats = Math.max(1, Math.round(N / BEAT));
+  const beats = p.beats && p.beats > 0 ? Math.round(p.beats) : Math.max(1, Math.round(N / BEAT));
   const pulse = ring(f - (p.beatPhase ?? 0), N, beats);
   // each event sends a ripple over the map from Tehran as the pin reaches it (gone long before the turn ends)
   const evPts = pts.filter((q) => q.event);

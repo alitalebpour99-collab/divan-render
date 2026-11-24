@@ -272,7 +272,7 @@ async function render(job) {
     fs.writeFileSync(path.join(serve, "public", music), bed);
     // «یک دور» v4: the measured beats of its bed (music.mjs beatOf), so the pin swells on them
     if (bed.beat) step(`beat at ${bed.beat.phase} frames, ${bed.beat.bpm} BPM measured`);
-    const inputProps = { ...job.props, ...sw, voiceIn, music, ...(bed.beat ? { beatPhase: bed.beat.phase } : {}) };
+    const inputProps = { ...job.props, ...sw, voiceIn, music, ...(bed.beat ? { beatPhase: bed.beat.phase, beats: bed.beat.beats } : {}) };
     const composition = await selectComposition({ serveUrl: serve, id: job.format, inputProps, chromiumOptions, timeoutInMilliseconds });
     step(`${composition.durationInFrames} frames, ${(composition.props.voice ?? []).length} lines of the narrator`);
     let tenth = 0;

@@ -314,6 +314,8 @@ export type LoopProps = Base & {
   badge?: boolean;
   /** set by the renderer, not the site (v4): the frame of the bed's first beat in the turn (music.mjs beatOf) */
   beatPhase?: number;
+  /** set by the renderer (v5): whole beats of the bed a turn, from its measured tempo (17 at 107 BPM over 9.6 s) */
+  beats?: number;
 };
 
 /** «پروندهٔ هسته‌ای»: the declared facilities on the map, or the enriched uranium on the ladder. */

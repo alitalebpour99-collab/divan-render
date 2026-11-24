@@ -75,11 +75,11 @@ if (stills) {
   const bed = score({ id, seconds, duck: duckOf(first), set: Boolean(first.props.plan) || first.props.drone === true, loop: id === "loop", ...(track ? { track } : {}) });
   fs.writeFileSync(path.join(serveUrl, "public", music), bed);
   // «یک دور» v4: the measured beats of its bed (music.mjs beatOf), so the pin swells on them
-  if (bed.beat) console.log(`beat: first at ${bed.beat.phase} frames, every ${bed.beat.period} frames; measured ${bed.beat.bpm} BPM, fold strength ${bed.beat.strength}`);
+  if (bed.beat) console.log(`beat: ${bed.beat.beats} a turn, first at ${bed.beat.phase} frames, every ${bed.beat.period} frames; measured ${bed.beat.bpm} BPM, fold strength ${bed.beat.strength}`);
   if (first.props.plan) console.log("set style:", first.props.plan.shots.length, "shots,", first.props.plan.sfx.length, "effects,", first.props.plan.pieces.length, "pieces");
   for (const v of first.props.voice ?? []) console.log("voice", v.file, "at", (v.from / first.fps).toFixed(2), "s for", (v.frames / first.fps).toFixed(2), "s");
   if (first.props.holds?.length) console.log("holds", JSON.stringify(first.props.holds));
-  const inputProps = { ...props, voiceIn, music, ...(bed.beat ? { beatPhase: bed.beat.phase } : {}) };
+  const inputProps = { ...props, voiceIn, music, ...(bed.beat ? { beatPhase: bed.beat.phase, beats: bed.beat.beats } : {}) };
   const composition = await selectComposition({ serveUrl, id, inputProps, timeoutInMilliseconds, browserExecutable });
   const outputLocation = `out/${name}.mp4`;
   // every tenth of the frames, with the time it took: a sample that crawls shows where

@@ -165,17 +165,14 @@ export const Loop: React.FC<LoopProps> = (p) => {
       {/* the events' strip, the chart's own time axis (v4: inside the panel, out of Instagram's caption band): one numbered
           disc an event at its date, filled once the pin has passed it, the pin running along with the line's (back on the rewind) */}
       <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
-        <line x1={STRIP.x0} x2={STRIP.x1} y1={STRIP.y} y2={STRIP.y} stroke={ROOM.line} strokeWidth={4} strokeLinecap="round" />
-        <line x1={STRIP.x0} x2={sc.strip.pin} y1={STRIP.y} y2={STRIP.y} stroke={ROOM.amber} strokeWidth={4} strokeLinecap="round" />
+        <line x1={STRIP.x0} x2={STRIP.x1} y1={STRIP.y} y2={STRIP.y} stroke={ROOM.line} strokeWidth={3} strokeLinecap="round" />
+        <line x1={STRIP.x0} x2={sc.strip.pin} y1={STRIP.y} y2={STRIP.y} stroke={ROOM.amber} strokeWidth={3} strokeOpacity={0.7} strokeLinecap="round" />
         {/* v4: the pin under the discs (a disc's number is never covered); on the full line no dot at all (the line's red point is today) */}
         {sc.full ? null : <circle cx={sc.strip.pin} cy={STRIP.y} r={9} fill={ROOM.paper} stroke={ROOM.amber} strokeWidth={3} />}
+        {/* v5: a quiet axis, not a second display of the events: a small tick at each event's date (the numbered
+            markers are on the line above), amber once the pin has passed it */}
         {sc.strip.events.map((e) => (
-          <g key={e.n}>
-            <circle cx={e.x} cy={STRIP.y} r={e.n === sc.eventN ? 22 : 17} fill={e.passed ? ROOM.amber : ROOM.bg} stroke={e.passed ? ROOM.paper : ROOM.mute} strokeWidth={3} />
-            <text x={e.x} y={STRIP.y + 8} textAnchor="middle" fill={e.passed ? ROOM.bg : ROOM.mute} fontFamily={VAZIR} fontWeight={800} fontSize={e.n === sc.eventN ? 28 : 22}>
-              {faNum(e.n)}
-            </text>
-          </g>
+          <line key={e.n} x1={e.x} x2={e.x} y1={STRIP.y - 9} y2={STRIP.y + 9} stroke={e.passed ? ROOM.amber : ROOM.line} strokeWidth={4} strokeLinecap="round" />
         ))}
       </svg>
 
